@@ -62,3 +62,6 @@ out/
 
 # lefthook per-developer overrides (never committed)
 lefthook-local.yml
+
+# Local git worktrees (sdd execution)
+.worktrees
