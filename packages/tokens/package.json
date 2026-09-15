@@ -1,5 +1,5 @@
 {
-  "name": "@monorepo-template/tokens",
+  "name": "@port-watcher/tokens",
   "version": "1.0.0",
   "description": "Design tokens: one typed TS source generating the CSS custom properties (--mt-* prefixed) that feed web-ui's shadcn theme, dark + light",
   "files": [

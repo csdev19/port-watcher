@@ -1,4 +1,4 @@
-# @monorepo-template/tokens
+# @port-watcher/tokens
 
 One typed TS source of truth for the design tokens, generating the CSS custom
 properties consumed by the web apps (and, once you connect it, a theme object
@@ -21,7 +21,7 @@ src/
 css/tokens.css    # GENERATED + committed (run `bun run generate` after editing tokens)
 ```
 
-Exports: `@monorepo-template/tokens` (TS objects) · `@monorepo-template/tokens/css`
+Exports: `@port-watcher/tokens` (TS objects) · `@port-watcher/tokens/css`
 (the stylesheet).
 
 ## Editing tokens
@@ -43,7 +43,7 @@ mapping is declared once in `:root` and follows the active theme:
 
 ```css
 /* packages/web-ui/src/styles.css */
-@import "@monorepo-template/tokens/css";
+@import "@port-watcher/tokens/css";
 
 :root {
   --background: var(--mt-background);
@@ -55,7 +55,7 @@ mapping is declared once in `:root` and follows the active theme:
 }
 ```
 
-Add `"@monorepo-template/tokens": "workspace:*"` to `web-ui`'s dependencies.
+Add `"@port-watcher/tokens": "workspace:*"` to `web-ui`'s dependencies.
 
 ## Connecting it (React Native — later)
 
@@ -64,5 +64,5 @@ consumption path (a resolved `{ light, dark }` theme object + an Expo
 `ThemeProvider`) is a follow-up. For now the raw typed objects are importable:
 
 ```ts
-import { light, dark } from "@monorepo-template/tokens";
+import { light, dark } from "@port-watcher/tokens";
 ```

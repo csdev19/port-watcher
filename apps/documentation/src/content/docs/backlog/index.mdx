@@ -1,52 +1,54 @@
 ---
-title: Backlog — Cosas por hacer
-description: Ideas, propuestas, mejoras y trabajo planeado que aún no está hecho. El mapa de "lo que viene".
+title: Backlog — Things to do
+description: Ideas, proposals, improvements and planned work that is not done yet. The map of "what comes next".
 ---
 
-# Backlog — Cosas por hacer
+# Backlog — Things to do
 
-Trabajo planeado, propuestas y mejoras que **aún no** están implementadas. Cada ítem con
-suficiente contexto para retomarlo sin re-investigar. Un ítem = una fila del mapa (y su
-propio doc cuando tiene sustancia).
+Planned work, proposals and improvements that are **not** implemented yet. Each item carries enough
+context to be picked up without re-researching it. One item = one row in the map (and its own doc
+once it has substance).
 
-**Leyenda de estado:** 🟡 En progreso (pausado) · 🟢 Listo para validar · 🔵 Propuesto · ⚪ Idea
+**Status legend:** 🟡 In progress (paused) · 🟢 Ready to validate · 🔵 Proposed · ⚪ Idea
 
-## Mapa
+## Map
 
-| Ítem                                           | Área    | Estado       | Esfuerzo | Detalle |
-| ---------------------------------------------- | ------- | ------------ | -------- | ------- |
-| _Ejemplo: soporte de export a PDF_             | Feature | 🔵 Propuesto | Medio    | —       |
-| _(borra la fila de arriba y agrega las tuyas)_ | —       | —            | —        | —       |
+| Item                                                                             | Area    | Status      | Effort | Detail                                          |
+| -------------------------------------------------------------------------------- | ------- | ----------- | ------ | ----------------------------------------------- |
+| Tauri 2 menu-bar behaviour: tray icon, positioner, hide-on-blur, global shortcut | Feature | 🔵 Proposed | Medium | —                                               |
+| `list_ports` + `kill_port` Rust commands (`listeners`, `sysinfo`, `nix`)         | Feature | 🔵 Proposed | High   | —                                               |
+| Install `@dotenvx/dotenvx` so the root `db:*` scripts run                        | Chore   | 🔵 Proposed | Low    | [Environment Variables](/environment-variables) |
+| Narrow the auth cookie to `sameSite: "lax"`                                      | Chore   | 🔵 Proposed | Low    | [Authentication](/authentication)               |
 
-## Cómo usar esta sección
+## How to use this section
 
-- Cada ítem que se empieza a trabajar pasa a 🟡 y, si tiene sustancia, gana su propio doc
-  en esta carpeta (`backlog/<slug>.md`), enlazado desde la columna **Detalle**.
-- Al completar un ítem: mover el aprendizaje al doc de feature/arquitectura correspondiente
-  y quitarlo del mapa (o marcarlo ✅ y archivar).
-- Mantén **Estado** y **Esfuerzo** actualizados — este mapa es la fuente de verdad de "qué sigue".
+- An item that is picked up moves to 🟡 and, if it has substance, earns its own doc in this folder
+  (`backlog/<slug>.mdx`), linked from the **Detail** column.
+- When an item is finished: move the learning into the matching feature or architecture doc and drop
+  it from the map (or mark it ✅ and archive it).
+- Keep **Status** and **Effort** current — this map is the source of truth for "what's next".
 
-### Plantilla para un ítem con doc propio
+### Template for an item with its own doc
 
 ```markdown
 ---
-title: <Título del ítem>
-description: <una línea>
+title: <Item title>
+description: <one line>
 ---
 
-# <Título del ítem>
+# <Item title>
 
-**Estado:** 🔵 Propuesto · **Área:** <área> · **Esfuerzo:** <bajo/medio/alto>
+**Status:** 🔵 Proposed · **Area:** <area> · **Effort:** <low/medium/high>
 
-## Problema / oportunidad
-<qué duele o qué se gana>
+## Problem / opportunity
+<what hurts, or what is gained>
 
-## Propuesta
-<enfoque, alternativas, decisión>
+## Proposal
+<approach, alternatives, decision>
 
-## Notas para retomar
-<links, archivos afectados, lo aprendido — lo suficiente para no re-investigar>
+## Notes to pick it back up
+<links, affected files, what was learned — enough not to re-research it>
 ```
 
-> Patrón completo (por qué y cómo): [general-knowledge → conventions/backlog-pattern](https://github.com/csdev19/general-knowledge/blob/main/conventions/backlog-pattern.md).
-> Pareado con el [workflow specs + plans](https://github.com/csdev19/general-knowledge/blob/main/conventions/specs-and-plans-workflow.md).
+> Full pattern (why and how): [general-knowledge → conventions/backlog-pattern](https://github.com/csdev19/general-knowledge/blob/main/conventions/backlog-pattern.md).
+> Paired with the [specs + plans workflow](https://github.com/csdev19/general-knowledge/blob/main/conventions/specs-and-plans-workflow.md).

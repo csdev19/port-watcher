@@ -53,6 +53,14 @@
     "db:generate": {
       "cache": false,
       "env": ["DATABASE_URL"]
+    },
+    "tauri:dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "tauri:build": {
+      "dependsOn": ["^build"],
+      "cache": false
     }
   }
 }

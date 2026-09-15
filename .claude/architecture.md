@@ -1,47 +1,38 @@
 # Architecture Context
 
-A **multi-pattern** monorepo template demonstrating DDD + Hexagonal Architecture. It ships four
-interchangeable web patterns side by side; `bun run customize` keeps one and deletes the rest.
+**chapay — port watcher** — a fullstack serverFn project (DDD + Hexagonal Architecture): one TanStack Start
+app whose server functions are the only adapters over the shared packages, plus a documentation site
+and the Tauri 2 desktop app.
 
 > The general architecture knowledge (DDD + hexagonal, bounded contexts, repository pattern, Result
-> types, dependency injection, schema-driven validation, the Convex client connection, the
-> Client-Server proxy) lives in the [general-knowledge hub](https://github.com/csdev19/general-knowledge)
-> — start at [architecture/](https://github.com/csdev19/general-knowledge/blob/main/architecture/README.md)
-> or the [stack recipe](https://github.com/csdev19/general-knowledge/blob/main/stacks/README.md) for
-> your chosen pattern. This file only maps what is specific to _this template_.
+> types, dependency injection, schema-driven validation) lives in the
+> [general-knowledge hub](https://github.com/csdev19/general-knowledge) — start at
+> [architecture/](https://github.com/csdev19/general-knowledge/blob/main/architecture/README.md).
+> This file only maps what is specific to _this project_.
 
-## Layer-first package structure
+## Shared packages (layer-first)
 
-```
-packages/
-├── domain/          # Pure: Zod schemas, types, constants, repository interfaces (leaf, no deps)
-├── application/     # Use cases (depend only on domain interfaces)
-├── infra-db/        # Drizzle schemas, repositories, mappers, Neon client
-├── infra-auth/      # Better Auth base config
-├── infra-cloudflare/# Service Binding fetch + proxy handler (client-server patterns only)
-├── infra-env/       # Zod env schemas (one per app pattern)
-├── convex-api/      # Convex functions for the web app (Convex pattern)
-├── convex-auth-api/ # Convex functions + Better-Auth-in-Convex (mobile-convex)
-├── web-ui/          # Shared React UI (shadcn/ui, Tailwind) — exports built dist/
-└── config/          # Shared tsconfig
-```
+- `domain/` — Pure: Zod schemas, types, constants, repository interfaces (leaf, no deps)
+- `application/` — Use cases (depend only on domain interfaces)
+- `infra-db/` — Drizzle schemas, repositories, mappers, Neon client
+- `infra-auth/` — Better Auth base config
+- `infra-env/` — Zod env schemas (one per app)
+- `web-ui/` — Shared React UI (shadcn/ui, Tailwind) — exports built dist/
+- `tokens/` — Design tokens; one typed TS source generating CSS custom properties
+- `i18n/` — use-intl catalogs (en/es), React provider and a non-React `core` export
+- `config/` — Shared tsconfig
+
+`tokens` and `i18n` have no consumer in the web app today; they are kept for the Tauri renderer.
 
 **Dependency rule (strict):** `domain <- application <- infra-*`; only apps wire them together.
-`domain` is a leaf so importing it can never transitively pull in server code. Mobile apps import
-only `domain` (and `convex-auth-api` for `mobile-convex`).
+`domain` is a leaf, so importing it can never transitively pull in server code — which is what will
+let the Tauri app reuse it without dragging in Node or Drizzle.
 
-## Apps (before customize)
+## Apps
 
-| App                                 | Pattern                    | Backend / data access           |
-| ----------------------------------- | -------------------------- | ------------------------------- |
-| `apps/web-elysia` + `server-elysia` | Client-Server Elysia       | Eden Treaty → Elysia API        |
-| `apps/web-hono` + `server-hono`     | Client-Server Hono         | oRPC → Hono API                 |
-| `apps/fullstack-fn-only`            | Fullstack serverFn         | TanStack Start server functions |
-| `apps/fullstack-fn-and-convex`      | Fullstack Convex           | Convex (reactive)               |
-| `apps/mobile`                       | Mobile (non-Convex stacks) | Shared domain + API             |
-| `apps/mobile-convex`                | Mobile (Convex stack)      | Convex + Better-Auth-in-Convex  |
-| `apps/documentation`                | Docs                       | Astro Starlight                 |
+- `apps/fullstack-fn-only` — TanStack Start (client + server functions), one Cloudflare Worker
+- `apps/documentation` — Astro Starlight
+- `apps/desktop` — Tauri 2: React/Vite renderer + Rust core in `src-tauri/` (crate `port-watcher`)
 
-`bun run customize` reduces this to the chosen pattern's apps + optional mobile/docs. See the
-[monorepo structure](https://github.com/csdev19/general-knowledge/blob/main/monorepos/monorepo-structure.md)
-doc in the hub for the workspace/Turbo/catalog layout.
+See the [monorepo structure](https://github.com/csdev19/general-knowledge/blob/main/monorepos/monorepo-structure.md)
+doc in the hub for the workspace / Turbo / catalog layout.

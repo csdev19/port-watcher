@@ -1,5 +1,5 @@
 {
-  "name": "@monorepo-template/infra-auth",
+  "name": "@port-watcher/infra-auth",
   "type": "module",
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
@@ -23,13 +23,13 @@
     "lint:fix": "oxlint --fix src"
   },
   "dependencies": {
-    "@monorepo-template/domain": "workspace:*",
-    "@monorepo-template/infra-db": "workspace:*",
+    "@port-watcher/domain": "workspace:*",
+    "@port-watcher/infra-db": "workspace:*",
     "better-auth": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@monorepo-template/config": "workspace:*",
+    "@port-watcher/config": "workspace:*",
     "tsdown": "catalog:",
     "typescript": "catalog:"
   }

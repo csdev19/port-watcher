@@ -1,0 +1,59 @@
+---
+title: Desktop Troubleshooting
+description: Errors you will hit running the Tauri app, and what they actually mean
+---
+
+## `failed to run 'cargo metadata' command`
+
+```
+failed to run 'cargo metadata' command to get workspace directory:
+failed to run command cargo metadata --no-deps --format-version 1:
+No such file or directory (os error 2)
+```
+
+**Meaning:** `cargo` is not on `PATH` in the shell that launched the task. The error names
+`cargo metadata` because that is the first thing the Tauri CLI runs, but nothing about Rust itself is
+broken.
+
+**Most common cause:** the terminal was already open when Rust was installed. rustup appends
+`. "$HOME/.cargo/env"` to `~/.zshenv`, and that only applies to **new** shells. Turbo and bun inherit
+the parent shell's `PATH`, so a stale terminal propagates the gap all the way down.
+
+**Fix:** open a new terminal, or in the current one:
+
+```bash
+source ~/.cargo/env
+```
+
+**Confirm:** `command -v cargo` prints a path, and `bun run --cwd apps/desktop tauri info` reports
+rustc, cargo and rustup with check marks.
+
+## `tauri info` says `@tauri-apps/api ⱼₛ: not installed!`
+
+A false negative. Bun links workspace dependencies through its `node_modules/.bun/` store, and the
+Tauri CLI's detection does not follow that layout. The packages resolve correctly — `vite build` and
+`tsc` both find them. Ignore it.
+
+## The first `dev:desktop` hangs for minutes
+
+It is compiling the Rust dependency tree from scratch (Tauri, wry, tao and their transitive crates)
+into `src-tauri/target/`, which ends up around 650 MB. Only the first build pays this; afterwards it
+is incremental. `target/` is gitignored.
+
+## A bare Vite server on 1420 with no window
+
+You ran the package's `dev` script instead of `tauri:dev`. That script is the frontend half, which
+Tauri invokes through `beforeDevCommand` — on its own it serves the renderer with no shell around it
+and no `invoke()` available. Use `bun run dev:desktop`.
+
+This is also why the root `dev` script excludes the package:
+`turbo run dev --filter=!desktop`.
+
+## An `invoke()` call rejects with a permission error
+
+A Tauri command needs two registrations, not one:
+
+1. Listed in `generate_handler![]` in `src-tauri/src/lib.rs`
+2. Permitted in `src-tauri/capabilities/default.json`
+
+Capabilities are deny-by-default. Missing the second step is the usual cause.

@@ -1,5 +1,5 @@
 {
-  "name": "@monorepo-template/application",
+  "name": "@port-watcher/application",
   "version": "1.0.0",
   "description": "Application layer — shared use cases for all server-side consumers (Elysia, TanStack serverFn, Astro, cron jobs)",
   "keywords": [
@@ -40,7 +40,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@monorepo-template/domain": "workspace:*",
+    "@port-watcher/domain": "workspace:*",
     "@types/node": "^22.14.1",
     "tsdown": "catalog:",
     "typescript": "catalog:",

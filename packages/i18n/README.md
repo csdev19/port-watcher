@@ -1,4 +1,4 @@
-# @monorepo-template/i18n
+# @port-watcher/i18n
 
 Shared internationalization for the monorepo, built on
 [use-intl](https://next-intl.dev/docs/environments/core) v4. Two locales
@@ -24,7 +24,7 @@ src/
   index.ts         # re-exports use-intl hooks + provider + config + `messages`
 ```
 
-Exports: `@monorepo-template/i18n` (provider, hooks, `messages`, config) ·
+Exports: `@port-watcher/i18n` (provider, hooks, `messages`, config) ·
 `./web` (cookie/SSR — server-safe) · `./core` (non-React translator) ·
 `./messages/en` · `./messages/es`.
 
@@ -43,12 +43,12 @@ types don't resolve at first).
 
 ## Connecting it (web — TanStack Start)
 
-Add `"@monorepo-template/i18n": "workspace:*"` to the app, then wrap the app and
+Add `"@port-watcher/i18n": "workspace:*"` to the app, then wrap the app and
 resolve the locale on the server so the first byte is already correct:
 
 ```tsx
-import { I18nProvider, messages } from "@monorepo-template/i18n";
-import { detectLocaleFromRequest, persistLocaleWeb } from "@monorepo-template/i18n/web";
+import { I18nProvider, messages } from "@port-watcher/i18n";
+import { detectLocaleFromRequest, persistLocaleWeb } from "@port-watcher/i18n/web";
 
 // in the root route: resolve `locale` (SSR) via detectLocaleFromRequest(request)
 <I18nProvider
@@ -63,7 +63,7 @@ import { detectLocaleFromRequest, persistLocaleWeb } from "@monorepo-template/i1
 In components:
 
 ```tsx
-import { useTranslations } from "@monorepo-template/i18n";
+import { useTranslations } from "@port-watcher/i18n";
 const t = useTranslations("common");
 return <button>{t("save")}</button>;
 ```
@@ -74,7 +74,7 @@ A language switcher calls `useSetLocale()` — on web, follow it with a
 ## Connecting it (server functions / non-React)
 
 ```ts
-import { createAppTranslator } from "@monorepo-template/i18n/core";
+import { createAppTranslator } from "@port-watcher/i18n/core";
 const t = createAppTranslator("es");
 t("common.save"); // "Guardar"
 ```

@@ -5,7 +5,7 @@ import z from "zod";
 
 import { authClient } from "@/lib/auth/auth-client";
 
-import { Button, Input, Label } from "@monorepo-template/web-ui";
+import { Button, Input, Label } from "@port-watcher/web-ui";
 
 export default function SignUpForm() {
   const navigate = useNavigate();

@@ -1,6 +1,6 @@
-# @monorepo-template/web-ui
+# @port-watcher/web-ui
 
-Shared UI component library for the monorepo-template monorepo.
+Shared UI component library for the port-watcher monorepo.
 
 ## Installation
 
@@ -51,13 +51,13 @@ Components will be added to `src/components/` and should be exported from `src/i
 ### Import Components
 
 ```tsx
-import { Button, Card, TestComponent } from "@monorepo-template/web-ui";
+import { Button, Card, TestComponent } from "@port-watcher/web-ui";
 ```
 
 ### Import Styles
 
 ```tsx
-import "@monorepo-template/web-ui/styles.css";
+import "@port-watcher/web-ui/styles.css";
 ```
 
 ### Test Component
@@ -65,7 +65,7 @@ import "@monorepo-template/web-ui/styles.css";
 A simple test component is included to verify the setup:
 
 ```tsx
-import { TestComponent } from "@monorepo-template/web-ui";
+import { TestComponent } from "@port-watcher/web-ui";
 
 function App() {
   return <TestComponent />;

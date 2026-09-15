@@ -1,5 +1,5 @@
 import { type Mock, vi } from "vitest";
-import type { ITodoRepository } from "@monorepo-template/domain/repositories";
+import type { ITodoRepository } from "@port-watcher/domain/repositories";
 
 /** An `ITodoRepository` whose every method is a `vi.fn()`, ready to stub per test. */
 export type MockTodoRepo = { [K in keyof ITodoRepository]: Mock };

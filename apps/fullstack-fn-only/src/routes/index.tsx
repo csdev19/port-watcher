@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Button, Card, CardContent } from "@monorepo-template/web-ui";
+import { Button, Card, CardContent } from "@port-watcher/web-ui";
 import { CheckCircle2, ArrowRight, Layers, Shield, Smartphone } from "lucide-react";
 
 export const Route = createFileRoute("/")({

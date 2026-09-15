@@ -1,11 +1,11 @@
-import { db } from "@monorepo-template/infra-db/client";
-import { userTable, accountTable, sessionTable } from "@monorepo-template/infra-db/schemas";
+import { db } from "@port-watcher/infra-db/client";
+import { userTable, accountTable, sessionTable } from "@port-watcher/infra-db/schemas";
 import type { BetterAuthOptions } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { randomBytes, scryptSync } from "node:crypto";
 
 export const baseConfig: BetterAuthOptions = {
-  appName: "Monorepo Template",
+  appName: "chapay",
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: { user: userTable, account: accountTable, session: sessionTable },

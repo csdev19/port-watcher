@@ -32,7 +32,7 @@ jobs:
         run: bunx oxfmt --check .
 
       - name: Build packages
-        run: bun run build --filter='@monorepo-template/*'
+        run: bun run build --filter='@port-watcher/*'
 
       - name: Type check
         run: bun run check-types
@@ -40,48 +40,9 @@ jobs:
       - name: Test
         run: bun run test
 
-      - name: Build server-elysia
-        working-directory: apps/server-elysia
-        run: bun run build
-
-      - name: Build server-hono
-        working-directory: apps/server-hono
-        run: bun run build
-
-      - name: Build web-elysia
-        working-directory: apps/web-elysia
-        env:
-          VITE_SERVER_URL: https://placeholder.example.com
-          DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
-          BETTER_AUTH_SECRET: placeholder-secret-for-build-validation
-        run: bun run build
-
-      - name: Build web-hono
-        working-directory: apps/web-hono
-        env:
-          VITE_SERVER_URL: https://placeholder.example.com
-          DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
-          BETTER_AUTH_SECRET: placeholder-secret-for-build-validation
-        run: bun run build
-
-      - name: Build fullstack-fn-only
+      - name: Build app
         working-directory: apps/fullstack-fn-only
         env:
           DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
           BETTER_AUTH_SECRET: placeholder-secret-for-build-validation
-        run: bun run build
-
-      - name: Build fullstack-fn-and-convex
-        working-directory: apps/fullstack-fn-and-convex
-        env:
-          DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
-          BETTER_AUTH_SECRET: placeholder-secret-for-build-validation
-          BETTER_AUTH_URL: http://localhost:3004
-          JWT_PRIVATE_JWK: '{"kty":"RSA","n":"placeholder","e":"AQAB","kid":"placeholder","alg":"RS256","use":"sig"}'
-          JWT_KID: placeholder-kid
-          VITE_CONVEX_URL: https://placeholder.convex.cloud
-        run: bun run build
-
-      - name: Build documentation
-        working-directory: apps/documentation
         run: bun run build

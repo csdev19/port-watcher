@@ -1,4 +1,4 @@
-import type { TodoBase } from "@monorepo-template/domain/schemas";
+import type { TodoBase } from "@port-watcher/domain/schemas";
 import type { todoTable } from "../schema/todo";
 
 type TodoRow = typeof todoTable.$inferSelect;
