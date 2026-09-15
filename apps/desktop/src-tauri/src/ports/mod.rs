@@ -4,4 +4,5 @@
 
 pub mod label;
 pub mod models;
+pub mod project;
 pub mod source;
