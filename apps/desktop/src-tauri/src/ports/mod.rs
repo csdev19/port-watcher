@@ -2,6 +2,8 @@
 //! source (listeners crate), label (rules), project (cwd walk),
 //! enrich (sysinfo), kill (guards + signals).
 
+pub mod models;
+
 #[cfg(test)]
 mod listeners_api_smoke {
     /// Pins the `listeners` 0.6 API surface we depend on. If this stops
