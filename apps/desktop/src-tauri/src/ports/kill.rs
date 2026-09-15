@@ -22,6 +22,7 @@ pub fn static_guard(pid: u32, self_pid: u32) -> Option<KillResult> {
 /// Full guard chain, then escalation. Blocking (sleeps up to ~2 s) — the
 /// command wraps it in spawn_blocking.
 pub fn kill_port_impl(pid: u32, port: u16, started_at: u64) -> Result<KillResult, AppError> {
+    log::info!("kill_port requested: pid={pid} port={port} started_at={started_at}");
     if let Some(denied) = static_guard(pid, std::process::id()) {
         return Ok(denied);
     }
@@ -48,6 +49,7 @@ pub fn kill_port_impl(pid: u32, port: u16, started_at: u64) -> Result<KillResult
         return Ok(KillResult::PermissionDenied);
     }
 
+    log::info!("kill_port guards passed for pid={pid}; escalating");
     Ok(escalate(pid))
 }
 
