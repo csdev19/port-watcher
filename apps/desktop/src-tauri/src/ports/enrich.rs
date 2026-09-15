@@ -1,0 +1,109 @@
+use std::path::Path;
+
+use sysinfo::{Pid, ProcessesToUpdate, System, Users};
+
+use super::label::label_for;
+use super::models::PortEntry;
+use super::project::{detect_project, tildify};
+use super::source::RawPort;
+
+/// Join sysinfo data onto the raw listener rows. A PID that vanished
+/// between the listeners call and here still yields a row (minimal data)
+/// rather than disappearing mid-poll.
+pub fn enrich(raw: Vec<RawPort>) -> Vec<PortEntry> {
+    let mut sys = System::new();
+    sys.refresh_processes(ProcessesToUpdate::All, true);
+    let users = Users::new_with_refreshed_list();
+    let my_uid = nix::unistd::Uid::effective().as_raw();
+    let self_pid = std::process::id();
+    let home = std::env::var("HOME").ok();
+
+    raw.into_iter()
+        .map(|r| entry_for(r, &sys, &users, my_uid, self_pid, home.as_deref()))
+        .collect()
+}
+
+fn entry_for(
+    raw: RawPort,
+    sys: &System,
+    users: &Users,
+    my_uid: u32,
+    self_pid: u32,
+    home: Option<&str>,
+) -> PortEntry {
+    let proc = sys.process(Pid::from_u32(raw.pid));
+
+    let command = proc
+        .map(|p| {
+            p.cmd()
+                .iter()
+                .map(|s| s.to_string_lossy())
+                .collect::<Vec<_>>()
+                .join(" ")
+        })
+        .filter(|c| !c.is_empty())
+        .unwrap_or_else(|| raw.process_name.clone());
+
+    let cwd_raw = proc.and_then(|p| p.cwd()).map(|p| p.display().to_string());
+    let project = cwd_raw.as_deref().and_then(|c| detect_project(Path::new(c)));
+    let cwd = cwd_raw.map(|c| tildify(&c, home));
+
+    let uid = proc.and_then(|p| p.user_id());
+    let same_user = uid.map(|u| **u == my_uid).unwrap_or(false);
+
+    PortEntry {
+        port: raw.port,
+        pid: raw.pid,
+        label: label_for(&command, &raw.process_name),
+        command,
+        cwd,
+        project,
+        user: uid
+            .and_then(|u| users.get_user_by_id(u))
+            .map(|u| u.name().to_string()),
+        started_at: proc.map(|p| p.start_time()).unwrap_or(0),
+        memory_bytes: proc.map(|p| p.memory()).unwrap_or(0),
+        killable: same_user && raw.pid >= 100 && raw.pid != self_pid,
+        process_name: raw.process_name,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// End-to-end against the live machine: spawn a real TCP listener and
+    /// find ourselves through the whole pipeline.
+    #[test]
+    fn finds_our_own_test_listener() {
+        use std::net::TcpListener;
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+
+        let raw = crate::ports::source::raw_ports().expect("raw_ports failed");
+        let entries = enrich(raw);
+        let me = entries
+            .iter()
+            .find(|e| e.port == port)
+            .expect("our test listener should be in the list");
+
+        assert_eq!(me.pid, std::process::id());
+        // Our own PID is never killable (self-kill guard).
+        assert!(!me.killable);
+        assert!(me.started_at > 0);
+        drop(listener);
+    }
+
+    #[test]
+    fn vanished_pid_still_yields_a_row() {
+        let sys = System::new(); // deliberately not refreshed: knows no PIDs
+        let users = Users::new_with_refreshed_list();
+        let raw = RawPort { pid: 999_999, port: 4321, process_name: "ghost".into() };
+        let e = entry_for(raw, &sys, &users, 501, 1, Some("/Users/x"));
+        assert_eq!(e.command, "ghost");
+        assert_eq!(e.label, "ghost");
+        assert_eq!(e.cwd, None);
+        assert!(!e.killable);
+        assert_eq!(e.started_at, 0);
+    }
+}
