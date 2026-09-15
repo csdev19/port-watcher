@@ -6,7 +6,7 @@ mod ports;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![commands::list_ports])
+        .invoke_handler(tauri::generate_handler![commands::list_ports, commands::kill_port])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
