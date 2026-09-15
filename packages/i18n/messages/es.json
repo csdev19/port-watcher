@@ -1,0 +1,53 @@
+{
+  "common": {
+    "appName": "Monorepo Template",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "loading": "Cargando…",
+    "error": "Algo salió mal",
+    "retry": "Reintentar"
+  },
+  "nav": {
+    "home": "Inicio",
+    "todos": "Tareas",
+    "signIn": "Iniciar sesión",
+    "signOut": "Cerrar sesión"
+  },
+  "auth": {
+    "email": "Correo",
+    "password": "Contraseña",
+    "signIn": "Iniciar sesión",
+    "signUp": "Crear cuenta",
+    "signInTitle": "Bienvenido de nuevo",
+    "signUpTitle": "Crea tu cuenta"
+  },
+  "todos": {
+    "title": "Tareas",
+    "add": "Agregar tarea",
+    "placeholder": "¿Qué hay que hacer?",
+    "empty": "Aún no hay tareas",
+    "remaining": "{count, plural, =0 {Sin elementos} one {# elemento} other {# elementos}} restantes"
+  },
+  "language": {
+    "label": "Idioma",
+    "en": "Inglés",
+    "es": "Español"
+  },
+  "settings": {
+    "title": "Ajustes",
+    "description": "Las preferencias se guardan en este dispositivo.",
+    "languageHint": "Se aplica a la ventana y al menú de la bandeja.",
+    "theme": "Tema",
+    "themeHint": "«Sistema» sigue la configuración de tu sistema operativo.",
+    "themeSystem": "Sistema",
+    "themeLight": "Claro",
+    "themeDark": "Oscuro",
+    "storageHint": "Se guarda localmente: nada sale de este dispositivo."
+  },
+  "tray": {
+    "show": "Mostrar ventana",
+    "quit": "Salir"
+  }
+}

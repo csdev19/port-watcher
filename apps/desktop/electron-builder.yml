@@ -1,0 +1,58 @@
+# Packaging config. Replace appId / productName / publish.url before shipping —
+# `appId` must match APP_ID in src/main/index.ts, since it namespaces the app's
+# data directory and the Windows taskbar grouping.
+appId: com.example.desktop
+productName: Desktop
+directories:
+  buildResources: build
+files:
+  - "!**/.vscode/*"
+  - "!src/*"
+  - "!electron.vite.config.{js,ts,mjs,cjs}"
+  - "!vitest.config.{js,ts,mjs,cjs}"
+  - "!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}"
+  - "!{.env,.env.*,.npmrc,pnpm-lock.yaml,bun.lock}"
+  - "!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}"
+asarUnpack:
+  # The tray icon is read from disk at runtime, so it must not stay inside the
+  # asar archive.
+  - resources/**
+
+mac:
+  category: public.app-category.productivity # cosmetic (LSApplicationCategoryType)
+  hardenedRuntime: true # REQUIRED to notarize
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.inherit.plist
+  # electron-builder@26: `notarize` is a boolean — the older {teamId} object is
+  # rejected by the schema. Notarization activates only when the APPLE_API_* env
+  # vars are present (see scripts/build-mac-local.sh); the API key carries the
+  # team, so no teamId is needed. Without those vars the build is signed-only.
+  notarize: true
+dmg:
+  # ${arch} is required: arm64 and x64 builds would otherwise collide on one name.
+  artifactName: ${name}-${version}-${arch}.${ext}
+
+win:
+  executableName: desktop
+nsis:
+  artifactName: ${name}-${version}-setup.${ext}
+  shortcutName: ${productName}
+  uninstallDisplayName: ${productName}
+  createDesktopShortcut: always
+
+linux:
+  target:
+    - AppImage
+    - deb
+  maintainer: example.com
+  category: Utility
+appImage:
+  artifactName: ${name}-${version}.${ext}
+
+npmRebuild: false
+publish:
+  # Point this at your own update feed before enabling auto-update. The release
+  # workflow uploads the feed files here; `generic` means any static host.
+  provider: generic
+  url: https://example.com/updates/

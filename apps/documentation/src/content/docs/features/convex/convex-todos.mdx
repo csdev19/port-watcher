@@ -1,0 +1,77 @@
+---
+title: Convex Todos
+description: Two-column todo list with PostgreSQL CRUD on the left and real-time Convex todos on the right
+---
+
+# Convex Todos
+
+## Status
+
+| Field          | Value                       |
+| -------------- | --------------------------- |
+| Status         | ✅ Complete                 |
+| Completed      | 2026-02-25                  |
+| Author         | Claude                      |
+| Parent Feature | [Convex Integration](index) |
+| Related Issues | N/A                         |
+
+## What It Does
+
+The todos page displays a two-column layout: existing PostgreSQL todos (with pagination, categories, edit dialog) on the left, and a new real-time Convex-backed todo list on the right. Convex todos update instantly across browser tabs without polling.
+
+## Implementation
+
+### Files Changed
+
+| Path                                                                     | Purpose                                                                                |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| `packages/convex-api/convex/schema.ts`                                   | Added `todos` table with `title`, `completed`, `subject` fields and `by_subject` index |
+| `packages/convex-api/convex/todos.ts`                                    | CRUD functions (list, create, update, remove) with auth and ownership checks           |
+| `apps/fullstack-fn-and-convex/src/hooks/use-convex-todos.ts`             | Reactive hooks using `convexQuery` + `useMutation`                                     |
+| `apps/fullstack-fn-and-convex/src/routes/_authenticated/todos/index.tsx` | Refactored to two-column grid with `PostgresTodosColumn` and `ConvexTodosColumn`       |
+
+### Domain Model
+
+Convex todos are simpler than PostgreSQL todos — no categoryId, no manual timestamps. Convex provides `_creationTime` automatically. The `subject` field maps to `identity.subject` (userId from JWT).
+
+### Key Logic
+
+The page was refactored from a single component into three: `TodosPage` (layout shell), `PostgresTodosColumn` (all existing PostgreSQL logic extracted intact), and `ConvexTodosColumn` (new Convex CRUD). The hooks follow the same `convexQuery` + `useMutation` pattern as `use-categories.ts`. All Convex mutations verify ownership by checking `todo.subject === identity.subject`.
+
+## Decisions
+
+| Decision                         | Why                                                                                                            | Alternatives Considered                                                                          |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| No categoryId on Convex todos    | Keep the Convex example simple; categories are a PostgreSQL/Convex bridge concern                              | Could have added a categoryId reference but it would complicate the demo                         |
+| Container widened to `max-w-6xl` | Two columns need more horizontal space than the original single-column `max-w-3xl`                             | Could use tabs instead of side-by-side, but columns better showcase both patterns simultaneously |
+| No pagination on Convex todos    | Convex queries return all matching docs reactively; pagination uses cursor-based pattern which adds complexity | Could add cursor-based pagination later if the list grows                                        |
+
+## Gotchas & Warnings
+
+- After running `npx convex codegen`, the `_generated/` files must be committed — they contain the typed `api.todos.*` exports consumed by the app
+- The Convex `useMutation` hook returns a function (not a mutation object with `.mutate`), so the call pattern is `await createTodo({ title })` not `createTodo.mutate({ title })`
+
+## Dependencies
+
+None new — uses existing `convex`, `@convex-dev/react-query` packages already in the workspace.
+
+## Testing
+
+```bash
+# Start Convex dev server
+bun run dev:convex
+
+# Start the app
+bun run dev:fullstack-convex
+
+# Manual testing
+# 1. Sign in and navigate to /todos
+# 2. Left column: verify PostgreSQL CRUD works as before
+# 3. Right column: create a Convex todo — appears instantly
+# 4. Open second tab — creating in one tab appears in the other immediately
+# 5. Toggle completed, delete — all update in real-time
+```
+
+## Related
+
+- [Auth Router Invalidation](auth-router-invalidation) — Required for Convex auth to work after sign-in

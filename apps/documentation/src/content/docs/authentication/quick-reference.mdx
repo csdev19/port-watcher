@@ -1,0 +1,400 @@
+---
+title: Quick Reference
+description: Common patterns and code snippets for authentication
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Quick Start
+
+### Access Session in Any Component
+
+```typescript
+function MyComponent() {
+  const { session, isAuthenticated } = Route.useRouteContext();
+
+  return (
+    <div>
+      {isAuthenticated && <p>Hello, {session.user?.name}!</p>}
+    </div>
+  );
+}
+```
+
+### Protect a Route
+
+Create file under `_authenticated/` directory:
+
+```typescript
+// src/routes/_authenticated/settings.tsx
+export const Route = createFileRoute("/_authenticated/settings")({
+  component: SettingsPage,
+});
+
+function SettingsPage() {
+  const { session } = Route.useRouteContext();
+  // This route is automatically protected!
+  return <div>Settings for {session.user?.email}</div>;
+}
+```
+
+### Auth Actions
+
+```typescript
+import { authClient } from "@/lib/auth/auth-client";
+
+// Sign in
+await authClient.signIn.email({
+  email: "user@example.com",
+  password: "password",
+});
+
+// Sign up
+await authClient.signUp.email({
+  email: "user@example.com",
+  password: "password",
+  name: "John Doe",
+});
+
+// Sign out
+await authClient.signOut();
+
+// Get session (client-side)
+const { data: session, isPending } = authClient.useSession();
+```
+
+### Server-Side Session Check
+
+```typescript
+// In beforeLoad or server function
+import { getAuthSession } from "@/lib/auth/functions";
+
+const session = await getAuthSession();
+if (!session) {
+  throw redirect({ to: "/auth/login" });
+}
+```
+
+---
+
+## File Structure
+
+```
+apps/web/src/
+├── routes/
+│   ├── __root.tsx                    # Session validation happens here
+│   ├── _authenticated.tsx            # Protected route layout
+│   ├── _authenticated/
+│   │   └── *.tsx                     # All protected routes
+│   ├── auth/
+│   │   ├── login.tsx                 # Public login page
+│   │   └── signup.tsx                # Public signup page
+│   └── api/
+│       └── auth/
+│           └── $.ts                  # Auth proxy (handles cookies)
+│
+├── lib/auth/
+│   ├── auth-client.ts                # Client-side auth instance
+│   ├── auth-server.ts                # Server-side auth instance
+│   └── functions.ts                  # Server functions (getAuthSession)
+│
+└── hooks/
+    └── use-session.ts                # Custom session hook
+```
+
+---
+
+## Key Concepts
+
+### 1. The Proxy Pattern
+
+**Why?** Cookies don't work across different origins (CORS).
+
+```
+Browser → Backend (different origin) → Cookies blocked
+
+Browser → Frontend Proxy → Backend → Cookies work!
+```
+
+### 2. Server-Side Validation
+
+- **Where?** `__root.tsx` `beforeLoad` function
+- **When?** Before every page render (SSR and client-side navigation)
+- **Cached?** Yes, for 10 minutes
+
+### 3. Context Flow
+
+```
+__root.tsx beforeLoad
+    ↓
+Returns { session, isAuthenticated }
+    ↓
+Available in ALL child routes via useRouteContext()
+```
+
+### 4. Multi-Layer Caching
+
+```
+Backend Cache (10 min) → Route Cache (10 min) → React Context
+```
+
+:::tip
+Most page navigations = 0 database queries!
+:::
+
+---
+
+## Common Patterns
+
+### Pattern 1: Conditional Rendering Based on Auth
+
+```typescript
+function Navigation() {
+  const { isAuthenticated } = Route.useRouteContext();
+
+  return (
+    <nav>
+      {isAuthenticated ? (
+        <UserMenu />
+      ) : (
+        <Link to="/auth/login">Login</Link>
+      )}
+    </nav>
+  );
+}
+```
+
+### Pattern 2: Redirect After Login
+
+```typescript
+await authClient.signIn.email(credentials, {
+  onSuccess: () => {
+    navigate({ to: "/dashboard" });
+  },
+  onError: (error) => {
+    toast.error(error.message);
+  },
+});
+```
+
+### Pattern 3: Server-Side Protection
+
+```typescript
+export const Route = createFileRoute("/_authenticated/admin")({
+  beforeLoad: async () => {
+    const session = await getAuthSession();
+
+    // Check role
+    if (session?.user?.role !== "admin") {
+      throw redirect({ to: "/" });
+    }
+
+    return { session };
+  },
+});
+```
+
+### Pattern 4: Loading States
+
+```typescript
+function Dashboard() {
+  const { session } = Route.useRouteContext();
+  const { isPending } = useSession();
+
+  if (isPending) {
+    return <Skeleton />;
+  }
+
+  return <div>Welcome, {session.user?.name}!</div>;
+}
+```
+
+---
+
+## Configuration
+
+### Auth Client (Client-Side)
+
+```typescript
+// src/lib/auth/auth-client.ts
+export const authClient = createAuthClient({
+  basePath: "/api/auth",  // Uses proxy
+  fetchOptions: {
+    credentials: "include",  // Send cookies
+  },
+});
+```
+
+### Auth Server (Server-Side)
+
+```typescript
+// src/lib/auth/auth-server.ts
+export const auth = createBackendAuth(
+  import.meta.env.VITE_APP_URL || "http://localhost:3001"
+);
+```
+
+### Session Cache
+
+```typescript
+// src/routes/__root.tsx
+export const Route = createRootRouteWithContext<RouterAppContext>()({
+  staleTime: 10 * 60 * 1000, // 10 minutes
+  beforeLoad: async () => {
+    const session = await getAuthSession();
+    return { session, isAuthenticated: !!session };
+  },
+});
+```
+
+---
+
+## Debugging
+
+### Check if Session is Valid
+
+```typescript
+// Add to any component
+const context = Route.useRouteContext();
+console.log("Session:", context.session);
+console.log("Is Authenticated:", context.isAuthenticated);
+```
+
+### Check Server Logs
+
+Look for:
+
+```
+Session validated: { user: {...}, session: {...} }
+Session validated: null
+```
+
+### Check Network Tab
+
+Look for:
+
+```
+Request: /api/auth/sign-in
+Response: Set-Cookie: better-auth.session_token=...
+```
+
+### Check Cache
+
+:::note
+If you don't see "Session validated" logs on every navigation, caching is working!
+:::
+
+---
+
+## Common Mistakes
+
+<Tabs>
+  <TabItem label="Wrong">
+```typescript
+// Calling backend directly (CORS issues)
+await fetch("https://backend.com/api/auth/sign-in");
+
+// Storing session in localStorage (security risk)
+localStorage.setItem("session", JSON.stringify(session));
+
+// Using useState for session (lose sync with server)
+const [session, setSession] = useState(null);
+
+````
+  </TabItem>
+  <TabItem label="Correct">
+```typescript
+// Use auth client (goes through proxy)
+await authClient.signIn.email({ email, password });
+
+// Session in cookies (handled automatically)
+// Nothing to do!
+
+// Use route context (synced with server)
+const { session } = Route.useRouteContext();
+````
+
+  </TabItem>
+</Tabs>
+
+---
+
+## Performance Tips
+
+1. **Let caching work** - Don't disable `staleTime`
+2. **Use context** - Don't make extra session requests
+3. **Batch redirects** - Use `beforeLoad` for auth checks
+4. **Minimize re-renders** - Session data is memoized
+
+---
+
+## Security Checklist
+
+- HttpOnly cookies (JavaScript can't access)
+- Secure flag in production (HTTPS only)
+- SameSite=Lax (CSRF protection)
+- Server-side validation (can't be bypassed)
+- Short session expiration (configurable)
+- Session rotation on sensitive actions
+- Encrypted cookies (Better Auth handles this)
+
+---
+
+## Testing Auth
+
+### Test Sign In
+
+```bash
+curl -X POST http://localhost:3001/api/auth/sign-in/email \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@test.com", "password": "password"}' \
+  -c cookies.txt
+```
+
+### Test Get Session
+
+```bash
+curl http://localhost:3001/api/auth/get-session \
+  -b cookies.txt
+```
+
+### Test Sign Out
+
+```bash
+curl -X POST http://localhost:3001/api/auth/sign-out \
+  -b cookies.txt
+```
+
+---
+
+## Additional Resources
+
+- [Full Authentication Documentation](/authentication/overview)
+- [Better Auth Docs](https://better-auth.com)
+- [TanStack Router Docs](https://tanstack.com/router)
+- [TanStack Start Docs](https://tanstack.com/start)
+
+---
+
+## Pro Tips
+
+1. **Use TypeScript** - Full type safety across server/client
+2. **Cache aggressively** - Session data changes rarely
+3. **Handle errors** - Always show user-friendly messages
+4. **Test edge cases** - Expired sessions, network errors, etc.
+5. **Monitor performance** - Check cache hit rates
+6. **Secure secrets** - Never commit `.env` files
+7. **Use HTTPS** - Always in production
+
+---
+
+:::tip[You're Ready!]
+You now have a full-stack authentication system with:
+
+- Server-side session validation
+- Intelligent caching
+- Type-safe data flow
+- Production-ready security
+
+Happy coding!
+:::

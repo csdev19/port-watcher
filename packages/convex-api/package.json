@@ -1,0 +1,17 @@
+{
+  "name": "@monorepo-template/convex-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "convex dev",
+    "dev:setup": "convex dev --configure --until-success"
+  },
+  "dependencies": {
+    "convex": "catalog:"
+  },
+  "devDependencies": {
+    "@monorepo-template/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

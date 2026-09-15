@@ -1,0 +1,12 @@
+---
+title: "February 25, 2026 - Auth Router Invalidation"
+description: Fix header and Convex auth not refreshing after sign-in/sign-out via router.invalidate().
+date: 2026-02-25
+tags:
+  - changelog
+  - bugfix
+---
+
+🐛 **Fix** — Header and Convex auth state were not refreshing after sign-in/sign-out; fixed by calling `router.invalidate()` after the auth mutation settles.
+
+**Docs:** [Auth Router Invalidation](/features/convex/auth-router-invalidation)

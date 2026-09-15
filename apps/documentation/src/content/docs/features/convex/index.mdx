@@ -1,0 +1,33 @@
+---
+title: Convex Integration
+description: Real-time Convex backend alongside PostgreSQL in the fullstack-fn-and-convex app
+---
+
+# Convex Integration
+
+## Architecture Overview
+
+- Domain: `packages/domain/src/schemas/todo.ts`
+- Infrastructure: `packages/convex-api/convex/` (schema, functions, auth config)
+- Web UI: `apps/fullstack-fn-and-convex/src/routes/_authenticated/todos/`
+- Hooks: `apps/fullstack-fn-and-convex/src/hooks/use-convex-todos.ts`, `use-categories.ts`
+
+## Sub-Features
+
+| Feature                                              | Status | Date       | Summary                                                          |
+| ---------------------------------------------------- | ------ | ---------- | ---------------------------------------------------------------- |
+| [Convex Todos](convex-todos)                         | ✅     | 2026-02-25 | Two-column layout with PostgreSQL todos + real-time Convex todos |
+| [Auth Router Invalidation](auth-router-invalidation) | ✅     | 2026-02-25 | Fix header and Convex auth not refreshing after sign-in/sign-out |
+
+## Shared Decisions
+
+| Decision                                           | Why                                                                               |
+| -------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Convex runs alongside PostgreSQL, not replacing it | Demonstrates both patterns; PostgreSQL for traditional CRUD, Convex for real-time |
+| Convex auth uses JWT bridge via `/api/auth/token`  | Better Auth manages sessions; Convex verifies identity via signed JWT             |
+| Convex todos scoped by `identity.subject`          | Maps to the userId from the JWT, ensuring per-user data isolation                 |
+
+## Shared Gotchas
+
+- The root route's `beforeLoad` fetches the session on every route tree evaluation. During sign-in, `router.invalidate()` + the login page's redirect cause 2 session fetches. This is inherent to TanStack Router (beforeLoad is not subject to staleTime like loaders). Only happens on auth transitions, not normal navigation.
+- `routerWithQueryClient` ties TanStack Router invalidation to React Query — calling `router.invalidate()` also invalidates React Query caches, so fetchQuery-based dedup does not work.

@@ -1,0 +1,55 @@
+{
+  "name": "@monorepo-template/domain",
+  "version": "1.0.0",
+  "description": "Domain constants, types, and utilities for monorepo-template",
+  "keywords": [
+    "constants",
+    "domain",
+    "types",
+    "typescript"
+  ],
+  "license": "ISC",
+  "author": "",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "type": "module",
+  "exports": {
+    "./constants": "./src/constants/index.ts",
+    "./repositories": "./src/repositories/index.ts",
+    "./schemas": "./src/schemas/index.ts",
+    "./testing": "./src/testing/index.ts",
+    "./types": "./src/types/index.ts",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "exports": {
+      "./constants": "./dist/constants.mjs",
+      "./repositories": "./dist/repositories.mjs",
+      "./schemas": "./dist/schemas.mjs",
+      "./testing": "./dist/testing.mjs",
+      "./types": "./dist/types.mjs",
+      "./package.json": "./package.json"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev:watch": "tsdown --watch",
+    "clean": "rm -rf dist",
+    "check-types": "tsc --noEmit",
+    "lint": "oxlint src",
+    "lint:fix": "oxlint --fix src",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.1",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "packageManager": "bun@1.3.4"
+}

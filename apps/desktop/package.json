@@ -1,0 +1,50 @@
+{
+  "name": "desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first Electron app: the desktop client of the monorepo template",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "start": "electron-vite preview",
+    "build": "bun run check-types && electron-vite build",
+    "check-types": "tsc --noEmit -p tsconfig.node.json --composite false && tsc --noEmit -p tsconfig.web.json --composite false",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "postinstall": "install-electron && electron-builder install-app-deps",
+    "package:dev": "bun run build && electron-builder --dir",
+    "package:mac": "bash scripts/build-mac-local.sh",
+    "package:win": "bun run build && electron-builder --win --publish never",
+    "package:linux": "bun run build && electron-builder --linux --publish never"
+  },
+  "dependencies": {
+    "@electron-toolkit/preload": "^3.0.2",
+    "@electron-toolkit/utils": "^4.0.0",
+    "electron-updater": "^6.6.2",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@electron-toolkit/tsconfig": "^2.0.0",
+    "@monorepo-template/application": "workspace:*",
+    "@monorepo-template/domain": "workspace:*",
+    "@monorepo-template/i18n": "workspace:*",
+    "@monorepo-template/tokens": "workspace:*",
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/jest-dom": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@testing-library/user-event": "catalog:",
+    "@types/node": "^22.19.1",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "catalog:",
+    "electron": "^44.1.1",
+    "electron-builder": "^26.0.12",
+    "electron-vite": "^5.0.0",
+    "jsdom": "catalog:",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

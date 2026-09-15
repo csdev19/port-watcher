@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Desktop</title>
+    <!--
+      Content-Security-Policy is the renderer's last line of defence: it stays
+      locked to 'self' because this app is local-first and loads no remote code.
+      https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+    />
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

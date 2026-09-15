@@ -1,0 +1,50 @@
+{
+  "name": "@monorepo-template/application",
+  "version": "1.0.0",
+  "description": "Application layer — shared use cases for all server-side consumers (Elysia, TanStack serverFn, Astro, cron jobs)",
+  "keywords": [
+    "application",
+    "server-only",
+    "use-cases"
+  ],
+  "license": "ISC",
+  "author": "",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "type": "module",
+  "main": "./dist/todos.mjs",
+  "module": "./dist/todos.mjs",
+  "types": "./dist/todos.d.mts",
+  "exports": {
+    ".": "./src/todos/index.ts",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": "./dist/todos.mjs",
+      "./package.json": "./package.json"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev:watch": "tsdown --watch",
+    "clean": "rm -rf dist",
+    "check-types": "tsc --noEmit",
+    "lint": "oxlint src",
+    "lint:fix": "oxlint --fix src",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@monorepo-template/domain": "workspace:*",
+    "@types/node": "^22.14.1",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "packageManager": "bun@1.3.4"
+}

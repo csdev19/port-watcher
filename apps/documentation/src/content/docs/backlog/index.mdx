@@ -1,0 +1,52 @@
+---
+title: Backlog — Cosas por hacer
+description: Ideas, propuestas, mejoras y trabajo planeado que aún no está hecho. El mapa de "lo que viene".
+---
+
+# Backlog — Cosas por hacer
+
+Trabajo planeado, propuestas y mejoras que **aún no** están implementadas. Cada ítem con
+suficiente contexto para retomarlo sin re-investigar. Un ítem = una fila del mapa (y su
+propio doc cuando tiene sustancia).
+
+**Leyenda de estado:** 🟡 En progreso (pausado) · 🟢 Listo para validar · 🔵 Propuesto · ⚪ Idea
+
+## Mapa
+
+| Ítem                                           | Área    | Estado       | Esfuerzo | Detalle |
+| ---------------------------------------------- | ------- | ------------ | -------- | ------- |
+| _Ejemplo: soporte de export a PDF_             | Feature | 🔵 Propuesto | Medio    | —       |
+| _(borra la fila de arriba y agrega las tuyas)_ | —       | —            | —        | —       |
+
+## Cómo usar esta sección
+
+- Cada ítem que se empieza a trabajar pasa a 🟡 y, si tiene sustancia, gana su propio doc
+  en esta carpeta (`backlog/<slug>.md`), enlazado desde la columna **Detalle**.
+- Al completar un ítem: mover el aprendizaje al doc de feature/arquitectura correspondiente
+  y quitarlo del mapa (o marcarlo ✅ y archivar).
+- Mantén **Estado** y **Esfuerzo** actualizados — este mapa es la fuente de verdad de "qué sigue".
+
+### Plantilla para un ítem con doc propio
+
+```markdown
+---
+title: <Título del ítem>
+description: <una línea>
+---
+
+# <Título del ítem>
+
+**Estado:** 🔵 Propuesto · **Área:** <área> · **Esfuerzo:** <bajo/medio/alto>
+
+## Problema / oportunidad
+<qué duele o qué se gana>
+
+## Propuesta
+<enfoque, alternativas, decisión>
+
+## Notas para retomar
+<links, archivos afectados, lo aprendido — lo suficiente para no re-investigar>
+```
+
+> Patrón completo (por qué y cómo): [general-knowledge → conventions/backlog-pattern](https://github.com/csdev19/general-knowledge/blob/main/conventions/backlog-pattern.md).
+> Pareado con el [workflow specs + plans](https://github.com/csdev19/general-knowledge/blob/main/conventions/specs-and-plans-workflow.md).

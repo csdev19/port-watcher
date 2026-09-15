@@ -1,0 +1,6 @@
+# electron-updater reads this in development so the update flow can be exercised
+# without a packaged build. Keep it pointing at the same feed as
+# electron-builder.yml's `publish.url`.
+provider: generic
+url: https://example.com/updates/
+updaterCacheDirName: desktop-updater

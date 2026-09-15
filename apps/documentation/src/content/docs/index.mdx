@@ -1,0 +1,223 @@
+---
+title: Monorepo Template Documentation
+description: Documentation for the Monorepo Template full-stack application
+---
+
+## Welcome
+
+Welcome to the **Monorepo Template** documentation. This is a modern full-stack monorepo with multiple API stack options, all sharing the same DDD + Hexagonal Architecture packages.
+
+### Stack Options
+
+| Stack           | Web App           | API Server           | Type-Safe Client | Docs                                       |
+| --------------- | ----------------- | -------------------- | ---------------- | ------------------------------------------ |
+| **Elysia**      | `apps/web-elysia` | `apps/server-elysia` | Eden Treaty      | [Elysia Stack](/fullstack-tanstack-elysia) |
+| **Hono + oRPC** | `apps/web-hono`   | `apps/server-hono`   | oRPC OpenAPILink | [Hono Stack](/fullstack-tanstack-hono)     |
+
+Both stacks deploy as two Cloudflare Workers (web + API) connected via Service Bindings. The web Worker proxies API requests for same-origin cookie auth.
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+- **Bun** - Package manager and runtime
+- **PostgreSQL** - Database
+- **Node.js** - For tooling
+
+### Installation
+
+```bash
+# Clone the repository
+git clone <repo-url>
+
+# Install dependencies
+bun install
+
+# Set up environment variables
+cp .env.example .env
+cp .dev.vars.example .dev.vars
+
+# Run database migrations
+bun run db:push
+
+# Start development servers
+bun run dev                # Start all apps
+bun run dev:web-elysia     # Elysia web app
+bun run dev:server-elysia  # Elysia API server
+bun run dev:web-hono       # Hono web app
+bun run dev:server-hono    # Hono API server
+```
+
+### Development
+
+```bash
+# Web app
+cd apps/web
+bun run dev
+
+# Backend
+cd apps/server
+bun run dev
+
+# Documentation
+cd apps/documentation
+bun run dev
+```
+
+---
+
+## Tech Stack
+
+### Monorepo Structure
+
+- **Package Manager**: Bun
+- **Build Tool**: Turbo
+- **Monorepo**: Turborepo with workspace packages
+
+### Frontend
+
+- **Framework**: React with TanStack Start
+- **Routing**: TanStack Router
+- **State Management**: TanStack Query
+- **UI Library**: shadcn/ui with TailwindCSS
+- **Forms**: React Hook Form with Zod resolver
+- **Validation**: Zod v4
+
+### Backend (choose one)
+
+- **Elysia stack**: Elysia + Eden Treaty (type-safe client via `App` type export)
+- **Hono + oRPC stack**: Hono + oRPC with contract-first approach (OpenAPILink client)
+- **Database**: PostgreSQL with Drizzle ORM
+- **Authentication**: Better Auth
+- **Validation**: Zod v4
+
+### Documentation
+
+- **Framework**: Astro Starlight
+
+---
+
+## Project Structure
+
+```
+monorepo-template/
+├── apps/
+│   ├── web-elysia/            # Web app (TanStack Start + Eden Treaty)
+│   ├── server-elysia/         # API server (Elysia)
+│   ├── web-hono/              # Web app (TanStack Start + oRPC client)
+│   ├── server-hono/           # API server (Hono + oRPC)
+│   └── documentation/         # Documentation site (Astro Starlight)
+│
+├── packages/
+│   ├── domain/                # Domain schemas, types, interfaces
+│   ├── application/           # Use cases (depends on domain)
+│   ├── infra-db/              # Database (Drizzle repos, schemas)
+│   ├── infra-auth/            # Authentication (Better Auth config)
+│   ├── infra-env/             # Environment variable schemas
+│   ├── config/                # Shared TypeScript config
+│   └── web-ui/                # Shared UI components (shadcn/ui)
+│
+└── turbo.json                 # Turbo configuration
+```
+
+---
+
+## Key Concepts
+
+### Schema-Based Architecture
+
+We use a **schema-first approach** where Zod schemas are the source of truth:
+
+```typescript
+// Define base schema
+export const userSchema = z.object({
+  id: z.uuid(),
+  email: z.email(),
+  name: z.string().min(1),
+  createdAt: z.coerce.date(),
+});
+
+// Derive create/update schemas
+export const createUserSchema = userSchema.pick({
+  email: true,
+  name: true,
+});
+
+export type User = z.infer<typeof userSchema>;
+export type CreateUser = z.infer<typeof createUserSchema>;
+```
+
+### Full-Stack Type Safety
+
+Types flow seamlessly from backend to frontend:
+
+```typescript
+// Backend defines the contract
+app.post("/users", async ({ body }) => {
+  const user = await db.createUser(body);
+  return success(user);
+});
+
+// Frontend consumes with full types
+const { data } = await eden.users.post({
+  email: "user@example.com",
+  name: "John Doe",
+});
+// data is fully typed!
+```
+
+---
+
+## Security
+
+- **HttpOnly Cookies** - Session tokens are secure
+- **Server-Side Validation** - All auth checks happen on the server
+- **CORS Protection** - Proper CORS configuration
+- **SQL Injection Prevention** - Drizzle ORM parameterizes queries
+- **XSS Protection** - React's built-in sanitization
+- **CSRF Protection** - SameSite cookies
+
+---
+
+## Testing
+
+```bash
+# Run tests
+bun test
+
+# Run tests with coverage
+bun test --coverage
+
+# Run specific test file
+bun test path/to/test.ts
+```
+
+---
+
+## Contributing
+
+1. Create a feature branch
+2. Make your changes
+3. Write/update tests
+4. Update documentation
+5. Submit a pull request
+
+---
+
+## Additional Resources
+
+- [Better Auth Docs](https://better-auth.com)
+- [TanStack Router Docs](https://tanstack.com/router)
+- [TanStack Start Docs](https://tanstack.com/start)
+- [Elysia Docs](https://elysiajs.com)
+- [Hono Docs](https://hono.dev)
+- [oRPC Docs](https://orpc.dev)
+- [Drizzle ORM Docs](https://orm.drizzle.team)
+
+---
+
+:::tip[Ready to Build]
+You're all set! Start exploring the documentation to understand the architecture and patterns used in this monorepo template.
+:::

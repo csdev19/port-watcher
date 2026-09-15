@@ -1,0 +1,40 @@
+{
+  "name": "@monorepo-template/infra-db",
+  "type": "module",
+  "exports": {
+    "./client": "./src/client/index.ts",
+    "./repositories": "./src/repositories/index.ts",
+    "./schemas": "./src/schema/index.ts",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "exports": {
+      "./client": "./dist/client.mjs",
+      "./repositories": "./dist/repositories.mjs",
+      "./schemas": "./dist/schemas.mjs",
+      "./package.json": "./package.json"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "db:push": "drizzle-kit push",
+    "db:pull": "drizzle-kit pull",
+    "db:generate": "drizzle-kit generate",
+    "db:studio": "drizzle-kit studio",
+    "db:migrate": "drizzle-kit migrate"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.0.2",
+    "drizzle-orm": "^0.45.1",
+    "ws": "^8.18.3",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@monorepo-template/config": "workspace:*",
+    "@monorepo-template/domain": "workspace:*",
+    "@types/ws": "^8.18.1",
+    "drizzle-kit": "^0.31.8",
+    "tsdown": "catalog:",
+    "typescript": "catalog:"
+  }
+}

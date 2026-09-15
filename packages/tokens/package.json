@@ -1,0 +1,45 @@
+{
+  "name": "@monorepo-template/tokens",
+  "version": "1.0.0",
+  "description": "Design tokens: one typed TS source generating the CSS custom properties (--mt-* prefixed) that feed web-ui's shadcn theme, dark + light",
+  "files": [
+    "css",
+    "dist",
+    "src"
+  ],
+  "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json",
+    "./css": "./css/tokens.css",
+    "./css/desktop": "./css/tokens.desktop.css"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": "./dist/index.mjs",
+      "./package.json": "./package.json",
+      "./css": "./css/tokens.css",
+      "./css/desktop": "./css/tokens.desktop.css"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "generate": "bun src/generate.ts",
+    "check-types": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "oxlint src"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.1",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "^4.1.9"
+  },
+  "packageManager": "bun@1.3.4"
+}

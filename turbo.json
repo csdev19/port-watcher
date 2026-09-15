@@ -1,0 +1,58 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
+  "concurrency": "20",
+  "tasks": {
+    "transit": {
+      "dependsOn": ["^transit"]
+    },
+    "postinstall": {
+      "cache": false
+    },
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**", "out/**"]
+    },
+    "lint": {
+      "dependsOn": ["transit"]
+    },
+    "check-types": {
+      "dependsOn": ["transit"]
+    },
+    "test": {
+      "dependsOn": ["transit"]
+    },
+    "test:integration": {
+      "dependsOn": ["transit"],
+      "cache": false,
+      "env": ["DATABASE_URL", "BETTER_AUTH_SECRET", "CORS_ORIGIN"]
+    },
+    "test:integration:ci": {
+      "dependsOn": ["transit"],
+      "cache": false,
+      "env": ["DATABASE_URL", "BETTER_AUTH_SECRET", "CORS_ORIGIN"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "db:push": {
+      "cache": false,
+      "env": ["DATABASE_URL"]
+    },
+    "db:studio": {
+      "cache": false,
+      "persistent": true,
+      "env": ["DATABASE_URL"]
+    },
+    "db:migrate": {
+      "cache": false,
+      "env": ["DATABASE_URL"]
+    },
+    "db:generate": {
+      "cache": false,
+      "env": ["DATABASE_URL"]
+    }
+  }
+}

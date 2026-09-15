@@ -1,0 +1,37 @@
+# Git hooks. Docs: https://lefthook.dev — contract and migration notes:
+# https://github.com/csdev19/general-knowledge/blob/main/monorepos/git-hooks-lefthook-playbook.md
+# commit = fix what you commit · push = verify what you share (read-only, same as CI)
+# commit-msg = reject what release-please cannot parse. Bypass once: LEFTHOOK=0 git <cmd>.
+min_version: 2.0.0
+
+pre-commit:
+  jobs:
+    - name: format
+      glob: "*.{js,jsx,cjs,mjs,ts,tsx,cts,mts,json,jsonc,css,md,mdx}"
+      run: bunx oxfmt --write {staged_files}
+      stage_fixed: true
+    - name: lint
+      glob: "*.{js,jsx,cjs,mjs,ts,tsx,cts,mts}"
+      run: bunx oxlint {staged_files}
+
+commit-msg:
+  skip:
+    - merge
+    - rebase
+  jobs:
+    - name: conventional-commit
+      run: |
+        first="$(head -1 {1})"
+        echo "$first" | grep -qE '^(fixup!|squash!|Merge |Revert )' && exit 0
+        echo "$first" | grep -qE '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-zA-Z0-9._/-]+\))?!?: .+' && exit 0
+        echo "Commit message must follow Conventional Commits, e.g. 'feat(web): add recordings page'."
+        echo "release-please derives versions and changelogs from these prefixes."
+        exit 1
+
+pre-push:
+  parallel: true
+  jobs:
+    - name: lint
+      run: bunx oxlint
+    - name: format-check
+      run: bunx oxfmt --check .

@@ -1,0 +1,53 @@
+{
+  "common": {
+    "appName": "Monorepo Template",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "loading": "Loading…",
+    "error": "Something went wrong",
+    "retry": "Retry"
+  },
+  "nav": {
+    "home": "Home",
+    "todos": "Todos",
+    "signIn": "Sign in",
+    "signOut": "Sign out"
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Password",
+    "signIn": "Sign in",
+    "signUp": "Sign up",
+    "signInTitle": "Welcome back",
+    "signUpTitle": "Create your account"
+  },
+  "todos": {
+    "title": "Todos",
+    "add": "Add todo",
+    "placeholder": "What needs to be done?",
+    "empty": "No todos yet",
+    "remaining": "{count, plural, =0 {No items} one {# item} other {# items}} left"
+  },
+  "language": {
+    "label": "Language",
+    "en": "English",
+    "es": "Spanish"
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Preferences are stored on this device.",
+    "languageHint": "Applies to the window and the tray menu.",
+    "theme": "Theme",
+    "themeHint": "System follows your operating system.",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "storageHint": "Saved locally — nothing leaves this device."
+  },
+  "tray": {
+    "show": "Show window",
+    "quit": "Quit"
+  }
+}

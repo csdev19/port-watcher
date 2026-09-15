@@ -1,0 +1,28 @@
+---
+/**
+ * Auto-generated changelog index. Renders one LinkCard per entry under
+ * `content/docs/changelog/`, newest first — no manual index maintenance
+ * (adding an entry file is all it takes; this component picks it up).
+ *
+ * Sorting relies on the `YYYY-MM-DD-title` filename convention: a reverse
+ * id sort IS a reverse-chronological sort, with no date parsing needed.
+ */
+import { getCollection } from "astro:content";
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+const entries = (await getCollection("docs"))
+  .filter((entry) => entry.id.startsWith("changelog/"))
+  .sort((a, b) => b.id.localeCompare(a.id));
+---
+
+<CardGrid>
+  {
+    entries.map((entry) => (
+      <LinkCard
+        title={entry.data.title}
+        href={`/${entry.id}`}
+        description={entry.data.description}
+      />
+    ))
+  }
+</CardGrid>

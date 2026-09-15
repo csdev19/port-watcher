@@ -1,0 +1,10 @@
+{
+  "extends": "@monorepo-template/config/tsconfig.web.json",
+  "include": ["**/*.ts", "**/*.tsx"],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  }
+}

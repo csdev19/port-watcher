@@ -1,0 +1,52 @@
+/*
+ * Design tokens come from @monorepo-template/tokens — the single source of truth
+ * shared with the web apps. This app imports the unprefixed sheet (`--background`
+ * rather than `--mt-background`) because there is no shadcn here to collide with.
+ * Light lives in :root; the `.dark` class re-declares the colors, and the theme
+ * provider toggles that class on <html>.
+ */
+@import "@monorepo-template/tokens/css/desktop";
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--foreground);
+  background: var(--background);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Desktop chrome, not a web page: no text selection or drag unless asked for. */
+body {
+  user-select: none;
+  cursor: default;
+}
+
+input,
+textarea,
+[data-selectable] {
+  user-select: text;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}

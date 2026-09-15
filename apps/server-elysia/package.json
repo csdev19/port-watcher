@@ -1,0 +1,38 @@
+{
+  "name": "server-elysia",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsdown",
+    "check-types": "tsc -b",
+    "compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
+    "legacy:dev": "bun run --hot src/index.ts",
+    "dev": "wrangler dev --port 3002 --inspector-port 9231",
+    "start": "bun run dist/index.js",
+    "deploy": "wrangler deploy",
+    "cf:gen-types": "wrangler types --env-interface CloudflareBindings",
+    "cf:login": "wrangler login",
+    "cf:whoami": "wrangler whoami"
+  },
+  "dependencies": {
+    "@better-auth/expo": "catalog:",
+    "@elysiajs/cors": "catalog:",
+    "@monorepo-template/application": "workspace:*",
+    "@monorepo-template/domain": "workspace:*",
+    "@monorepo-template/infra-auth": "workspace:*",
+    "@monorepo-template/infra-db": "workspace:*",
+    "@monorepo-template/infra-env": "workspace:*",
+    "better-auth": "catalog:",
+    "drizzle-orm": "^0.45.1",
+    "elysia": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@monorepo-template/config": "workspace:*",
+    "@types/bun": "catalog:",
+    "tsdown": "^0.16.5",
+    "typescript": "^5",
+    "wrangler": "catalog:"
+  }
+}

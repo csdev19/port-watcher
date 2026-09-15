@@ -1,0 +1,271 @@
+---
+title: Architecture Overview
+description: Comprehensive guide to the application architecture
+---
+
+# Architecture Overview
+
+This section contains architectural guides, patterns, and best practices for the monorepo template application.
+
+---
+
+## 📚 Documentation Index
+
+### Core Architecture Patterns
+
+#### [Bounded Contexts - Complete Guide](/architecture/bounded-contexts-complete-guide) ⭐
+
+**Comprehensive guide to organizing packages per bounded context**
+
+The most complete resource covering:
+
+- Full monorepo structure per bounded context
+- Domain, Application, and Infrastructure layers
+- Context integration patterns (Published Language, Events, ACL)
+- Package.json per context with dependencies
+- Real-world multi-context examples
+- Context mapping and communication
+- Migration strategy from single to multiple contexts
+
+---
+
+#### [Application Services Layer](/architecture/application-services-layer)
+
+Complete guide to implementing the Application layer with Use Cases, Commands, and Queries.
+
+**Topics covered:**
+
+- CQRS pattern (Commands vs Queries)
+- Use Case handlers
+- DTOs and DTO mappers
+- Application Service pattern
+- Testing strategies
+- Best practices
+
+---
+
+#### [Repository Pattern](/architecture/repository-pattern)
+
+Complete guide on implementing the Repository pattern following Domain-Driven Design principles.
+
+**Topics covered:**
+
+- Repository interface in domain layer
+- Repository implementation in database layer
+- Mapper pattern for DB ↔ Domain conversion
+- Testing strategies
+- What NOT to do
+
+---
+
+#### [Repository Contracts and Implementations](/architecture/repository-contracts-and-implementations)
+
+**Architectural decision and rules for contracts vs implementations.** Use this for future migration and consistency.
+
+**Topics covered:**
+
+- Why contracts live in domain and implementations in infrastructure
+- Naming: `*RepositoryContract` (domain) vs concrete class (e.g. Drizzle)
+- Rules of thumb: domain never imports infrastructure, no speculative abstractions
+- Lightweight DDD + Hexagonal; minimal and reversible
+
+---
+
+#### [Shared Kernel & Bounded Contexts](/architecture/shared-kernel-and-bounded-contexts)
+
+Architectural guide for organizing code between shared primitives and bounded contexts.
+
+**Topics covered:**
+
+- What belongs in shared kernel vs contexts
+- Decision framework for code placement
+- Package naming conventions
+- Import strategies
+- Future context examples
+
+---
+
+#### [Shared Kernel Implementation Guide](/architecture/shared-kernel-implementation-guide)
+
+Step-by-step practical guide to extract the shared kernel from the current domain package.
+
+**Topics covered:**
+
+- Package creation steps
+- File migration checklist
+- Import updates
+- Verification and rollback
+- Common issues and solutions
+
+---
+
+#### [Repository Refactoring Summary](/architecture/repository-refactoring-summary)
+
+Summary of the repository pattern refactoring work completed.
+
+**Topics covered:**
+
+- Before/after comparison
+- Files created and modified
+- Impact analysis
+- Migration guide for other features
+- Next steps
+
+---
+
+## 🎯 Architecture Principles
+
+### 1. **Separation of Concerns**
+
+```
+Domain Layer (Business Logic)
+  ↓ depends on
+Infrastructure Layer (Data Access)
+```
+
+Each layer has clear responsibilities and dependencies flow inward.
+
+---
+
+### 2. **Dependency Inversion**
+
+```
+Domain defines interfaces (IRepository)
+  ↑ implements
+Infrastructure provides implementations (Repository)
+```
+
+Domain doesn't depend on infrastructure - infrastructure implements domain contracts.
+
+---
+
+### 3. **Bounded Contexts**
+
+```
+Your Context    Analytics Context    Billing Context
+     ↓                   ↓                   ↓
+All use Shared Kernel (Currency, Result, API types)
+```
+
+Each context has its own domain model but shares common primitives.
+
+---
+
+## 📦 Current Package Structure
+
+```bash
+packages/
+  domain/                           # Domain (will become your-context/)
+    constants/                      # Context-specific constants
+    repositories/                   # Repository interfaces
+    schemas/                        # Zod validation schemas
+    types/                          # Domain types
+
+  database/                         # Infrastructure layer
+    schema/                         # Drizzle table definitions
+    repositories/                   # Repository implementations
+    mappers/                        # DB ↔ Domain mappers
+
+  shared-kernel/                    # (Future) Generic primitives
+    api.ts                          # ApiResponse, Pagination
+    currency.ts                     # Currency constants
+    result.ts                       # Result<T, E> pattern
+    utils.ts                        # TypeScript utilities
+```
+
+See [Bounded Contexts Complete Guide](/architecture/bounded-contexts-complete-guide) for the full future architecture.
+
+---
+
+## 🚀 Future Architecture
+
+As the application grows to multiple bounded contexts:
+
+```bash
+packages/
+  shared-kernel/                    # Shared primitives
+    api.ts, currency.ts, result.ts
+
+  your-context/                     # Your bounded context
+    domain/                         # Business logic
+    application/                    # Use cases
+    infrastructure/                 # Technical implementation
+
+  analytics/                        # Analytics bounded context
+    domain/
+    application/
+    infrastructure/
+
+  billing/                          # Billing bounded context
+    domain/
+    application/
+    infrastructure/
+
+  integration/                      # Context-to-context APIs
+    your-context-api/
+    analytics-api/
+
+  database/                         # Shared database schemas
+    schema/                         # Drizzle tables
+```
+
+Each bounded context is independent, sharing only primitives from the shared kernel.
+
+📖 **See the complete architecture with all layers in:** [Bounded Contexts Complete Guide](/architecture/bounded-contexts-complete-guide)
+
+---
+
+## 📖 Additional Resources
+
+### Related Documentation
+
+- [Authentication Architecture](/authentication/overview)
+- [Domain Architecture Patterns](/domain-architecture-patterns)
+- [Backend Response Helpers](/backend/response-helpers)
+
+### External References
+
+- [Domain-Driven Design](https://martinfowler.com/bliki/DomainDrivenDesign.html) by Martin Fowler
+- [Bounded Context](https://martinfowler.com/bliki/BoundedContext.html)
+- [Shared Kernel](https://www.domainlanguage.com/ddd/reference/)
+
+---
+
+## 🎯 Quick Reference
+
+### Where Does Code Go?
+
+| Code Type                      | Location                                       | Example                        |
+| ------------------------------ | ---------------------------------------------- | ------------------------------ |
+| **Generic primitives**         | `shared-kernel/`                               | Currency, Result, ApiResponse  |
+| **Business logic**             | `[context]/domain/`                            | YourEntityStatus, calculations |
+| **Repository contracts**       | `[context]/domain/repositories/`               | YourEntityRepositoryContract   |
+| **Repository implementations** | `database/repositories/` or `db/repositories/` | YourEntityRepository (Drizzle) |
+| **DB schemas**                 | `database/schema/`                             | Drizzle table definitions      |
+| **Mappers**                    | `database/mappers/`                            | DB ↔ Domain conversion         |
+
+---
+
+## 💡 Key Takeaways
+
+1. **Repository Pattern**
+   - Interfaces in domain
+   - Implementations in database
+   - Always use mappers
+
+2. **Shared Kernel**
+   - Small and stable
+   - Generic primitives only
+   - No business logic
+
+3. **Bounded Contexts**
+   - Each has its own model
+   - Can share same DB tables
+   - Independent evolution
+
+4. **Clean Architecture**
+   - Domain is independent
+   - Infrastructure depends on domain
+   - Easy to test and maintain
+
+---

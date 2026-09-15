@@ -1,0 +1,71 @@
+---
+title: Auth Router Invalidation
+description: Fix header and Convex auth token not refreshing after sign-in, sign-up, and sign-out
+---
+
+# Auth Router Invalidation
+
+## Status
+
+| Field          | Value                       |
+| -------------- | --------------------------- |
+| Status         | ✅ Complete                 |
+| Completed      | 2026-02-25                  |
+| Author         | Claude                      |
+| Parent Feature | [Convex Integration](index) |
+| Related Issues | N/A                         |
+
+## What It Does
+
+After sign-in/sign-up/sign-out, the header now updates immediately and Convex receives a valid auth token. Previously, the header stayed stale and Convex queries failed with "Not authenticated" because the root route's `beforeLoad` never re-ran.
+
+## Implementation
+
+### Files Changed
+
+| Path                                                           | Purpose                                                                |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `apps/fullstack-fn-and-convex/src/components/sign-in-form.tsx` | Added `router.invalidate()` after sign-in, removed manual `navigate()` |
+| `apps/fullstack-fn-and-convex/src/components/sign-up-form.tsx` | Added `router.invalidate()` after sign-up, removed manual `navigate()` |
+| `apps/fullstack-fn-and-convex/src/hooks/use-session.ts`        | Added `router.invalidate()` in `useSignOut` before navigating          |
+| `apps/fullstack-fn-and-convex/src/routes/__root.tsx`           | Added comment documenting the double-beforeLoad behavior               |
+
+### Domain Model
+
+N/A
+
+### Key Logic
+
+The root route's `beforeLoad` calls `getAuthSession()` and sets `isAuthenticated` + `session` in the router context. A `useEffect` in `RootDocument` uses `isAuthenticated` to call `convexClient.setAuth()` or `clearAuth()`. Calling `router.invalidate()` after auth actions forces `beforeLoad` to re-run, which updates the context, triggering the header re-render and the Convex auth effect. The `navigate()` calls were removed from sign-in/sign-up because the login/signup routes already have `beforeLoad` redirects that handle navigation automatically when `isAuthenticated` becomes true.
+
+## Decisions
+
+| Decision                                                     | Why                                                                                                                                                              | Alternatives Considered                                                                             |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Use `router.invalidate()` instead of manual state management | Single call refreshes the entire route tree — header, auth context, and Convex token all update                                                                  | Could manually refetch session with React Query + set Convex auth, but fragile and duplicates logic |
+| Remove `navigate()` from sign-in/sign-up                     | Login/signup routes' `beforeLoad` already redirect to `/todos` when authenticated; the explicit navigate was redundant and caused extra `beforeLoad` evaluations | Keep navigate for explicitness — but it caused a 3rd session fetch                                  |
+| Keep `navigate({ to: "/" })` in sign-out                     | After sign-out, `_authenticated` would redirect to `/auth/login`, but going to `/` is better UX                                                                  | Remove navigate entirely — user would land on login page instead of home                            |
+
+## Gotchas & Warnings
+
+- `beforeLoad` runs on EVERY route tree evaluation, unlike `loader` which respects `staleTime`. During `router.invalidate()`, a redirect from the login page to `/todos` creates a new route tree, causing `beforeLoad` to run twice. This double session fetch is inherent to TanStack Router and only happens on auth transitions.
+- `routerWithQueryClient` ties router invalidation to React Query cache invalidation. Attempting to dedup `beforeLoad` fetches via `fetchQuery` with `staleTime` does not work because the cache gets wiped during `router.invalidate()`.
+- This fix applies only to `fullstack-fn-and-convex`. The `fullstack-fn-only` and `web` apps have the same pattern but do NOT yet use `router.invalidate()` — the header also won't update there after auth actions.
+
+## Dependencies
+
+None — uses existing `@tanstack/react-router` `useRouter` hook.
+
+## Testing
+
+```bash
+# Manual testing
+# 1. Sign in — header should show username immediately, Convex queries should work
+# 2. Sign out — header should revert to signed-out state, Convex clears auth
+# 3. Sign up — same as sign-in, header updates and Convex works
+# 4. Open Network tab — expect 2 session fetches after sign-in (documented, inherent to TanStack Router redirects)
+```
+
+## Related
+
+- [Convex Todos](convex-todos) — Depends on this fix for Convex auth to work after sign-in

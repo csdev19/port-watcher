@@ -1,0 +1,56 @@
+name: PR Integration Tests
+
+# API integration tests run against a REAL Neon branch, so they need a secret.
+# This job is opt-in: it stays skipped until you set the repository variable
+# RUN_INTEGRATION_TESTS=true and add the TEST_DATABASE_URL secret (see below).
+# Until then the rest of CI (PR Validation, Customizer Test) is unaffected.
+#
+# Setup:
+#   1. Create a permanent Neon test branch.
+#   2. Repo → Settings → Environments → "testing" → add secret
+#      TEST_DATABASE_URL (the branch's POOLED connection string).
+#   3. Repo → Settings → Variables → add RUN_INTEGRATION_TESTS = true.
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "apps/server-hono/**"
+      - "packages/domain/**"
+      - "packages/application/**"
+      - "packages/infra-db/**"
+      - "packages/infra-auth/**"
+      - ".github/workflows/pr-integration.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  integration:
+    name: API integration (Neon)
+    if: ${{ vars.RUN_INTEGRATION_TESTS == 'true' }}
+    runs-on: ubuntu-latest
+    environment: testing
+    env:
+      DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+      BETTER_AUTH_SECRET: ci-integration-secret
+      CORS_ORIGIN: http://localhost:3000
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.4
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Push schema to the test branch
+        run: bun run --cwd packages/infra-db db:push
+
+      - name: Run API integration tests
+        run: bun run test:integration:ci
