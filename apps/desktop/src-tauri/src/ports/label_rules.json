@@ -1,0 +1,14 @@
+[
+  { "contains": ["next dev", "next-server"], "label": "Next.js dev" },
+  { "contains": ["vite"], "label": "Vite" },
+  { "contains": ["wrangler", "workerd"], "label": "Wrangler (Workers)" },
+  { "contains": ["astro dev"], "label": "Astro" },
+  { "contains": ["expo start", "metro"], "label": "Expo / Metro" },
+  { "contains": ["nest start"], "label": "NestJS" },
+  { "contains": ["tanstack", "vinxi"], "label": "TanStack Start" },
+  { "contains": ["convex dev"], "label": "Convex" },
+  { "contains": ["postgres"], "label": "PostgreSQL" },
+  { "contains": ["redis-server"], "label": "Redis" },
+  { "contains": ["com.docker", "vpnkit"], "label": "Docker" },
+  { "contains": ["laqi"], "label": "laqi mock server" }
+]
