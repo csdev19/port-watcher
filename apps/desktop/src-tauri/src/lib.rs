@@ -11,7 +11,10 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![commands::list_ports, commands::kill_port])
+        .invoke_handler(tauri::generate_handler![
+            commands::list_ports,
+            commands::kill_port
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

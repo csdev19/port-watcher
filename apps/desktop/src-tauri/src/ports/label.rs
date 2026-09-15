@@ -22,7 +22,11 @@ fn rules() -> &'static [Rule] {
 pub fn label_for(command: &str, process_name: &str) -> String {
     let cmd_lc = command.to_lowercase();
     for rule in rules() {
-        if rule.contains.iter().any(|needle| cmd_lc.contains(needle.as_str())) {
+        if rule
+            .contains
+            .iter()
+            .any(|needle| cmd_lc.contains(needle.as_str()))
+        {
             return rule.label.clone();
         }
     }
@@ -54,7 +58,10 @@ fn script_name(command: &str) -> Option<String> {
         .skip(1)
         .filter(|t| !t.starts_with('-'))
         .collect();
-    let picked = args.iter().find(|t| t.contains('.')).or_else(|| args.first())?;
+    let picked = args
+        .iter()
+        .find(|t| t.contains('.'))
+        .or_else(|| args.first())?;
     Some(
         Path::new(picked)
             .file_name()
@@ -100,15 +107,27 @@ mod tests {
 
     #[test]
     fn runtime_fallback_uses_script_basename() {
-        assert_eq!(label_for("/usr/local/bin/bun /a/b/server.ts", "bun"), "bun · server.ts");
-        assert_eq!(label_for("node ./api/index.mjs --port 4000", "node"), "node · index.mjs");
-        assert_eq!(label_for("python3 -m http.server", "python3"), "python · http.server");
+        assert_eq!(
+            label_for("/usr/local/bin/bun /a/b/server.ts", "bun"),
+            "bun · server.ts"
+        );
+        assert_eq!(
+            label_for("node ./api/index.mjs --port 4000", "node"),
+            "node · index.mjs"
+        );
+        assert_eq!(
+            label_for("python3 -m http.server", "python3"),
+            "python · http.server"
+        );
     }
 
     #[test]
     fn node_modules_in_path_does_not_trigger_node_runtime() {
         // Executable is deno; path merely contains node_modules.
-        assert_eq!(label_for("/x/deno run /p/node_modules/x/serve.ts", "deno"), "deno");
+        assert_eq!(
+            label_for("/x/deno run /p/node_modules/x/serve.ts", "deno"),
+            "deno"
+        );
     }
 
     #[test]

@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use sysinfo::{Pid, ProcessesToUpdate, System, Users};
+use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind, Users};
 
 use super::label::label_for;
 use super::models::PortEntry;
@@ -12,7 +12,15 @@ use super::source::RawPort;
 /// rather than disappearing mid-poll.
 pub fn enrich(raw: Vec<RawPort>) -> Vec<PortEntry> {
     let mut sys = System::new();
-    sys.refresh_processes(ProcessesToUpdate::All, true);
+    sys.refresh_processes_specifics(
+        ProcessesToUpdate::All,
+        true,
+        ProcessRefreshKind::nothing()
+            .with_memory()
+            .with_cmd(UpdateKind::Always)
+            .with_cwd(UpdateKind::Always)
+            .with_user(UpdateKind::Always),
+    );
     let users = Users::new_with_refreshed_list();
     let my_uid = nix::unistd::Uid::effective().as_raw();
     let self_pid = std::process::id();
@@ -45,7 +53,9 @@ fn entry_for(
         .unwrap_or_else(|| raw.process_name.clone());
 
     let cwd_raw = proc.and_then(|p| p.cwd()).map(|p| p.display().to_string());
-    let project = cwd_raw.as_deref().and_then(|c| detect_project(Path::new(c)));
+    let project = cwd_raw
+        .as_deref()
+        .and_then(|c| detect_project(Path::new(c)));
     let cwd = cwd_raw.map(|c| tildify(&c, home));
 
     let uid = proc.and_then(|p| p.user_id());
@@ -63,7 +73,7 @@ fn entry_for(
             .map(|u| u.name().to_string()),
         started_at: proc.map(|p| p.start_time()).unwrap_or(0),
         memory_bytes: proc.map(|p| p.memory()).unwrap_or(0),
-        killable: same_user && raw.pid >= 100 && raw.pid != self_pid,
+        killable: same_user && crate::ports::kill::static_guard(raw.pid, self_pid).is_none(),
         process_name: raw.process_name,
     }
 }
@@ -91,6 +101,17 @@ mod tests {
         // Our own PID is never killable (self-kill guard).
         assert!(!me.killable);
         assert!(me.started_at > 0);
+        assert!(
+            !me.command.is_empty() && me.command != me.process_name,
+            "cmd not populated"
+        );
+        assert!(me.cwd.is_some(), "cwd not populated");
+        assert!(me.user.is_some());
+        assert!(me.memory_bytes > 0);
+        assert!(
+            me.project.is_some(),
+            "project not populated (test binary should resolve via Cargo.toml)"
+        );
         drop(listener);
     }
 
@@ -98,7 +119,11 @@ mod tests {
     fn vanished_pid_still_yields_a_row() {
         let sys = System::new(); // deliberately not refreshed: knows no PIDs
         let users = Users::new_with_refreshed_list();
-        let raw = RawPort { pid: 999_999, port: 4321, process_name: "ghost".into() };
+        let raw = RawPort {
+            pid: 999_999,
+            port: 4321,
+            process_name: "ghost".into(),
+        };
         let e = entry_for(raw, &sys, &users, 501, 1, Some("/Users/x"));
         assert_eq!(e.command, "ghost");
         assert_eq!(e.label, "ghost");

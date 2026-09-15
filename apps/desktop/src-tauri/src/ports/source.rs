@@ -27,13 +27,15 @@ pub fn dedupe(items: impl IntoIterator<Item = RawPort>) -> Vec<RawPort> {
 /// an `UNKNOWN` state would silently hide real ports.
 pub fn raw_ports() -> Result<Vec<RawPort>, AppError> {
     let all = listeners::get_all().map_err(|e| AppError::PortSource(e.to_string()))?;
-    Ok(dedupe(all.into_iter().filter(|l| l.protocol == listeners::Protocol::TCP).map(
-        |l| RawPort {
-            pid: l.process.pid,
-            port: l.socket.port(),
-            process_name: l.process.name.clone(),
-        },
-    )))
+    Ok(dedupe(
+        all.into_iter()
+            .filter(|l| l.protocol == listeners::Protocol::TCP)
+            .map(|l| RawPort {
+                pid: l.process.pid,
+                port: l.socket.port(),
+                process_name: l.process.name.clone(),
+            }),
+    ))
 }
 
 #[cfg(test)]
@@ -41,7 +43,11 @@ mod tests {
     use super::*;
 
     fn raw(pid: u32, port: u16) -> RawPort {
-        RawPort { pid, port, process_name: format!("p{pid}") }
+        RawPort {
+            pid,
+            port,
+            process_name: format!("p{pid}"),
+        }
     }
 
     #[test]

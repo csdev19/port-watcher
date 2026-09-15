@@ -24,12 +24,14 @@ pub fn static_guard(pid: u32, self_pid: u32) -> Option<KillResult> {
 pub fn kill_port_impl(pid: u32, port: u16, started_at: u64) -> Result<KillResult, AppError> {
     log::info!("kill_port requested: pid={pid} port={port} started_at={started_at}");
     if let Some(denied) = static_guard(pid, std::process::id()) {
+        log::warn!("kill_port denied by static guard: pid={pid} port={port}");
         return Ok(denied);
     }
 
     // PID-reuse guard 1: that PID must still be listening on that port.
     let still_listening = raw_ports()?.iter().any(|r| r.pid == pid && r.port == port);
     if !still_listening {
+        log::warn!("kill_port: pid={pid} no longer listening on port={port}");
         return Ok(KillResult::AlreadyGone);
     }
 
@@ -37,15 +39,18 @@ pub fn kill_port_impl(pid: u32, port: u16, started_at: u64) -> Result<KillResult
     let mut sys = System::new();
     sys.refresh_processes(ProcessesToUpdate::Some(&[Pid::from_u32(pid)]), true);
     let Some(proc) = sys.process(Pid::from_u32(pid)) else {
+        log::warn!("kill_port: pid={pid} no longer listening on port={port}");
         return Ok(KillResult::AlreadyGone);
     };
     if proc.start_time() != started_at {
+        log::warn!("kill_port: pid={pid} start_time mismatch (likely pid reuse)");
         return Ok(KillResult::AlreadyGone);
     }
 
     // Ownership: v1 never signals another user's process (no sudo).
     let my_uid = nix::unistd::Uid::effective().as_raw();
     if proc.user_id().map(|u| **u) != Some(my_uid) {
+        log::warn!("kill_port: pid={pid} owned by a different user");
         return Ok(KillResult::PermissionDenied);
     }
 
@@ -71,7 +76,14 @@ fn escalate(pid: u32) -> KillResult {
     KillResult::Killed
 }
 
-/// Signal 0 probes existence. EPERM means "exists, not ours" = alive.
+/// Signal 0 probes existence without sending a real signal. NOTE: this
+/// reports an unreaped zombie as alive (the kernel still holds its PID
+/// entry until the parent calls wait()), so a target whose parent is slow
+/// to reap it can appear alive for the rest of the 2s escalation window.
+/// Low impact in practice — shells and node/bun reap children promptly —
+/// but worth knowing if `Killed` is ever reported for a process that
+/// actually died on SIGTERM.
+/// EPERM means "exists, not ours" = alive.
 fn alive(pid: NixPid) -> bool {
     match signal::kill(pid, None) {
         Ok(()) => true,
@@ -91,6 +103,21 @@ mod tests {
         assert_eq!(static_guard(5000, 5000), Some(KillResult::PermissionDenied));
         assert_eq!(static_guard(100, 5000), None);
         assert_eq!(static_guard(4242, 5000), None);
+    }
+
+    #[test]
+    fn targeted_refresh_resolves_a_live_process() {
+        let mut sys = System::new();
+        let me = std::process::id();
+        sys.refresh_processes(ProcessesToUpdate::Some(&[Pid::from_u32(me)]), true);
+        let p = sys
+            .process(Pid::from_u32(me))
+            .expect("targeted refresh lost our own pid");
+        assert!(p.start_time() > 0);
+        assert_eq!(
+            p.user_id().map(|u| **u),
+            Some(nix::unistd::Uid::effective().as_raw())
+        );
     }
 
     #[test]
@@ -114,7 +141,10 @@ mod tests {
     /// child behaves.
     #[test]
     fn escalate_terminates_a_real_child() {
-        let mut child = std::process::Command::new("sleep").arg("30").spawn().unwrap();
+        let mut child = std::process::Command::new("sleep")
+            .arg("30")
+            .spawn()
+            .unwrap();
         let pid = child.id();
         std::thread::spawn(move || {
             let _ = child.wait();
