@@ -55,7 +55,7 @@ describe("PortRow", () => {
       />,
     );
     expect(screen.queryByRole("button", { name: /kill/i })).toBeNull();
-    expect(screen.getByTitle("Belongs to another user")).toBeTruthy();
+    expect(screen.getByLabelText("Belongs to another user")).toBeTruthy();
   });
 
   it("expanded shows pid, memory and full command", () => {
