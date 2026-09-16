@@ -67,7 +67,7 @@ export function PortList({
   const { dev, secondary } = groups;
 
   return (
-    <div className={styles.list} aria-label="Listening ports">
+    <div className={styles.list}>
       {dev.length > 0 && (
         <section className={styles.section}>
           <h3 className={styles.sectionHeading}>{dev.length} DEV</h3>
@@ -91,7 +91,7 @@ export function PortList({
             type="button"
             className={styles.disclosure}
             aria-expanded={secondaryOpen}
-            aria-controls={SECONDARY_LIST_ID}
+            aria-controls={secondaryOpen ? SECONDARY_LIST_ID : undefined}
             aria-label={
               secondaryForcedOpen ? "Apps & System — expanded for search results" : undefined
             }

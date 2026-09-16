@@ -61,6 +61,16 @@ export default function App() {
   const latest = useRef({ entries: visibleEntries, selectedKey: nav.selectedKey });
   latest.current = { entries: visibleEntries, selectedKey: nav.selectedKey };
 
+  // `useListNavigation` is called fresh every render, so `nav.onKeyDown`
+  // is a *new* closure each time (it closes over that render's `entries`
+  // and `selectedKey` via `move`'s useCallback deps). The keydown effect
+  // below is registered once (empty deps) so it must never call `nav`
+  // directly — that would freeze it on the first render's `onKeyDown`
+  // (closing over `entries = []`), permanently breaking arrow-key
+  // movement. Route through this ref, updated every render, instead.
+  const navRef = useRef(nav);
+  navRef.current = nav;
+
   // Blocks a duplicate IPC call while `handleKill` is in flight for a
   // given armed incarnation — belt-and-suspenders alongside the hook's
   // own timer/key guards (e.g. a second confirming click firing before
@@ -130,7 +140,7 @@ export default function App() {
         return;
       }
 
-      const action = nav.onKeyDown(e);
+      const action = navRef.current.onKeyDown(e);
       const { entries: currentEntries, selectedKey } = latest.current;
       const current = currentEntries.find((entry) => portKey(entry) === selectedKey);
       if (action === "expand" && current) {
@@ -159,6 +169,7 @@ export default function App() {
       !current ||
       current.startedAt !== armedTarget.startedAt ||
       !current.killable ||
+      current.category !== armedTarget.category ||
       portKey(current) !== nav.selectedKey
     ) {
       confirm.disarm();

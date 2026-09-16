@@ -38,7 +38,11 @@ describe("useKillConfirm", () => {
     const onConfirm = vi.fn();
     const { result } = renderHook(() => useKillConfirm(onConfirm));
     act(() => result.current.request(devEntry, "pointer"));
-    expect(result.current.armedTarget).toEqual({ key: "100:3000", startedAt: 1000 });
+    expect(result.current.armedTarget).toEqual({
+      key: "100:3000",
+      startedAt: 1000,
+      category: "dev",
+    });
     expect(onConfirm).not.toHaveBeenCalled();
     act(() => result.current.request(devEntry, "pointer"));
     expect(onConfirm).toHaveBeenCalledTimes(1);
@@ -59,7 +63,11 @@ describe("useKillConfirm", () => {
     const { result } = renderHook(() => useKillConfirm(onConfirm));
     act(() => result.current.request(systemEntry, "keyboard"));
     expect(onConfirm).not.toHaveBeenCalled();
-    expect(result.current.armedTarget).toEqual({ key: "88:7000", startedAt: 1000 });
+    expect(result.current.armedTarget).toEqual({
+      key: "88:7000",
+      startedAt: 1000,
+      category: "system",
+    });
     act(() => result.current.request(systemEntry, "keyboard"));
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
@@ -89,7 +97,11 @@ describe("useKillConfirm", () => {
     act(() => result.current.request(devEntry, "pointer"));
     act(() => vi.advanceTimersByTime(1500));
     act(() => result.current.request(systemEntry, "pointer"));
-    expect(result.current.armedTarget).toEqual({ key: "88:7000", startedAt: 1000 });
+    expect(result.current.armedTarget).toEqual({
+      key: "88:7000",
+      startedAt: 1000,
+      category: "system",
+    });
     // The old target cannot confirm anymore.
     act(() => vi.advanceTimersByTime(600));
     expect(onConfirm).not.toHaveBeenCalled();
@@ -103,7 +115,11 @@ describe("useKillConfirm", () => {
     const restarted = { ...systemEntry, startedAt: 2000 };
     act(() => result.current.request(restarted, "pointer"));
     expect(onConfirm).not.toHaveBeenCalled();
-    expect(result.current.armedTarget).toEqual({ key: "88:7000", startedAt: 2000 });
+    expect(result.current.armedTarget).toEqual({
+      key: "88:7000",
+      startedAt: 2000,
+      category: "system",
+    });
   });
 
   it("disarms itself after 2 seconds", () => {

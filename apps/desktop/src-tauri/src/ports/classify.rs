@@ -164,10 +164,25 @@ mod tests {
     }
 
     #[test]
-    fn filename_ending_in_dot_app_is_not_a_bundle() {
-        // `foo.app-backup` is not `.app` and the final component (filename)
-        // itself ending in `.app` is not a bundle directory either way.
+    fn app_backup_suffix_is_not_a_dot_app_match() {
+        // `foo.app-backup` does not end in `.app` at all, so it is not a
+        // bundle-directory match by directory-component suffix.
         let exe = Path::new("/opt/homebrew/bin/foo.app-backup");
+        assert_eq!(
+            classify_port(Some(CURRENT_UID), CURRENT_UID, Some(exe)),
+            PortCategory::Dev
+        );
+    }
+
+    #[test]
+    fn final_executable_filename_ending_in_dot_app_is_not_a_bundle() {
+        // The executable's own filename ends in `.app` here (`foo.app` is
+        // the final path component, not a directory it lives inside). That
+        // must not be treated as being inside a `.app` bundle: bundle
+        // detection only looks at directory *components*, and the final
+        // component (the executable filename) is dropped before scanning.
+        let exe = Path::new("/opt/homebrew/bin/foo.app");
+        assert_eq!(app_bundle_path(exe), None);
         assert_eq!(
             classify_port(Some(CURRENT_UID), CURRENT_UID, Some(exe)),
             PortCategory::Dev

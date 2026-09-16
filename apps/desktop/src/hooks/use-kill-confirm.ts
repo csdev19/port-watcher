@@ -9,6 +9,11 @@ export interface ArmedTarget {
    * incarnation guard: a same-key entry with a different `startedAt`
    * (pid/port reused by a new process) can never confirm a stale arm. */
   startedAt: number;
+  /** The armed entry's `category` at request time — compared against the
+   * current entry's category so a category change (e.g. re-classified
+   * after a refetch) disarms the confirmation instead of confirming
+   * against a target the user never actually saw armed. */
+  category: PortEntry["category"];
 }
 
 /** Spec §5 / F6 Slice 2: one shared confirmation state for both pointer
@@ -63,7 +68,7 @@ export function useKillConfirm(onConfirm: (entry: PortEntry) => void) {
       // New key, new incarnation, or nothing armed: (re)arm and restart the timer.
       clearTimeout(timer.current);
       timer.current = setTimeout(disarm, CONFIRM_WINDOW_MS);
-      setArmedTarget({ key, startedAt: entry.startedAt });
+      setArmedTarget({ key, startedAt: entry.startedAt, category: entry.category });
     },
     [disarm, onConfirm, setArmedTarget],
   );

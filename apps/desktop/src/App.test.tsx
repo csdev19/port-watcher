@@ -72,17 +72,41 @@ describe("App", () => {
     expect(screen.queryByText("7000")).toBeNull();
   });
 
-  it("a hidden secondary row cannot be reached or killed by keyboard", async () => {
+  it("arrow-down actually moves selection, clamping at the last visible dev row without spilling into the hidden secondary group", async () => {
     const killSpy = vi.spyOn(portsModule, "killPort");
     renderApp();
     await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
 
-    // Arrow-down four times walks past every dev row; a fifth press must
-    // not spill into the collapsed secondary group.
+    // MOCK_PORTS' visible dev rows, in render order: 3000, 5173, 5432, 8787.
+    // Row 3000 is selected by default; three ArrowDown presses should walk
+    // selection down to the last dev row (8787).
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    killShortcut();
+    expect(killSpy).toHaveBeenCalledTimes(1);
+    expect(killSpy).toHaveBeenCalledWith(expect.objectContaining({ port: 8787 }));
+    killSpy.mockClear();
+
+    await waitFor(() => {
+      expect(screen.getByRole("status").textContent).toContain("stopped");
+    });
+  });
+
+  it("arrow-down clamps at the last dev row and never spills into the collapsed secondary group", async () => {
+    const killSpy = vi.spyOn(portsModule, "killPort");
+    renderApp();
+    await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+
+    // Three presses reach the last dev row (8787); three more presses must
+    // clamp there rather than spilling into the collapsed secondary group
+    // (7000/631, which are not keyboard-reachable while collapsed).
     for (let i = 0; i < 6; i++) {
       fireEvent.keyDown(window, { key: "ArrowDown" });
     }
     killShortcut();
+    expect(killSpy).toHaveBeenCalledTimes(1);
+    expect(killSpy).toHaveBeenCalledWith(expect.objectContaining({ port: 8787 }));
     expect(killSpy).not.toHaveBeenCalledWith(expect.objectContaining({ port: 7000 }));
   });
 
@@ -254,6 +278,40 @@ describe("App", () => {
     expect(killSpy).toHaveBeenCalledTimes(1);
     expect(killSpy).toHaveBeenCalledWith(expect.objectContaining({ port: 7000 }));
   });
+
+  it("a category change on the armed row disarms the confirmation", async () => {
+    const killSpy = vi.spyOn(portsModule, "killPort");
+    const listSpy = vi.spyOn(portsModule, "listPorts");
+    renderApp();
+    await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+    expandSecondary();
+    hoverRow(7000);
+
+    // Arm the confirmation on the system row (port 7000).
+    killShortcut();
+    expect(killSpy).not.toHaveBeenCalled();
+
+    // Simulate the next poll re-classifying that same process as `dev`
+    // (e.g. it was reclassified). The armed target's category no longer
+    // matches, so the confirmation must disarm rather than confirm on a
+    // target the user never saw armed under its new category.
+    listSpy.mockResolvedValueOnce(
+      MOCK_PORTS.map((e) => (e.port === 7000 ? { ...e, category: "dev" } : e)),
+    );
+    await waitFor(() => expect(listSpy.mock.calls.length).toBeGreaterThan(1), { timeout: 3000 });
+
+    // Wait for the refetched data (still port 7000, now category "dev")
+    // to land and the row to still be present.
+    await waitFor(() => expect(screen.getByText("7000")).toBeTruthy(), { timeout: 3000 });
+
+    // A second shortcut must arm-again (dev rows kill immediately on
+    // keyboard, so this call now kills directly) rather than confirming
+    // the stale `system`-category arm.
+    hoverRow(7000);
+    killShortcut();
+    expect(killSpy).toHaveBeenCalledTimes(1);
+    expect(killSpy).toHaveBeenCalledWith(expect.objectContaining({ port: 7000, category: "dev" }));
+  }, 8000);
 
   it("a locked row never calls killPort, pointer or keyboard", async () => {
     const killSpy = vi.spyOn(portsModule, "killPort");

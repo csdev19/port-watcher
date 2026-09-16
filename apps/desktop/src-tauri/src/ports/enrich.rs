@@ -127,11 +127,18 @@ mod tests {
             me.project.is_some(),
             "project not populated (test binary should resolve via Cargo.toml)"
         );
-        // sysinfo may not resolve the test binary's exe path on every
-        // platform/sandbox, but when it does it should agree with category.
-        if let Some(exe) = &me.executable_path {
-            assert!(!exe.is_empty());
-        }
+        // On macOS, sysinfo reliably resolves a live process's own exe path
+        // (this is the same process running the test), so assert it
+        // unconditionally rather than guarding on `Some` — a guarded
+        // `if let` here would be vacuous, since the codepath that
+        // populates `executable_path` already filters out empty strings
+        // before storing (see `.filter(|p| !p.as_os_str().is_empty())`
+        // above), making `!exe.is_empty()` a tautology whenever it runs.
+        let exe = me
+            .executable_path
+            .as_deref()
+            .expect("executable_path should resolve for our own live test process on macOS");
+        assert!(!exe.is_empty());
         drop(listener);
     }
 
