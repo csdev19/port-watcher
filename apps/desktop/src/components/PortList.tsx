@@ -6,18 +6,23 @@ interface Props {
   entries: PortEntry[];
   selected: number;
   expandedKey: string | null;
+  /** Key of the row currently armed in App's shared kill-confirm instance. */
+  armedKey: string | null;
   onSelect: (key: string) => void;
   onToggleExpand: (key: string) => void;
-  onKill: (entry: PortEntry) => void;
+  onRequestKill: (entry: PortEntry) => void;
+  onDisarmKill: () => void;
 }
 
 export function PortList({
   entries,
   selected,
   expandedKey,
+  armedKey,
   onSelect,
   onToggleExpand,
-  onKill,
+  onRequestKill,
+  onDisarmKill,
 }: Props) {
   return (
     <ul className={styles.list} role="listbox" aria-label="Listening ports">
@@ -29,9 +34,11 @@ export function PortList({
             entry={entry}
             selected={i === selected}
             expanded={expandedKey === k}
+            armed={armedKey === k}
             onSelect={() => onSelect(k)}
             onToggleExpand={() => onToggleExpand(k)}
-            onKill={() => onKill(entry)}
+            onRequestKill={() => onRequestKill(entry)}
+            onDisarm={onDisarmKill}
           />
         );
       })}

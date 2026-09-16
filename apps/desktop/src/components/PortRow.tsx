@@ -1,6 +1,5 @@
 import type { PortEntry } from "@/lib/types";
 import { formatMemory, formatUptime, middleTruncate } from "@/lib/format";
-import { useKillConfirm } from "@/hooks/use-kill-confirm";
 import { Icon } from "@/components/Icon";
 import styles from "@/app.module.css";
 
@@ -8,13 +7,28 @@ interface Props {
   entry: PortEntry;
   selected: boolean;
   expanded: boolean;
+  /** Owned by App's shared `useKillConfirm` — true while this row's key
+   * is the armed target (F6 Slice 2: pointer and keyboard share one
+   * confirmation instance so neither path can bypass the other). */
+  armed: boolean;
   onSelect: () => void;
   onToggleExpand: () => void;
-  onKill: () => void;
+  onRequestKill: () => void;
+  onDisarm: () => void;
 }
 
-export function PortRow({ entry, selected, expanded, onSelect, onToggleExpand, onKill }: Props) {
-  const confirm = useKillConfirm(onKill);
+export function PortRow({
+  entry,
+  selected,
+  expanded,
+  armed,
+  onSelect,
+  onToggleExpand,
+  onRequestKill,
+  onDisarm,
+}: Props) {
+  const protectedCategory = entry.category !== "dev";
+  const confirmLabel = entry.category === "system" ? "Kill system?" : "Kill app?";
 
   return (
     <li
@@ -36,15 +50,23 @@ export function PortRow({ entry, selected, expanded, onSelect, onToggleExpand, o
         {entry.killable ? (
           <button
             type="button"
-            className={confirm.armed ? styles.killArmed : styles.kill}
+            className={
+              armed
+                ? protectedCategory
+                  ? styles.killArmedNeutral
+                  : styles.killArmed
+                : protectedCategory
+                  ? styles.killNeutral
+                  : styles.kill
+            }
             aria-label={`Kill ${entry.label} on port ${entry.port}`}
             onClick={(e) => {
               e.stopPropagation();
-              confirm.trigger();
+              onRequestKill();
             }}
-            onMouseLeave={confirm.disarm}
+            onMouseLeave={onDisarm}
           >
-            {confirm.armed ? "Kill?" : <Icon name="x" />}
+            {armed ? protectedCategory ? confirmLabel : "Kill?" : <Icon name="x" />}
           </button>
         ) : (
           <span

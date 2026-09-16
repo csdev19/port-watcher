@@ -169,7 +169,9 @@
 }
 
 .kill,
-.killArmed {
+.killArmed,
+.killNeutral,
+.killArmedNeutral {
   border: none;
   background: transparent;
   color: var(--pw-muted-2);
@@ -186,6 +188,20 @@
 .killArmed {
   color: #fff;
   background: var(--status-danger);
+  font-weight: 600;
+  font-size: 11px;
+  padding: 4px 8px;
+}
+/* `app`/`system` kills stay neutral/muted even on hover and while armed —
+ * category is a UX heuristic, not a permission signal, so color alone
+ * must never read as "as safe to kill as a dev row". */
+.killNeutral:hover {
+  color: var(--pw-fg-2);
+  background: var(--pw-raised-hover);
+}
+.killArmedNeutral {
+  color: var(--pw-fg);
+  background: var(--pw-raised-hover);
   font-weight: 600;
   font-size: 11px;
   padding: 4px 8px;

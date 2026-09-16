@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { MOCK_PORTS } from "@/lib/mock-ports";
+import * as portsModule from "@/lib/ports";
 
 /** jsdom has no __TAURI_INTERNALS__, so `inTauri` is false and the app
  * renders MOCK_PORTS with zero Tauri mocking — this is the whole point
@@ -18,7 +19,26 @@ function renderApp() {
   );
 }
 
+function killShortcut() {
+  fireEvent.keyDown(window, { key: "Backspace", metaKey: true, code: "Backspace" });
+}
+
+function repeatedKillShortcut() {
+  fireEvent.keyDown(window, { key: "Backspace", metaKey: true, code: "Backspace", repeat: true });
+}
+
+/** Rows only listen for `mouseenter`, which does not bubble — dispatch
+ * directly on the `<li>` to move selection, the same way App.tsx does. */
+function hoverRow(port: number) {
+  const li = screen.getByText(String(port)).closest("li")!;
+  fireEvent.mouseEnter(li);
+}
+
 describe("App", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("renders all mock ports once the initial fetch resolves", async () => {
     renderApp();
     await waitFor(() => {
@@ -42,7 +62,7 @@ describe("App", () => {
     expect(screen.queryByText("8787")).toBeNull();
   });
 
-  it("kill requires arm-then-confirm and shows a stopped toast", async () => {
+  it("pointer kill requires arm-then-confirm and shows a stopped toast", async () => {
     renderApp();
     await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
 
@@ -74,5 +94,84 @@ describe("App", () => {
         expect(screen.getByText(String(entry.port))).toBeTruthy();
       }
     });
+  });
+
+  it("⌘⌫ on a dev row kills immediately, no arming", async () => {
+    const killSpy = vi.spyOn(portsModule, "killPort");
+    renderApp();
+    await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+
+    // The first entry (port 3000, dev) is selected by default.
+    killShortcut();
+    expect(killSpy).toHaveBeenCalledTimes(1);
+    expect(killSpy).toHaveBeenCalledWith(expect.objectContaining({ port: 3000 }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("status").textContent).toContain("stopped");
+    });
+  });
+
+  it("⌘⌫ on a protected (system) row requires a second shortcut within the window", async () => {
+    const killSpy = vi.spyOn(portsModule, "killPort");
+    renderApp();
+    await waitFor(() => expect(screen.getByText("7000")).toBeTruthy());
+    hoverRow(7000);
+
+    killShortcut();
+    expect(killSpy).not.toHaveBeenCalled();
+
+    killShortcut();
+    expect(killSpy).toHaveBeenCalledTimes(1);
+    expect(killSpy).toHaveBeenCalledWith(expect.objectContaining({ port: 7000 }));
+  });
+
+  it("a held ⌘⌫ (repeated keydown) never arms then confirms itself", async () => {
+    const killSpy = vi.spyOn(portsModule, "killPort");
+    renderApp();
+    await waitFor(() => expect(screen.getByText("7000")).toBeTruthy());
+    hoverRow(7000);
+
+    killShortcut();
+    repeatedKillShortcut();
+    repeatedKillShortcut();
+    expect(killSpy).not.toHaveBeenCalled();
+
+    killShortcut();
+    expect(killSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("changing the selected row cancels an armed keyboard confirmation", async () => {
+    const killSpy = vi.spyOn(portsModule, "killPort");
+    renderApp();
+    await waitFor(() => expect(screen.getByText("7000")).toBeTruthy());
+
+    hoverRow(7000);
+    killShortcut();
+    expect(killSpy).not.toHaveBeenCalled();
+
+    // Moving the selection away from the armed row disarms it.
+    hoverRow(5173);
+    // Moving back does not resurrect the old arm — this still has to
+    // arm again rather than confirm.
+    hoverRow(7000);
+    killShortcut();
+    expect(killSpy).not.toHaveBeenCalled();
+
+    // A genuine second press now confirms the freshly re-armed target.
+    killShortcut();
+    expect(killSpy).toHaveBeenCalledTimes(1);
+    expect(killSpy).toHaveBeenCalledWith(expect.objectContaining({ port: 7000 }));
+  });
+
+  it("a locked row never calls killPort, pointer or keyboard", async () => {
+    const killSpy = vi.spyOn(portsModule, "killPort");
+    renderApp();
+    await waitFor(() => expect(screen.getByText("631")).toBeTruthy());
+    hoverRow(631);
+
+    killShortcut();
+    killShortcut();
+    expect(killSpy).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText(/Kill cupsd/)).toBeNull();
   });
 });
