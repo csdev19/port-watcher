@@ -36,7 +36,7 @@ pub fn run() {
             let quit_item = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
             let tray_menu = MenuBuilder::new(app).item(&quit_item).build()?;
 
-            let mut tray = TrayIconBuilder::with_id("chapay-tray").tooltip("chapay");
+            let mut tray = TrayIconBuilder::with_id("chapay-tray");
             // Default icon until the design pass ships the template
             // image. Do NOT set icon_as_template(true) yet.
             if let Some(icon) = app.default_window_icon() {
