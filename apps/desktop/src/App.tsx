@@ -3,15 +3,22 @@ import { useQueryClient } from "@tanstack/react-query";
 import { usePorts } from "@/hooks/use-ports";
 import { useListNavigation } from "@/hooks/use-list-navigation";
 import { useKillConfirm } from "@/hooks/use-kill-confirm";
+import { useFavourites } from "@/hooks/use-favourites";
 import { filterPorts } from "@/lib/filter";
 import { partitionPorts } from "@/lib/port-groups";
+import { favouritesFooterText, favouritesQueryHealth, joinFavourites } from "@/lib/favourites";
 import { inTauri, killPort } from "@/lib/ports";
 import { portKey, type PortEntry } from "@/lib/types";
 import { PortList } from "@/components/PortList";
+import { FavouritesPanel } from "@/components/FavouritesPanel";
 import { SearchInput } from "@/components/SearchInput";
 import { EmptyState, ErrorState, FilteredEmptyState } from "@/components/PanelStates";
 import { Toast, type ToastData } from "@/components/Toast";
 import styles from "@/app.module.css";
+
+type Tab = "listening" | "favourites";
+const TABS: Tab[] = ["listening", "favourites"];
+const TAB_LABEL: Record<Tab, string> = { listening: "Listening", favourites: "Favourites" };
 
 async function hidePanel() {
   if (!inTauri) return;
@@ -34,7 +41,17 @@ export default function App() {
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [manuallyExpanded, setManuallyExpanded] = useState(false);
   const [toast, setToast] = useState<ToastData | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>("listening");
   const searchRef = useRef<HTMLInputElement>(null);
+  const tabRefs = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({});
+
+  // F7 Slice 1-3: persisted watched ports, joined against the same live
+  // `usePorts` snapshot both tabs share — no second polling source.
+  const favourites = useFavourites();
+  const favouritePorts = useMemo(
+    () => new Set(favourites.items.map((f) => f.port)),
+    [favourites.items],
+  );
 
   // F6 Slice 3: filter first, then partition into the dev/secondary
   // (app+system) groups the panel renders. Secondary is collapsed by
@@ -46,6 +63,8 @@ export default function App() {
   const secondaryOpen = manuallyExpanded || forcedOpen;
   // Only the rows actually on screen are keyboard-reachable — a row
   // hidden behind a collapsed disclosure can never be selected or killed.
+  // F7 Slice 4 will extend this to Favourites' visible listener rows;
+  // for now this array only ever holds Listening rows.
   const visibleEntries = useMemo(
     () => (secondaryOpen ? [...groups.dev, ...groups.secondary] : groups.dev),
     [groups, secondaryOpen],
@@ -104,7 +123,9 @@ export default function App() {
 
   // F6 Slice 2: one shared confirmation instance for both pointer and
   // keyboard kill requests — neither path can confirm without the other
-  // seeing the same armed target, timer and invalidation.
+  // seeing the same armed target, timer and invalidation. F7 Slice 3
+  // reuses this same instance for Favourites' listener rows (Slice 4
+  // extends it to a Favourites-aware visible-entries array).
   const confirm = useKillConfirm((entry) => {
     // Resolve the latest entry from the currently visible list and
     // re-validate right before executing: never act on a saved snapshot.
@@ -118,6 +139,19 @@ export default function App() {
     confirm.request(entry, source);
   }
 
+  // F7 Slice 3: toggling the star on a Listening row. Saves `{ port }`
+  // only — no process label baked in, since labels change as processes
+  // restart. Failure surfaces through the existing toast rather than a
+  // second error UI.
+  function toggleWatch(entry: PortEntry) {
+    const result = favouritePorts.has(entry.port)
+      ? favourites.remove(entry.port)
+      : favourites.add(String(entry.port));
+    if (!result.ok) {
+      setToast({ message: result.message, command: null });
+    }
+  }
+
   // Keyboard drives the list even while the search input owns focus.
   // Registered once; reads current entries/selection via `latest.current`
   // (see above) rather than depending on a re-attached closure.
@@ -125,9 +159,15 @@ export default function App() {
     function onKey(e: KeyboardEvent) {
       if (e.isComposing) return;
 
+      // F7 Slice 3: the inline watch form is an excluded keyboard scope —
+      // arrows/⌘⌫ edit its fields, never navigate or kill a row.
+      const target = e.target;
+      if (target instanceof HTMLElement && target.closest('[data-list-shortcuts="off"]')) {
+        return;
+      }
+
       // Enter/Space on a focused control (e.g. the kill/disclosure
       // button) must activate that control, not expand/navigate a row.
-      const target = e.target;
       if (target instanceof HTMLButtonElement && (e.key === "Enter" || e.key === " ")) {
         return;
       }
@@ -196,9 +236,12 @@ export default function App() {
 
   // Shell emits panel-shown on every open: reset all ephemeral panel state
   // to the same defaults the initial mount uses (manual expansion, query,
-  // detail key, selection and confirmation), then refetch and focus main
-  // search. Clearing the query on open is deliberate — search entered
-  // after opening still overrides the collapsed default.
+  // detail key, selection, confirmation and active tab), then refetch and
+  // focus main search. Clearing the query on open is deliberate — search
+  // entered after opening still overrides the collapsed default. Resetting
+  // to the Listening tab also unmounts `FavouritesPanel`, which discards
+  // its own local watch-form state — no second competing panel-shown
+  // listener is needed for that.
   //
   // `listen()` resolves asynchronously, so a `disposed` flag guards
   // against the effect's cleanup running (unmount, or a second run under
@@ -211,6 +254,7 @@ export default function App() {
     let unlisten: (() => void) | undefined;
     void import("@tauri-apps/api/event").then(async ({ listen }) => {
       const stop = await listen("panel-shown", () => {
+        setActiveTab("listening");
         setManuallyExpanded(false);
         setQuery("");
         setExpandedKey(null);
@@ -254,35 +298,137 @@ export default function App() {
     setManuallyExpanded((prev) => !prev);
   }
 
+  // F7 Slice 3: switching tabs clears query/detail-expansion/selection/
+  // confirmation — the same reset panel-shown performs, minus the tab
+  // itself (which is exactly what's changing).
+  function switchTab(next: Tab) {
+    if (next === activeTab) return;
+    setActiveTab(next);
+    setQuery("");
+    setExpandedKey(null);
+    nav.setSelectedKey(null);
+    confirm.disarm();
+  }
+
+  // Left/Right move and activate; Home/End jump to first/last. Stops
+  // propagation so these never fall through to list navigation.
+  function onTabKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    const idx = TABS.indexOf(activeTab);
+    let nextIdx: number | null = null;
+    if (e.key === "ArrowRight") nextIdx = (idx + 1) % TABS.length;
+    else if (e.key === "ArrowLeft") nextIdx = (idx - 1 + TABS.length) % TABS.length;
+    else if (e.key === "Home") nextIdx = 0;
+    else if (e.key === "End") nextIdx = TABS.length - 1;
+
+    if (nextIdx === null) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const next = TABS[nextIdx];
+    switchTab(next);
+    tabRefs.current[next]?.focus();
+  }
+
+  const favMatches = useMemo(
+    () => joinFavourites(favourites.items, data ?? []),
+    [favourites.items, data],
+  );
+  const favHealth = favouritesQueryHealth(data, error);
+
+  const footerText =
+    activeTab === "listening"
+      ? data
+        ? `${filtered.length} ports · ${groups.dev.length} dev · updated ${updatedSecondsAgo}s ago${error ? " (update failed)" : ""}`
+        : "loading…"
+      : favouritesFooterText(favourites.items.length, favMatches, favHealth);
+
   return (
     <main className={styles.panel}>
       <SearchInput ref={searchRef} value={query} onChange={setQuery} />
-      {error && !data ? (
-        <ErrorState message={String(error)} onRetry={() => void refetch()} />
-      ) : filtered.length > 0 ? (
-        <PortList
-          groups={groups}
-          secondaryOpen={secondaryOpen}
-          secondaryForcedOpen={forcedOpen}
-          selectedKey={nav.selectedKey}
-          expandedKey={expandedKey}
-          armedKey={confirm.armedTarget?.key ?? null}
-          onSelect={nav.setSelectedKey}
-          onToggleExpand={(k) => setExpandedKey((prev) => (prev === k ? null : k))}
-          onRequestKill={(entry) => requestKill(entry, "pointer")}
-          onDisarmKill={confirm.disarm}
-          onToggleSecondary={toggleSecondary}
-        />
-      ) : query.trim() !== "" ? (
-        <FilteredEmptyState query={query} onClear={() => setQuery("")} />
+      <div className={styles.tablist} role="tablist" aria-label="Ports" onKeyDown={onTabKeyDown}>
+        {TABS.map((tab) => (
+          <button
+            key={tab}
+            ref={(el) => {
+              tabRefs.current[tab] = el;
+            }}
+            type="button"
+            role="tab"
+            id={`tab-${tab}`}
+            aria-selected={activeTab === tab}
+            aria-controls={`panel-${tab}`}
+            tabIndex={activeTab === tab ? 0 : -1}
+            className={activeTab === tab ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+            onClick={() => switchTab(tab)}
+          >
+            {TAB_LABEL[tab]}
+            <span className={styles.tabCount}>
+              {tab === "listening" ? (data ? data.length : "–") : favourites.items.length}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "listening" ? (
+        <div
+          id="panel-listening"
+          role="tabpanel"
+          aria-labelledby="tab-listening"
+          className={styles.tabPanel}
+        >
+          {error && !data ? (
+            <ErrorState message={String(error)} onRetry={() => void refetch()} />
+          ) : filtered.length > 0 ? (
+            <PortList
+              groups={groups}
+              secondaryOpen={secondaryOpen}
+              secondaryForcedOpen={forcedOpen}
+              selectedKey={nav.selectedKey}
+              expandedKey={expandedKey}
+              armedKey={confirm.armedTarget?.key ?? null}
+              favouritePorts={favouritePorts}
+              onSelect={nav.setSelectedKey}
+              onToggleExpand={(k) => setExpandedKey((prev) => (prev === k ? null : k))}
+              onRequestKill={(entry) => requestKill(entry, "pointer")}
+              onDisarmKill={confirm.disarm}
+              onToggleSecondary={toggleSecondary}
+              onToggleWatch={toggleWatch}
+            />
+          ) : query.trim() !== "" ? (
+            <FilteredEmptyState query={query} onClear={() => setQuery("")} />
+          ) : (
+            <EmptyState />
+          )}
+        </div>
       ) : (
-        <EmptyState />
+        <div
+          id="panel-favourites"
+          role="tabpanel"
+          aria-labelledby="tab-favourites"
+          className={styles.tabPanel}
+        >
+          <FavouritesPanel
+            favourites={favourites.items}
+            favouritesError={favourites.error}
+            onClearFavouritesError={favourites.clearError}
+            add={favourites.add}
+            remove={favourites.remove}
+            data={data}
+            queryError={error}
+            query={query}
+            onClearQuery={() => setQuery("")}
+            onRetry={() => void refetch()}
+            selectedKey={nav.selectedKey}
+            expandedKey={expandedKey}
+            armedKey={confirm.armedTarget?.key ?? null}
+            onSelect={nav.setSelectedKey}
+            onToggleExpand={(k) => setExpandedKey((prev) => (prev === k ? null : k))}
+            onRequestKill={(entry) => requestKill(entry, "pointer")}
+            onDisarmKill={confirm.disarm}
+          />
+        </div>
       )}
-      <footer className={styles.footer}>
-        {data
-          ? `${filtered.length} ports · ${groups.dev.length} dev · updated ${updatedSecondsAgo}s ago${error ? " (update failed)" : ""}`
-          : "loading…"}
-      </footer>
+
+      <footer className={styles.footer}>{footerText}</footer>
       {toast && (
         <Toast
           toast={toast}

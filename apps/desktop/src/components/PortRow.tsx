@@ -15,6 +15,12 @@ interface Props {
   onToggleExpand: () => void;
   onRequestKill: () => void;
   onDisarm: () => void;
+  /** F7 Slice 3: whether this port is currently saved as a favourite.
+   * An undefined `onToggleWatch` hides the star entirely — used by
+   * contexts (e.g. Favourites' own listener rows) that don't offer a
+   * per-row watch action. */
+  watched?: boolean;
+  onToggleWatch?: () => void;
 }
 
 export function PortRow({
@@ -26,6 +32,8 @@ export function PortRow({
   onToggleExpand,
   onRequestKill,
   onDisarm,
+  watched,
+  onToggleWatch,
 }: Props) {
   const protectedCategory = entry.category !== "dev";
   const confirmLabel = entry.category === "system" ? "Kill system?" : "Kill app?";
@@ -53,6 +61,20 @@ export function PortRow({
           </span>
         </div>
         <span className={styles.uptime}>{formatUptime(entry.startedAt)}</span>
+        {onToggleWatch && (
+          <button
+            type="button"
+            className={watched ? styles.watchActive : styles.watch}
+            aria-label={watched ? `Port ${entry.port} is watched` : `Watch port ${entry.port}`}
+            aria-pressed={watched ?? false}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleWatch();
+            }}
+          >
+            <Icon name="star" />
+          </button>
+        )}
         {entry.killable ? (
           <button
             type="button"

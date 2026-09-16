@@ -44,6 +44,7 @@ function expandSecondary() {
 describe("App", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    window.localStorage.clear();
   });
 
   it("renders dev rows, with Apps & System collapsed by default", async () => {
@@ -324,5 +325,66 @@ describe("App", () => {
     killShortcut();
     expect(killSpy).not.toHaveBeenCalled();
     expect(screen.queryByLabelText(/Kill cupsd/)).toBeNull();
+  });
+
+  // F7 Slice 3: tabs, watch/remove wiring. Exhaustive composed regression
+  // (12-case suite) is F7 Slice 5's job — these are basic wiring checks.
+  describe("Favourites tab", () => {
+    it("defaults to Listening and switches tabs by click, resetting query on switch", async () => {
+      renderApp();
+      await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+      expect(screen.getByRole("tab", { name: /listening/i }).getAttribute("aria-selected")).toBe(
+        "true",
+      );
+
+      fireEvent.change(screen.getByLabelText(/search/i), { target: { value: "next" } });
+      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+
+      expect(screen.getByRole("tab", { name: /favourites/i }).getAttribute("aria-selected")).toBe(
+        "true",
+      );
+      expect(screen.getByText("No watched ports yet")).toBeTruthy();
+      expect((screen.getByLabelText(/search/i) as HTMLInputElement).value).toBe("");
+    });
+
+    it("watching a Listening row surfaces it under Favourites", async () => {
+      renderApp();
+      await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+
+      fireEvent.click(screen.getByRole("button", { name: "Watch port 3000" }));
+      expect(screen.getByRole("button", { name: "Port 3000 is watched" })).toBeTruthy();
+
+      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+      expect(screen.getByText("in use")).toBeTruthy();
+      expect(screen.getByText("Next.js dev")).toBeTruthy();
+    });
+
+    it("Left/Right arrow keys move and activate tabs without touching list navigation", async () => {
+      renderApp();
+      await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+
+      const listeningTab = screen.getByRole("tab", { name: /listening/i });
+      listeningTab.focus();
+      fireEvent.keyDown(listeningTab, { key: "ArrowRight" });
+
+      expect(screen.getByRole("tab", { name: /favourites/i }).getAttribute("aria-selected")).toBe(
+        "true",
+      );
+      // The row list must not have reacted to this arrow key.
+      expect(screen.getByText("No watched ports yet")).toBeTruthy();
+    });
+
+    it("removing a watch from Favourites never calls killPort", async () => {
+      const killSpy = vi.spyOn(portsModule, "killPort");
+      renderApp();
+      await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+
+      fireEvent.click(screen.getByRole("button", { name: "Watch port 3000" }));
+      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+      fireEvent.click(screen.getByRole("button", { name: "Remove watched port 3000" }));
+
+      expect(screen.getByText("No watched ports yet")).toBeTruthy();
+      expect(killSpy).not.toHaveBeenCalled();
+    });
   });
 });

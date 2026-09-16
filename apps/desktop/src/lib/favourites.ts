@@ -1,4 +1,5 @@
 import type { PortEntry } from "./types";
+import { portMatchesLiveFields } from "./filter";
 
 /** F7 Slice 1: a favourite is a saved port number, not a process, address,
  * reservation or background monitor. It survives restarts via localStorage;
@@ -137,4 +138,68 @@ export function joinFavourites(items: FavouritePort[], entries: PortEntry[]): Fa
     favourite,
     listeners: byPort.get(favourite.port) ?? [],
   }));
+}
+
+/**
+ * F7 Slice 3: Favourites-tab search. Matches the saved port's numeric
+ * prefix, the saved name, or any listener's live fields (the same haystack
+ * `filterPorts` searches). A match on *any part* of a watch keeps the whole
+ * watch — heading plus every listener row — so other processes sharing the
+ * port are never silently hidden by a partial match.
+ */
+export function filterFavouriteMatches(matches: FavouriteMatch[], query: string): FavouriteMatch[] {
+  const q = query.trim().toLowerCase();
+  if (q === "") return matches;
+
+  const isNumeric = /^\d+$/.test(q);
+  return matches.filter(({ favourite, listeners }) => {
+    if (isNumeric && String(favourite.port).startsWith(q)) return true;
+    if (favourite.name && favourite.name.toLowerCase().includes(q)) return true;
+    return listeners.some((entry) => portMatchesLiveFields(entry, q));
+  });
+}
+
+/**
+ * F7 Slice 2/3: query-health classification shared by `App` (footer text)
+ * and `FavouritesPanel` (per-watch presentation). `data === undefined`
+ * means no successful snapshot has landed yet; TanStack Query keeps the
+ * last successful `data` around across a background refetch error, which
+ * is what distinguishes "stale" (retained data + error) from "unavailable"
+ * (no data ever, plus error).
+ */
+export type FavouritesQueryHealth = "checking" | "unavailable" | "fresh" | "stale";
+
+export function favouritesQueryHealth(
+  data: PortEntry[] | undefined,
+  queryError: unknown,
+): FavouritesQueryHealth {
+  if (data === undefined) return queryError ? "unavailable" : "checking";
+  return queryError ? "stale" : "fresh";
+}
+
+/** Footer text: `N watched · M in use`, where `M` counts favourites with at
+ * least one listener (never a PID sum), covering *all* favourites, not
+ * just search matches. Honest about query health: no fabricated counts
+ * before the first successful snapshot, and a `· update failed` suffix on
+ * stale (retained) counts. */
+export function favouritesFooterText(
+  favouritesCount: number,
+  matches: FavouriteMatch[],
+  health: FavouritesQueryHealth,
+): string {
+  const watchedCount = `${favouritesCount} watched`;
+  switch (health) {
+    case "checking":
+      return `${watchedCount} · checking…`;
+    case "unavailable":
+      return `${watchedCount} · status unavailable`;
+    case "stale": {
+      const inUse = matches.filter((m) => m.listeners.length > 0).length;
+      return `${watchedCount} · ${inUse} in use · update failed`;
+    }
+    case "fresh": {
+      const inUse = matches.filter((m) => m.listeners.length > 0).length;
+      return `${watchedCount} · ${inUse} in use`;
+    }
+  }
 }
