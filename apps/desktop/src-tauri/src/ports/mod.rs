@@ -2,6 +2,7 @@
 //! source (listeners crate), label (rules), project (cwd walk),
 //! enrich (sysinfo), kill (guards + signals).
 
+pub mod classify;
 pub mod enrich;
 pub mod kill;
 pub mod label;

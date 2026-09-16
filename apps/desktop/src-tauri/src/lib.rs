@@ -42,10 +42,11 @@ pub fn run() {
             if let Some(icon) = app.default_window_icon() {
                 tray = tray.icon(icon.clone());
             } else {
-                log::warn!("no default window icon available; tray icon will use the OS placeholder");
+                log::warn!(
+                    "no default window icon available; tray icon will use the OS placeholder"
+                );
             }
-            tray
-                .menu(&tray_menu)
+            tray.menu(&tray_menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| {
                     if event.id.as_ref() == "quit" {
@@ -81,7 +82,9 @@ pub fn run() {
                     })
                     .build();
                 if let Err(e) = app.handle().plugin(shortcut_plugin) {
-                    log::error!("global shortcut alt+cmd+p unavailable: {e}; use the tray icon instead");
+                    log::error!(
+                        "global shortcut alt+cmd+p unavailable: {e}; use the tray icon instead"
+                    );
                 }
             }
 

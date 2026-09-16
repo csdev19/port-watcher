@@ -1,5 +1,7 @@
 use serde::Serialize;
 
+use super::classify::PortCategory;
+
 /// One listening port, fully enriched. Field names cross IPC as camelCase —
 /// the renderer's `PortEntry` type mirrors this struct verbatim.
 #[derive(Debug, Clone, Serialize)]
@@ -17,6 +19,12 @@ pub struct PortEntry {
     pub started_at: u64,
     pub memory_bytes: u64,
     pub killable: bool,
+    /// UX grouping heuristic, not a backend permission boundary.
+    pub category: PortCategory,
+    /// Full executable path when sysinfo can resolve it.
+    pub executable_path: Option<String>,
+    /// Full path through the outermost `.app` bundle component, if any.
+    pub app_bundle_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -46,12 +54,45 @@ mod tests {
             started_at: 1_757_000_000,
             memory_bytes: 123_456,
             killable: true,
+            category: PortCategory::Dev,
+            executable_path: Some("/opt/homebrew/bin/node".into()),
+            app_bundle_path: None,
         };
         let json = serde_json::to_value(&entry).unwrap();
         assert_eq!(json["processName"], "node");
         assert_eq!(json["startedAt"], 1_757_000_000_u64);
         assert_eq!(json["memoryBytes"], 123_456);
+        assert_eq!(json["category"], "dev");
+        assert_eq!(json["executablePath"], "/opt/homebrew/bin/node");
+        assert_eq!(json["appBundlePath"], serde_json::Value::Null);
         assert!(json.get("process_name").is_none());
+    }
+
+    #[test]
+    fn port_entry_serializes_null_paths_not_omitted_fields() {
+        let entry = PortEntry {
+            port: 7000,
+            pid: 88,
+            process_name: "ControlCenter".into(),
+            command: "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter"
+                .into(),
+            cwd: None,
+            project: None,
+            label: "ControlCenter".into(),
+            user: Some("root".into()),
+            started_at: 1_757_000_000,
+            memory_bytes: 30_000_000,
+            killable: false,
+            category: PortCategory::System,
+            executable_path: None,
+            app_bundle_path: None,
+        };
+        let json = serde_json::to_value(&entry).unwrap();
+        assert_eq!(json["category"], "system");
+        assert!(json.as_object().unwrap().contains_key("executablePath"));
+        assert!(json.as_object().unwrap().contains_key("appBundlePath"));
+        assert_eq!(json["executablePath"], serde_json::Value::Null);
+        assert_eq!(json["appBundlePath"], serde_json::Value::Null);
     }
 
     #[test]

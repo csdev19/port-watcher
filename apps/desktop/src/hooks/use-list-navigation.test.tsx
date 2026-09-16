@@ -20,6 +20,9 @@ const fakeEntries = (n: number): PortEntry[] =>
     startedAt: 0,
     memoryBytes: 0,
     killable: true,
+    category: "dev",
+    executablePath: null,
+    appBundlePath: null,
   }));
 
 const keyOf = (e: PortEntry) => `${e.pid}:${e.port}`;
