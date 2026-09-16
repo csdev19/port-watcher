@@ -101,11 +101,60 @@
 
 .list {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  border-top: 1px solid var(--pw-line);
+}
+
+.section + .section {
+  border-top: 1px solid var(--pw-line);
+}
+
+.sectionHeading {
+  margin: 0;
+  padding: 8px 12px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--pw-muted-2);
+}
+
+.rowList {
   margin: 0;
   padding: 0;
   list-style: none;
-  border-top: 1px solid var(--pw-line);
+}
+
+.disclosure {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--pw-muted-2);
+  cursor: pointer;
+  padding: 8px 12px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.disclosure:disabled {
+  cursor: default;
+}
+.disclosure[aria-expanded="true"] svg {
+  transform: rotate(90deg);
+}
+.disclosure svg {
+  transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.disclosureLabel {
+  color: inherit;
+}
+
+.portMuted {
+  color: var(--pw-muted);
 }
 
 .row {

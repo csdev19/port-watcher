@@ -39,11 +39,17 @@ export function PortRow({
       aria-selected={selected}
     >
       <div className={styles.rowMain}>
-        <span className={styles.port}>{entry.port}</span>
+        <span className={protectedCategory ? `${styles.port} ${styles.portMuted}` : styles.port}>
+          {entry.port}
+        </span>
         <div className={styles.rowCenter}>
           <span className={styles.label}>{entry.label}</span>
           <span className={styles.meta}>
-            {entry.cwd ? middleTruncate(entry.cwd, 34) : (entry.project ?? entry.processName)}
+            {protectedCategory
+              ? middleTruncate(entry.appBundlePath ?? entry.executablePath ?? entry.processName, 34)
+              : entry.cwd
+                ? middleTruncate(entry.cwd, 34)
+                : (entry.project ?? entry.processName)}
           </span>
         </div>
         <span className={styles.uptime}>{formatUptime(entry.startedAt)}</span>

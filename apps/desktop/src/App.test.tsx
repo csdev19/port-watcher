@@ -34,18 +34,107 @@ function hoverRow(port: number) {
   fireEvent.mouseEnter(li);
 }
 
+/** MOCK_PORTS' dev rows (3000, 5173, 5432, 8787) render by default; the
+ * secondary group (7000 system/killable, 631 system/locked) starts
+ * collapsed behind the Apps & System disclosure. */
+function expandSecondary() {
+  fireEvent.click(screen.getByRole("button", { name: /apps & system/i }));
+}
+
 describe("App", () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("renders all mock ports once the initial fetch resolves", async () => {
+  it("renders dev rows, with Apps & System collapsed by default", async () => {
     renderApp();
     await waitFor(() => {
-      for (const entry of MOCK_PORTS) {
+      for (const entry of MOCK_PORTS.filter((e) => e.category === "dev")) {
         expect(screen.getByText(String(entry.port))).toBeTruthy();
       }
     });
+    expect(screen.queryByText("7000")).toBeNull();
+    expect(screen.queryByText("631")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: /apps & system · 2/i }).getAttribute("aria-expanded"),
+    ).toBe("false");
+  });
+
+  it("expands Apps & System manually and can collapse it again", async () => {
+    renderApp();
+    await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+
+    expandSecondary();
+    expect(screen.getByText("7000")).toBeTruthy();
+    expect(screen.getByText("631")).toBeTruthy();
+
+    expandSecondary();
+    expect(screen.queryByText("7000")).toBeNull();
+  });
+
+  it("a hidden secondary row cannot be reached or killed by keyboard", async () => {
+    const killSpy = vi.spyOn(portsModule, "killPort");
+    renderApp();
+    await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+
+    // Arrow-down four times walks past every dev row; a fifth press must
+    // not spill into the collapsed secondary group.
+    for (let i = 0; i < 6; i++) {
+      fireEvent.keyDown(window, { key: "ArrowDown" });
+    }
+    killShortcut();
+    expect(killSpy).not.toHaveBeenCalledWith(expect.objectContaining({ port: 7000 }));
+  });
+
+  it("a nonempty search with only secondary matches forces the section open and disables collapsing", async () => {
+    renderApp();
+    await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+
+    const search = screen.getByLabelText("Search port, app or folder");
+    fireEvent.change(search, { target: { value: "control" } });
+
+    expect(screen.getByText("7000")).toBeTruthy();
+    const disclosure = screen.getByRole("button", { name: /expanded for search results/i });
+    expect(disclosure.getAttribute("aria-expanded")).toBe("true");
+    expect((disclosure as HTMLButtonElement).disabled).toBe(true);
+
+    // Clearing the query restores the manual (collapsed) default.
+    fireEvent.change(search, { target: { value: "" } });
+    await waitFor(() => expect(screen.queryByText("7000")).toBeNull());
+  });
+
+  it("clearing search after manual expansion keeps it expanded", async () => {
+    renderApp();
+    await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+    expandSecondary();
+    expect(screen.getByText("7000")).toBeTruthy();
+
+    const search = screen.getByLabelText("Search port, app or folder");
+    fireEvent.change(search, { target: { value: "zzz-nothing" } });
+    fireEvent.change(search, { target: { value: "" } });
+
+    await waitFor(() => expect(screen.getByText("7000")).toBeTruthy());
+  });
+
+  it("footer counts filtered listener rows and dev rows, not only expanded ones", async () => {
+    renderApp();
+    await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+    expect(screen.getByText(/6 ports · 4 dev/)).toBeTruthy();
+
+    const search = screen.getByLabelText("Search port, app or folder");
+    fireEvent.change(search, { target: { value: "control" } });
+    expect(screen.getByText(/1 ports · 0 dev/)).toBeTruthy();
+  });
+
+  it("only-secondary search results are shown, not the empty state", async () => {
+    renderApp();
+    await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+
+    const search = screen.getByLabelText("Search port, app or folder");
+    fireEvent.change(search, { target: { value: "cupsd" } });
+
+    expect(screen.getByText("631")).toBeTruthy();
+    expect(screen.queryByText("No port matches cupsd")).toBeNull();
   });
 
   it("narrows the list when searching", async () => {
@@ -90,7 +179,7 @@ describe("App", () => {
     fireEvent.click(screen.getByText("Clear search"));
 
     await waitFor(() => {
-      for (const entry of MOCK_PORTS) {
+      for (const entry of MOCK_PORTS.filter((e) => e.category === "dev")) {
         expect(screen.getByText(String(entry.port))).toBeTruthy();
       }
     });
@@ -114,7 +203,8 @@ describe("App", () => {
   it("⌘⌫ on a protected (system) row requires a second shortcut within the window", async () => {
     const killSpy = vi.spyOn(portsModule, "killPort");
     renderApp();
-    await waitFor(() => expect(screen.getByText("7000")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+    expandSecondary();
     hoverRow(7000);
 
     killShortcut();
@@ -128,7 +218,8 @@ describe("App", () => {
   it("a held ⌘⌫ (repeated keydown) never arms then confirms itself", async () => {
     const killSpy = vi.spyOn(portsModule, "killPort");
     renderApp();
-    await waitFor(() => expect(screen.getByText("7000")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+    expandSecondary();
     hoverRow(7000);
 
     killShortcut();
@@ -143,7 +234,8 @@ describe("App", () => {
   it("changing the selected row cancels an armed keyboard confirmation", async () => {
     const killSpy = vi.spyOn(portsModule, "killPort");
     renderApp();
-    await waitFor(() => expect(screen.getByText("7000")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+    expandSecondary();
 
     hoverRow(7000);
     killShortcut();
@@ -166,7 +258,8 @@ describe("App", () => {
   it("a locked row never calls killPort, pointer or keyboard", async () => {
     const killSpy = vi.spyOn(portsModule, "killPort");
     renderApp();
-    await waitFor(() => expect(screen.getByText("631")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+    expandSecondary();
     hoverRow(631);
 
     killShortcut();
