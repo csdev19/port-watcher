@@ -20,7 +20,6 @@ export function PortRow({ entry, selected, expanded, onSelect, onToggleExpand, o
       className={selected ? `${styles.row} ${styles.rowSelected}` : styles.row}
       onMouseEnter={onSelect}
       onClick={onToggleExpand}
-      title={entry.command}
       role="option"
       aria-selected={selected}
     >
@@ -47,7 +46,11 @@ export function PortRow({ entry, selected, expanded, onSelect, onToggleExpand, o
             {confirm.armed ? "Kill?" : "✕"}
           </button>
         ) : (
-          <span className={styles.lock} title="Belongs to another user">
+          <span
+            className={styles.lock}
+            data-tooltip="Belongs to another user"
+            aria-label="Belongs to another user"
+          >
             🔒
           </span>
         )}
