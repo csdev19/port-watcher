@@ -1,6 +1,7 @@
 import type { PortEntry } from "@/lib/types";
 import { formatMemory, formatUptime, middleTruncate } from "@/lib/format";
 import { useKillConfirm } from "@/hooks/use-kill-confirm";
+import { Icon } from "@/components/Icon";
 import styles from "@/app.module.css";
 
 interface Props {
@@ -43,7 +44,7 @@ export function PortRow({ entry, selected, expanded, onSelect, onToggleExpand, o
             }}
             onMouseLeave={confirm.disarm}
           >
-            {confirm.armed ? "Kill?" : "✕"}
+            {confirm.armed ? "Kill?" : <Icon name="x" />}
           </button>
         ) : (
           <span
@@ -51,7 +52,7 @@ export function PortRow({ entry, selected, expanded, onSelect, onToggleExpand, o
             data-tooltip="Belongs to another user"
             aria-label="Belongs to another user"
           >
-            🔒
+            <Icon name="lock" />
           </span>
         )}
       </div>
