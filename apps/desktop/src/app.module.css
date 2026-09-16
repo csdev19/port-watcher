@@ -281,6 +281,19 @@
   font-size: 11px;
   padding: 4px 8px;
 }
+/* F7 Slice 4: a stale Favourites snapshot disables the kill control —
+ * real `disabled`, not just a swallowed click — so it never reads as
+ * actionable while liveness is out of date. */
+.killDisabled {
+  border: none;
+  background: transparent;
+  color: var(--pw-muted-2);
+  opacity: 0.4;
+  cursor: not-allowed;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
 .lock {
   position: relative;
   color: var(--pw-muted-2);

@@ -199,14 +199,10 @@ export function FavouritesPanel({
                           selected={k === selectedKey}
                           expanded={expandedKey === k}
                           armed={armedKey === k}
+                          killDisabled={stale}
                           onSelect={() => onSelect(k)}
                           onToggleExpand={() => onToggleExpand(k)}
-                          onRequestKill={() => {
-                            // Slice 3: a coarse stale guard. Full disabled
-                            // styling/identity-based nav for stale rows is
-                            // F7 Slice 4's job.
-                            if (!stale) onRequestKill(entry);
-                          }}
+                          onRequestKill={() => onRequestKill(entry)}
                           onDisarm={onDisarmKill}
                         />
                       );

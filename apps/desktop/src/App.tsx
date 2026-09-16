@@ -6,7 +6,12 @@ import { useKillConfirm } from "@/hooks/use-kill-confirm";
 import { useFavourites } from "@/hooks/use-favourites";
 import { filterPorts } from "@/lib/filter";
 import { partitionPorts } from "@/lib/port-groups";
-import { favouritesFooterText, favouritesQueryHealth, joinFavourites } from "@/lib/favourites";
+import {
+  favouritesFooterText,
+  favouritesQueryHealth,
+  filterFavouriteMatches,
+  joinFavourites,
+} from "@/lib/favourites";
 import { inTauri, killPort } from "@/lib/ports";
 import { portKey, type PortEntry } from "@/lib/types";
 import { PortList } from "@/components/PortList";
@@ -63,13 +68,47 @@ export default function App() {
   const secondaryOpen = manuallyExpanded || forcedOpen;
   // Only the rows actually on screen are keyboard-reachable — a row
   // hidden behind a collapsed disclosure can never be selected or killed.
-  // F7 Slice 4 will extend this to Favourites' visible listener rows;
-  // for now this array only ever holds Listening rows.
   const visibleEntries = useMemo(
     () => (secondaryOpen ? [...groups.dev, ...groups.secondary] : groups.dev),
     [groups, secondaryOpen],
   );
-  const nav = useListNavigation(visibleEntries);
+
+  // F7 Slice 2/4: the same join/health helpers Favourites renders from,
+  // lifted here so the shared navigation/kill plumbing below can see them
+  // too. `favVisibleMatches` mirrors exactly what `FavouritesPanel` puts
+  // on screen (search-filtered, saved order) — never the raw, unfiltered
+  // `favMatches` used for footer/tab-count totals.
+  const favMatches = useMemo(
+    () => joinFavourites(favourites.items, data ?? []),
+    [favourites.items, data],
+  );
+  const favHealth = favouritesQueryHealth(data, error);
+  const favVisibleMatches = useMemo(
+    () => filterFavouriteMatches(favMatches, query),
+    [favMatches, query],
+  );
+  // F7 Slice 4: flatten only the *currently visible* watches' listener
+  // arrays, in render order (saved order, then each watch's listeners in
+  // snapshot order) — free/unknown watches (`listeners: []`) contribute
+  // nothing here, so they can never become a keyboard-selectable or
+  // killable target; only real listener rows are navigable.
+  const favVisibleEntries = useMemo(
+    () => favVisibleMatches.flatMap((m) => m.listeners),
+    [favVisibleMatches],
+  );
+  // Kill actions are disabled while the snapshot backing Favourites is
+  // stale (a background refetch failed and we're showing retained data)
+  // — keyboard ⌘⌫ must respect the same guard as the row's disabled
+  // kill button.
+  const favKillDisabled = favHealth === "stale";
+
+  // F7 Slice 4: the active tab decides which live entries are
+  // keyboard-navigable/killable — Listening's grouped rows, or
+  // Favourites' currently visible listener rows. Both route through the
+  // same identity-based `useListNavigation`/`useKillConfirm` plumbing;
+  // neither tab gets a parallel implementation.
+  const activeEntries = activeTab === "favourites" ? favVisibleEntries : visibleEntries;
+  const nav = useListNavigation(activeEntries);
 
   // The global keydown listener below is registered once (empty deps) so
   // it isn't re-attached on every render; it reads `entries`/selectedKey
@@ -77,8 +116,16 @@ export default function App() {
   // this, a keydown that lands in the same tick as a selection update
   // (e.g. the default-selection effect that fires right after the first
   // fetch resolves) could still be handled by a stale listener closure.
-  const latest = useRef({ entries: visibleEntries, selectedKey: nav.selectedKey });
-  latest.current = { entries: visibleEntries, selectedKey: nav.selectedKey };
+  const latest = useRef({
+    entries: activeEntries,
+    selectedKey: nav.selectedKey,
+    killDisabled: activeTab === "favourites" && favKillDisabled,
+  });
+  latest.current = {
+    entries: activeEntries,
+    selectedKey: nav.selectedKey,
+    killDisabled: activeTab === "favourites" && favKillDisabled,
+  };
 
   // `useListNavigation` is called fresh every render, so `nav.onKeyDown`
   // is a *new* closure each time (it closes over that render's `entries`
@@ -181,12 +228,12 @@ export default function App() {
       }
 
       const action = navRef.current.onKeyDown(e);
-      const { entries: currentEntries, selectedKey } = latest.current;
+      const { entries: currentEntries, selectedKey, killDisabled } = latest.current;
       const current = currentEntries.find((entry) => portKey(entry) === selectedKey);
       if (action === "expand" && current) {
         const k = portKey(current);
         setExpandedKey((prev) => (prev === k ? null : k));
-      } else if (action === "kill" && current) {
+      } else if (action === "kill" && current && !killDisabled) {
         requestKill(current, "keyboard");
       } else if (action === "close") {
         void hidePanel();
@@ -204,18 +251,19 @@ export default function App() {
   useEffect(() => {
     const armedTarget = confirm.armedTarget;
     if (!armedTarget) return;
-    const current = visibleEntries.find((e) => portKey(e) === armedTarget.key);
+    const current = activeEntries.find((e) => portKey(e) === armedTarget.key);
     if (
       !current ||
       current.startedAt !== armedTarget.startedAt ||
       !current.killable ||
       current.category !== armedTarget.category ||
-      portKey(current) !== nav.selectedKey
+      portKey(current) !== nav.selectedKey ||
+      (activeTab === "favourites" && favKillDisabled)
     ) {
       confirm.disarm();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visibleEntries, nav.selectedKey, confirm.armedTarget]);
+  }, [activeEntries, nav.selectedKey, confirm.armedTarget, activeTab, favKillDisabled]);
 
   // A query change disarms any pending confirmation — the armed row may
   // no longer even be visible.
@@ -327,12 +375,6 @@ export default function App() {
     switchTab(next);
     tabRefs.current[next]?.focus();
   }
-
-  const favMatches = useMemo(
-    () => joinFavourites(favourites.items, data ?? []),
-    [favourites.items, data],
-  );
-  const favHealth = favouritesQueryHealth(data, error);
 
   const footerText =
     activeTab === "listening"

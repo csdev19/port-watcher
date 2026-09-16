@@ -10,8 +10,10 @@ import * as portsModule from "@/lib/ports";
  * of the `inTauri` split. This test covers the composed flow that no
  * individual component test exercises: data load, search, kill confirm,
  * and clearing a filtered-empty state. */
-function renderApp() {
-  const client = new QueryClient();
+function renderApp(options?: { retry?: boolean }) {
+  const client = new QueryClient(
+    options?.retry === false ? { defaultOptions: { queries: { retry: false } } } : undefined,
+  );
   return render(
     <QueryClientProvider client={client}>
       <App />
@@ -31,6 +33,14 @@ function repeatedKillShortcut() {
  * directly on the `<li>` to move selection, the same way App.tsx does. */
 function hoverRow(port: number) {
   const li = screen.getByText(String(port)).closest("li")!;
+  fireEvent.mouseEnter(li);
+}
+
+/** Favourites' watch heading also renders the port number as text, so a
+ * plain `getByText(port)` lookup is ambiguous there — resolve the row via
+ * its kill button's (stale or not) accessible label instead. */
+function hoverFavouriteRow(port: number) {
+  const li = screen.getByLabelText(new RegExp(`^(Kill|Cannot kill).*port ${port}`)).closest("li")!;
   fireEvent.mouseEnter(li);
 }
 
@@ -385,6 +395,146 @@ describe("App", () => {
 
       expect(screen.getByText("No watched ports yet")).toBeTruthy();
       expect(killSpy).not.toHaveBeenCalled();
+    });
+
+    // F7 Slice 4: keyboard navigation/kill wired into Favourites, routed
+    // through the same identity-based nav/confirm plumbing as Listening.
+    it("arrow-down and ⌘⌫ operate on Favourites' listener rows once that tab is active", async () => {
+      const killSpy = vi.spyOn(portsModule, "killPort");
+      renderApp();
+      await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+
+      fireEvent.click(screen.getByRole("button", { name: "Watch port 3000" }));
+      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+      await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
+
+      // Port 3000 (dev, killable) is the only listener row on screen; the
+      // shared nav auto-selects it, and ⌘⌫ on a dev row kills immediately.
+      killShortcut();
+      expect(killSpy).toHaveBeenCalledTimes(1);
+      expect(killSpy).toHaveBeenCalledWith(expect.objectContaining({ port: 3000 }));
+    });
+
+    it("a free/unknown watch (nothing listening) is never a keyboard nav target or kill target", async () => {
+      const killSpy = vi.spyOn(portsModule, "killPort");
+      renderApp();
+      await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+
+      // Watch a port nothing is listening on (not in MOCK_PORTS).
+      fireEvent.click(screen.getByRole("button", { name: /watch a port/i }));
+      fireEvent.change(screen.getByLabelText("Port"), { target: { value: "9999" } });
+      fireEvent.submit(screen.getByLabelText("Port").closest("form")!);
+
+      await waitFor(() => expect(screen.getByText("nothing listening")).toBeTruthy());
+      // No synthetic PortRow was rendered for the free watch — its heading
+      // has no accessible "Kill ... on port 9999" control.
+      expect(screen.queryByLabelText(/on port 9999/)).toBeNull();
+
+      // Nothing is navigable/killable: arrow keys and ⌘⌫ are both no-ops.
+      fireEvent.keyDown(window, { key: "ArrowDown" });
+      killShortcut();
+      expect(killSpy).not.toHaveBeenCalled();
+    });
+
+    it("switching tabs disarms a pending keyboard confirmation", async () => {
+      const killSpy = vi.spyOn(portsModule, "killPort");
+      renderApp();
+      await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+
+      // Watch the protected (system, two-step-confirm) port 7000.
+      expandSecondary();
+      fireEvent.click(screen.getByRole("button", { name: "Watch port 7000" }));
+      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+      await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
+
+      hoverFavouriteRow(7000);
+      killShortcut();
+      expect(killSpy).not.toHaveBeenCalled();
+
+      // Leaving and returning to the tab must not resurrect the arm.
+      fireEvent.click(screen.getByRole("tab", { name: /listening/i }));
+      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+      await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
+
+      hoverFavouriteRow(7000);
+      killShortcut();
+      expect(killSpy).not.toHaveBeenCalled();
+
+      killShortcut();
+      expect(killSpy).toHaveBeenCalledTimes(1);
+      expect(killSpy).toHaveBeenCalledWith(expect.objectContaining({ port: 7000 }));
+    });
+
+    it("a stale snapshot disables the kill control (native disabled), pointer and keyboard", async () => {
+      const killSpy = vi.spyOn(portsModule, "killPort");
+      const listSpy = vi.spyOn(portsModule, "listPorts");
+      renderApp({ retry: false });
+      await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+
+      fireEvent.click(screen.getByRole("button", { name: "Watch port 3000" }));
+      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+      await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
+
+      // Next poll fails: TanStack Query retains the last successful data
+      // alongside the error, which `favouritesQueryHealth` reports as
+      // "stale".
+      listSpy.mockRejectedValueOnce(new Error("boom"));
+      await waitFor(() => expect(screen.getByText(/in use · stale/)).toBeTruthy(), {
+        timeout: 3000,
+      });
+
+      const killBtn = screen.getByLabelText(/Cannot kill .* on port 3000/);
+      expect((killBtn as HTMLButtonElement).disabled).toBe(true);
+      fireEvent.click(killBtn);
+      expect(killSpy).not.toHaveBeenCalled();
+
+      hoverFavouriteRow(3000);
+      killShortcut();
+      expect(killSpy).not.toHaveBeenCalled();
+    }, 8000);
+
+    // Global Enter must never hijack native button activation — Remove and
+    // the row watch-toggle star both handle their own Enter via the
+    // browser's default button-activation behavior. These assert the
+    // global handler (a) does not call `preventDefault` on such an Enter,
+    // and (b) does not itself expand/arm anything for it, then simulate
+    // the native click a real browser would fire.
+    it("Tab to a Remove button, Enter does not expand/arm anything and removes on activation", async () => {
+      const killSpy = vi.spyOn(portsModule, "killPort");
+      renderApp();
+      await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+
+      fireEvent.click(screen.getByRole("button", { name: "Watch port 3000" }));
+      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+      await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
+
+      const removeBtn = screen.getByRole("button", { name: "Remove watched port 3000" });
+      removeBtn.focus();
+      const notPrevented = fireEvent.keyDown(removeBtn, { key: "Enter" });
+      expect(notPrevented).toBe(true);
+      expect(killSpy).not.toHaveBeenCalled();
+      expect(screen.getByText("in use")).toBeTruthy();
+
+      // Simulate the browser's own Enter-on-button activation.
+      fireEvent.click(removeBtn);
+      expect(screen.getByText("No watched ports yet")).toBeTruthy();
+    });
+
+    it("Tab to a row's watch-toggle star, Enter does not expand/arm anything and toggles on activation", async () => {
+      renderApp();
+      await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+
+      const star = screen.getByRole("button", { name: "Watch port 3000" });
+      star.focus();
+      const notPrevented = fireEvent.keyDown(star, { key: "Enter" });
+      expect(notPrevented).toBe(true);
+      // Global Enter must not have expanded the row's detail panel.
+      expect(screen.queryByText("PID")).toBeNull();
+      expect(screen.getByRole("button", { name: "Watch port 3000" })).toBeTruthy();
+
+      fireEvent.click(star);
+      expect(screen.getByRole("button", { name: "Port 3000 is watched" })).toBeTruthy();
     });
   });
 });
