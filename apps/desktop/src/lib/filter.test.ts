@@ -34,4 +34,21 @@ describe("filterPorts", () => {
   it("no match returns empty", () => {
     expect(filterPorts(MOCK_PORTS, "zzz-nothing")).toEqual([]);
   });
+
+  it("matches the app bundle path (finds a collapsed secondary row)", () => {
+    expect(filterPorts(MOCK_PORTS, "controlcenter.app").map((p) => p.port)).toEqual([7000]);
+  });
+
+  it("matches the executable path", () => {
+    expect(filterPorts(MOCK_PORTS, "/usr/sbin/cupsd").map((p) => p.port)).toEqual([631]);
+  });
+
+  it("does not throw when executablePath/appBundlePath are null", () => {
+    expect(() => filterPorts(MOCK_PORTS, "node")).not.toThrow();
+    expect(
+      filterPorts(MOCK_PORTS, "node")
+        .map((p) => p.port)
+        .sort(),
+    ).toEqual([3000, 5173]);
+  });
 });

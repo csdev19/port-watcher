@@ -1,3 +1,7 @@
+/** Mirror of Rust `PortCategory`. UX grouping heuristic, not a backend
+ * permission boundary — kill guards live entirely in Rust. */
+export type PortCategory = "dev" | "app" | "system";
+
 /** Mirror of Rust `PortEntry` (serde camelCase). Do not add fields here
  * without adding them in src-tauri/src/ports/models.rs first. */
 export interface PortEntry {
@@ -13,6 +17,11 @@ export interface PortEntry {
   startedAt: number;
   memoryBytes: number;
   killable: boolean;
+  category: PortCategory;
+  /** Full executable path when available. */
+  executablePath: string | null;
+  /** Full path through the outermost `.app` component, when available. */
+  appBundlePath: string | null;
 }
 
 /** Mirror of Rust `KillResult`. */

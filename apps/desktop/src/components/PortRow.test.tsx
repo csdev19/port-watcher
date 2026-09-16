@@ -12,9 +12,11 @@ describe("PortRow", () => {
         entry={MOCK_PORTS[0]}
         selected={false}
         expanded={false}
+        armed={false}
         onSelect={noop}
         onToggleExpand={noop}
-        onKill={noop}
+        onRequestKill={noop}
+        onDisarm={noop}
       />,
     );
     expect(screen.getByText("3000")).toBeTruthy();
@@ -22,24 +24,76 @@ describe("PortRow", () => {
     expect(screen.getByText(/tapuy/)).toBeTruthy();
   });
 
-  it("kill needs two clicks: arm then confirm", () => {
-    const onKill = vi.fn();
+  it("is a controlled row: clicking kill requests, it does not arm itself", () => {
+    const onRequestKill = vi.fn();
     render(
       <PortRow
         entry={MOCK_PORTS[0]}
         selected={true}
         expanded={false}
+        armed={false}
         onSelect={noop}
         onToggleExpand={noop}
-        onKill={onKill}
+        onRequestKill={onRequestKill}
+        onDisarm={noop}
       />,
     );
     const btn = screen.getByRole("button", { name: /kill/i });
     fireEvent.click(btn);
-    expect(onKill).not.toHaveBeenCalled();
+    expect(onRequestKill).toHaveBeenCalledTimes(1);
+    // Still shows the icon, not "Kill?" — arming is App's job now.
+    expect(screen.queryByText("Kill?")).toBeNull();
+  });
+
+  it("shows 'Kill?' and danger styling for a dev row when armed", () => {
+    render(
+      <PortRow
+        entry={MOCK_PORTS[0]}
+        selected={true}
+        expanded={false}
+        armed={true}
+        onSelect={noop}
+        onToggleExpand={noop}
+        onRequestKill={noop}
+        onDisarm={noop}
+      />,
+    );
     expect(screen.getByText("Kill?")).toBeTruthy();
-    fireEvent.click(screen.getByText("Kill?"));
-    expect(onKill).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a neutral 'Kill system?' label for an armed system row", () => {
+    const system = MOCK_PORTS.find((p) => p.category === "system" && p.killable)!;
+    render(
+      <PortRow
+        entry={system}
+        selected={true}
+        expanded={false}
+        armed={true}
+        onSelect={noop}
+        onToggleExpand={noop}
+        onRequestKill={noop}
+        onDisarm={noop}
+      />,
+    );
+    expect(screen.getByText("Kill system?")).toBeTruthy();
+  });
+
+  it("mouse leaving the kill button disarms", () => {
+    const onDisarm = vi.fn();
+    render(
+      <PortRow
+        entry={MOCK_PORTS[0]}
+        selected={true}
+        expanded={false}
+        armed={true}
+        onSelect={noop}
+        onToggleExpand={noop}
+        onRequestKill={noop}
+        onDisarm={onDisarm}
+      />,
+    );
+    fireEvent.mouseLeave(screen.getByText("Kill?"));
+    expect(onDisarm).toHaveBeenCalledTimes(1);
   });
 
   it("non-killable row shows a lock and no kill button", () => {
@@ -49,9 +103,11 @@ describe("PortRow", () => {
         entry={locked}
         selected={false}
         expanded={false}
+        armed={false}
         onSelect={noop}
         onToggleExpand={noop}
-        onKill={noop}
+        onRequestKill={noop}
+        onDisarm={noop}
       />,
     );
     expect(screen.queryByRole("button", { name: /kill/i })).toBeNull();
@@ -64,9 +120,11 @@ describe("PortRow", () => {
         entry={MOCK_PORTS[0]}
         selected={false}
         expanded={true}
+        armed={false}
         onSelect={noop}
         onToggleExpand={noop}
-        onKill={noop}
+        onRequestKill={noop}
+        onDisarm={noop}
       />,
     );
     expect(screen.getByText(/4101/)).toBeTruthy();

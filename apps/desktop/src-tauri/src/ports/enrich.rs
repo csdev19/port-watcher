@@ -2,6 +2,7 @@ use std::path::Path;
 
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind, Users};
 
+use super::classify::{app_bundle_path, classify_port};
 use super::label::label_for;
 use super::models::PortEntry;
 use super::project::{detect_project, tildify};
@@ -19,7 +20,8 @@ pub fn enrich(raw: Vec<RawPort>) -> Vec<PortEntry> {
             .with_memory()
             .with_cmd(UpdateKind::Always)
             .with_cwd(UpdateKind::Always)
-            .with_user(UpdateKind::Always),
+            .with_user(UpdateKind::Always)
+            .with_exe(UpdateKind::Always),
     );
     let users = Users::new_with_refreshed_list();
     let my_uid = nix::unistd::Uid::effective().as_raw();
@@ -59,7 +61,17 @@ fn entry_for(
     let cwd = cwd_raw.map(|c| tildify(&c, home));
 
     let uid = proc.and_then(|p| p.user_id());
-    let same_user = uid.map(|u| **u == my_uid).unwrap_or(false);
+    let owner_uid = uid.map(|u| **u);
+    let same_user = owner_uid.map(|u| u == my_uid).unwrap_or(false);
+
+    let executable = proc
+        .and_then(|p| p.exe())
+        .filter(|p| !p.as_os_str().is_empty());
+    let category = classify_port(owner_uid, my_uid, executable);
+    let executable_path = executable.map(|p| p.to_string_lossy().into_owned());
+    let app_bundle_path = executable
+        .and_then(app_bundle_path)
+        .map(|p| p.to_string_lossy().into_owned());
 
     PortEntry {
         port: raw.port,
@@ -75,6 +87,9 @@ fn entry_for(
         memory_bytes: proc.map(|p| p.memory()).unwrap_or(0),
         killable: same_user && crate::ports::kill::static_guard(raw.pid, self_pid).is_none(),
         process_name: raw.process_name,
+        category,
+        executable_path,
+        app_bundle_path,
     }
 }
 
@@ -112,6 +127,18 @@ mod tests {
             me.project.is_some(),
             "project not populated (test binary should resolve via Cargo.toml)"
         );
+        // On macOS, sysinfo reliably resolves a live process's own exe path
+        // (this is the same process running the test), so assert it
+        // unconditionally rather than guarding on `Some` — a guarded
+        // `if let` here would be vacuous, since the codepath that
+        // populates `executable_path` already filters out empty strings
+        // before storing (see `.filter(|p| !p.as_os_str().is_empty())`
+        // above), making `!exe.is_empty()` a tautology whenever it runs.
+        let exe = me
+            .executable_path
+            .as_deref()
+            .expect("executable_path should resolve for our own live test process on macOS");
+        assert!(!exe.is_empty());
         drop(listener);
     }
 
@@ -130,5 +157,10 @@ mod tests {
         assert_eq!(e.cwd, None);
         assert!(!e.killable);
         assert_eq!(e.started_at, 0);
+        // Unresolvable PID: no owner UID known, so it classifies as system
+        // and carries no path metadata.
+        assert_eq!(e.category, super::super::classify::PortCategory::System);
+        assert_eq!(e.executable_path, None);
+        assert_eq!(e.app_bundle_path, None);
     }
 }
