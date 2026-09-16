@@ -30,6 +30,7 @@ sysinfo = "0.39"
 thiserror = "2"
 nix = { version = "0.29", features = ["signal", "user"] }
 log = "0.4"
+window-vibrancy = "0.6"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

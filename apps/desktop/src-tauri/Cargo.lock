@@ -2735,6 +2735,7 @@ dependencies = [
  "tauri-plugin-positioner",
  "tempfile",
  "thiserror 2.0.20",
+ "window-vibrancy",
 ]
 
 [[package]]
