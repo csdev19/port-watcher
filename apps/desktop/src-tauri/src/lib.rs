@@ -58,8 +58,27 @@ pub fn run() {
             let tray_menu = MenuBuilder::new(app).item(&quit_item).build()?;
 
             let mut tray = TrayIconBuilder::with_id("chapay-tray");
-            // Default icon until the design pass ships the template
-            // image. Do NOT set icon_as_template(true) yet.
+            // macOS: a template image (black shapes + alpha only) lets the
+            // OS recolor the tray icon for light/dark menu bars and the
+            // selected/highlighted state. This is not a general-purpose
+            // fallback icon — icon_as_template(true) would render wrong
+            // (near-invisible or inverted) on platforms that don't apply
+            // that convention.
+            #[cfg(target_os = "macos")]
+            {
+                match tauri::image::Image::from_bytes(include_bytes!("../icons/tray-icon.png")) {
+                    Ok(icon) => {
+                        tray = tray.icon(icon).icon_as_template(true);
+                    }
+                    Err(e) => {
+                        log::error!("failed to load tray template icon: {e}; falling back to the bundle icon");
+                        if let Some(icon) = app.default_window_icon() {
+                            tray = tray.icon(icon.clone());
+                        }
+                    }
+                }
+            }
+            #[cfg(not(target_os = "macos"))]
             if let Some(icon) = app.default_window_icon() {
                 tray = tray.icon(icon.clone());
             } else {
