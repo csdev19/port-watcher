@@ -16,6 +16,10 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_positioner::init())
         .setup(|app| {
+            // Menu-bar app: no Dock icon, no ⌘Tab entry (spec §4.6).
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+
             TrayIconBuilder::with_id("chapay-tray")
                 // Default icon until the design pass ships the template
                 // image. Do NOT set icon_as_template(true) yet.
@@ -36,6 +40,14 @@ pub fn run() {
                 })
                 .build(app)?;
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            // A menu-bar panel dismisses itself when focus leaves it.
+            // Note for development: opening the inspector steals focus and
+            // closes the panel — use the browser dev loop for UI work.
+            if let tauri::WindowEvent::Focused(false) = event {
+                let _ = window.hide();
+            }
         })
         .invoke_handler(tauri::generate_handler![
             commands::list_ports,
