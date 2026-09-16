@@ -41,6 +41,10 @@
   overflow: hidden;
   border-radius: var(--radius-lg);
   background: var(--pw-surface);
+  /* Interface chrome should not become a text selection; .detail and
+   * .search opt back in below so command/PID/user text stays copyable. */
+  -webkit-user-select: none;
+  user-select: none;
   backdrop-filter: saturate(180%) blur(24px);
   -webkit-backdrop-filter: saturate(180%) blur(24px);
   box-shadow:
@@ -75,6 +79,8 @@
   font-family: inherit;
   font-size: 13px;
   outline: none;
+  -webkit-user-select: text;
+  user-select: text;
 }
 .search::placeholder {
   color: var(--pw-muted);
@@ -222,6 +228,8 @@
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 4px 8px;
+  -webkit-user-select: text;
+  user-select: text;
 }
 .detail dt {
   color: var(--pw-muted-2);

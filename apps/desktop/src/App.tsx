@@ -81,6 +81,16 @@ export default function App() {
     return () => unlisten?.();
   }, [refetch]);
 
+  // Production only: the webview's native context menu is another OS
+  // overlay over the transparent panel, and its items (Reload, etc.)
+  // make no sense here. Dev keeps right-click → Inspect Element.
+  useEffect(() => {
+    if (!import.meta.env.PROD) return;
+    const preventContextMenu = (event: MouseEvent) => event.preventDefault();
+    window.addEventListener("contextmenu", preventContextMenu);
+    return () => window.removeEventListener("contextmenu", preventContextMenu);
+  }, []);
+
   // Toasts self-dismiss; keeping one visible while it has a copy action.
   useEffect(() => {
     if (!toast) return;

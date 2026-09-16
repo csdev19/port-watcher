@@ -24,6 +24,10 @@ export const SearchInput = forwardRef<HTMLInputElement, Props>(function SearchIn
         className={styles.search}
         type="text"
         autoFocus
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
         placeholder="Search port, app or folder"
         value={value}
         onChange={(e) => onChange(e.currentTarget.value)}
