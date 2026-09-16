@@ -1,5 +1,5 @@
 {
-  "name": "@monorepo-template/i18n",
+  "name": "@port-watcher/i18n",
   "version": "1.0.0",
   "description": "Shared i18n (use-intl v4): en/es messages, provider, config for web + native",
   "files": [

@@ -1,4 +1,4 @@
-import { makeTodo } from "@monorepo-template/domain/testing";
+import { makeTodo } from "@port-watcher/domain/testing";
 import { describe, expect, it } from "vitest";
 import { mockTodoRepo } from "../../__tests__/mocks/repos";
 import { createTodo } from "../create-todo";

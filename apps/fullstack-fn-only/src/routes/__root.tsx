@@ -4,7 +4,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
-import { Toaster } from "@monorepo-template/web-ui";
+import { Toaster } from "@port-watcher/web-ui";
 
 import Header from "../components/header";
 import appCss from "../index.css?url";

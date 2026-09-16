@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
   Skeleton,
-} from "@monorepo-template/web-ui";
+} from "@port-watcher/web-ui";
 import { Plus, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import {

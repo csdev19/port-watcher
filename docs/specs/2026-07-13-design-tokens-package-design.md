@@ -1,4 +1,4 @@
-# Design tokens package (`@monorepo-template/tokens`) — design
+# Design tokens package (`@port-watcher/tokens`) — design
 
 > **Status: in progress** (2026-07-13). One typed TS source of truth for the
 > design tokens, generating the CSS custom properties that feed web-ui's shadcn
@@ -75,5 +75,5 @@ packages/tokens/
 
 ## Follow-up: i18n
 
-A second, independent package (`@monorepo-template/i18n`, use-intl v4, es/en)
+A second, independent package (`@port-watcher/i18n`, use-intl v4, es/en)
 is planned as a separate spec + PRs, mirroring the `@kaipu/i18n` pattern.

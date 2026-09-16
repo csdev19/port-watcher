@@ -1,7 +1,7 @@
 {
-  "name": "@monorepo-template/domain",
+  "name": "@port-watcher/domain",
   "version": "1.0.0",
-  "description": "Domain constants, types, and utilities for monorepo-template",
+  "description": "Domain constants, types, and utilities for port-watcher",
   "keywords": [
     "constants",
     "domain",

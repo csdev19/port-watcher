@@ -10,6 +10,10 @@ build
 .wrangler
 *.tsbuildinfo
 
+# Rust / Tauri
+target
+apps/desktop/src-tauri/gen/schemas
+
 # Environment variables
 .env
 .env*.local
@@ -58,3 +62,6 @@ out/
 
 # lefthook per-developer overrides (never committed)
 lefthook-local.yml
+
+# Local git worktrees (sdd execution)
+.worktrees

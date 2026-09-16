@@ -1,7 +1,7 @@
 import type { TodoBase } from "../schemas/todo";
 
 /**
- * Test fixtures for the domain layer, exposed as `@monorepo-template/domain/testing`.
+ * Test fixtures for the domain layer, exposed as `@port-watcher/domain/testing`.
  *
  * Builders take a `Partial<T>` of overrides and fill the rest with deterministic
  * defaults, so a test states only the fields it cares about.

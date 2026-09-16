@@ -1,0 +1,101 @@
+---
+title: Debugging the Desktop App
+description: Where the tooling is worse than Electron's, and the four ways around it
+---
+
+## The honest summary
+
+Tauri costs you something Electron gave away: on macOS the webview inspector is Safari's Web
+Inspector, not Chromium DevTools. No React DevTools extension, no Chromium performance profiler.
+On Windows the inspector is Chromium's again, because the webview is.
+
+The cost is real but **narrow** — it lands only on debugging React inside the app window, and the
+browser loop removes most of that. Debugging is not a reason to pick Tauri; it is something Tauri
+charges you on macOS. Four techniques, ordered by how much work they save.
+
+## 1. The browser loop — covers most of it
+
+```bash
+bun run --cwd apps/desktop dev   # Vite alone -> localhost:1420
+```
+
+Open that in Chrome and you have full Chromium DevTools, the React DevTools extension, the profiler.
+Layout, component state, CSS, lists, forms — none of it needs the Tauri window.
+
+The window is only required for real `invoke()` calls and for window behaviour: vibrancy, blur, the
+tray, positioning. The more disciplined the `inTauri` guard is (see
+[Building the UI](/desktop/ui-development)), the more work stays in the comfortable environment.
+
+## 2. The Safari inspector, when you do need the window
+
+Open it with **⌘⌥I** or right-click → Inspect Element. Debug builds only.
+
+It has Elements, Console, Network, Sources with breakpoints, and a competent flex/grid inspector.
+What is missing: React DevTools, the Chromium profiler, Lighthouse. For a four-component panel the
+loss is moderate; for a large component tree it would hurt.
+
+## 3. The Rust side is a different toolchain entirely
+
+This is the part that gets misread. Rust bugs are not debugged in the inspector.
+
+```bash
+RUST_BACKTRACE=1 bun run dev:desktop
+```
+
+`println!` and `dbg!` print straight to the terminal running `tauri dev`. For real logging,
+`tauri-plugin-log` (2.9.1) unifies both sides — Rust logs to stdout, to a file, and into the
+webview console, so one place shows both halves.
+
+For breakpoints in Rust, the official recommendation is **VS Code with the CodeLLDB extension**,
+attaching to the dev binary.
+
+Worth noting: the compiler catches before runtime a large share of what you would have discovered
+interactively in Node. The need for a step debugger is genuinely lower.
+
+## 4. DevTools outside `tauri dev`
+
+Three levels, by need:
+
+```rust
+#[cfg(debug_assertions)]
+window.open_devtools();   // open the inspector from code
+```
+
+```bash
+tauri build --debug       # a real bundle, with the console enabled
+```
+
+And for production builds there is the `devtools` Cargo feature — with a warning worth repeating:
+**it uses private Apple APIs and violates App Store policy.** chapay ships as a DMG and a
+Homebrew cask, so the Store rule does not bind it, but leaving the feature on is a deliberate choice,
+not a default.
+
+## Optional: CrabNebula DevTools
+
+`tauri-plugin-devtools` (2.2.1) instruments the app and gives it a dedicated UI for Rust-side
+commands, events and spans — the closest thing to "DevTools for the Tauri half". Not worth adding on
+day one; worth remembering if the IPC surface grows complicated.
+
+## What this app actually needs
+
+The Rust surface here is two commands. Most bugs will be of the form _"what does `sysinfo` actually
+return when the process belongs to another user?"_ — better answered by a unit test than by a step
+debugger.
+
+The recommendation is to wire `tauri-plugin-log` and a CodeLLDB `launch.json` **before** writing the
+first command rather than after. Ten minutes now, and no blind debugging exactly when the
+interesting part starts.
+
+## Verified versions
+
+Read from crates.io on 2026-09-15:
+
+| Crate                          | Latest stable |
+| ------------------------------ | ------------- |
+| `tauri-plugin-log`             | 2.9.1         |
+| `tauri-plugin-devtools`        | 2.2.1         |
+| `tauri-plugin-positioner`      | 2.3.4         |
+| `tauri-plugin-global-shortcut` | 2.3.2         |
+| `window-vibrancy`              | 0.8.0         |
+| `listeners`                    | 0.6.1         |
+| `sysinfo`                      | 0.39.6        |

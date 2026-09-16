@@ -2,7 +2,7 @@ import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import z from "zod";
-import { Button, Input, Label } from "@monorepo-template/web-ui";
+import { Button, Input, Label } from "@port-watcher/web-ui";
 import { authClient } from "@/lib/auth/auth-client";
 
 export default function SignInForm() {

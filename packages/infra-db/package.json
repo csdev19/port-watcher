@@ -1,5 +1,5 @@
 {
-  "name": "@monorepo-template/infra-db",
+  "name": "@port-watcher/infra-db",
   "type": "module",
   "exports": {
     "./client": "./src/client/index.ts",
@@ -30,8 +30,8 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@monorepo-template/config": "workspace:*",
-    "@monorepo-template/domain": "workspace:*",
+    "@port-watcher/config": "workspace:*",
+    "@port-watcher/domain": "workspace:*",
     "@types/ws": "^8.18.1",
     "drizzle-kit": "^0.31.8",
     "tsdown": "catalog:",

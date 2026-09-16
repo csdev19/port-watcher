@@ -1,4 +1,4 @@
-import type { ITodoRepository } from "@monorepo-template/domain/repositories";
+import type { ITodoRepository } from "@port-watcher/domain/repositories";
 
 export async function deleteTodo(
   repository: ITodoRepository,

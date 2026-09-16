@@ -1,4 +1,4 @@
-# @monorepo-template/infra-db — Package Spec
+# @port-watcher/infra-db — Package Spec
 
 ```
 src/

@@ -1,0 +1,115 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  font-family: system-ui, sans-serif;
+  font-size: 13px;
+  background: #1a1a1c;
+  color: #ededef;
+}
+.search {
+  margin: 8px;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+}
+.list {
+  flex: 1;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.row {
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: default;
+}
+.rowSelected {
+  background: rgba(255, 255, 255, 0.07);
+}
+.rowMain {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.port {
+  font-family: ui-monospace, monospace;
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+  min-width: 52px;
+}
+.rowCenter {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.label {
+  font-weight: 500;
+}
+.meta {
+  color: #8a8a93;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.uptime {
+  color: #8a8a93;
+  font-variant-numeric: tabular-nums;
+}
+.kill,
+.killArmed {
+  border: none;
+  background: transparent;
+  color: #8a8a93;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+.killArmed {
+  color: #ff4d5e;
+  font-weight: 600;
+}
+.lock {
+  font-size: 11px;
+}
+.detail {
+  margin: 6px 0 2px 62px;
+  font-size: 11px;
+  color: #8a8a93;
+  display: grid;
+  grid-template-columns: 60px 1fr;
+  gap: 2px 8px;
+}
+.command {
+  font-family: ui-monospace, monospace;
+  word-break: break-all;
+}
+.state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #8a8a93;
+}
+.footer {
+  padding: 6px 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  color: #8a8a93;
+  font-size: 11px;
+}
+.toast {
+  position: fixed;
+  bottom: 34px;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #2a2a2e;
+}

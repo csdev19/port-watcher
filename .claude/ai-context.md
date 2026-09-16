@@ -1,34 +1,31 @@
-# AI Assistant Context — Monorepo Template
+# AI Assistant Context — chapay
 
-Working notes for the template. The reusable patterns (auth, data loading, caching) differ per
-chosen pattern and live in the [general-knowledge hub](https://github.com/csdev19/general-knowledge) —
-link out, don't re-document.
+Working notes for this repo. Reusable patterns (auth, data loading, caching) live in the
+[general-knowledge hub](https://github.com/csdev19/general-knowledge) — link out, don't
+re-document.
 
-## Auth differs by pattern
+## Auth
 
-- **Client-Server (Elysia / Hono):** the web app proxies `/api/auth/*` to the API Worker
-  (same-origin cookies on Cloudflare Workers via Service Bindings). Better Auth runs in the API app;
-  the web app has no local auth instance. See
-  [api/](https://github.com/csdev19/general-knowledge/blob/main/api/README.md).
-- **Fullstack serverFn:** TanStack Start runs auth inside its own server functions.
-- **Convex:** Better Auth runs **inside** the Convex deployment (`@convex-dev/better-auth`), serving
-  `/api/auth/*` from Convex's HTTP router — no separate API worker, no proxy. SDK versions are pinned
-  (critical on Expo SDK 57). See
-  [convex/better-auth](https://github.com/csdev19/general-knowledge/blob/main/convex/better-auth.md).
+Better Auth runs **inside** the TanStack Start server: `src/lib/auth/auth-server.ts` composes
+`@port-watcher/infra-auth`'s `baseConfig` with `tanstackStartCookies()`, and
+`src/routes/api/auth/$.ts` mounts `auth.handler`. One origin, so there is no proxy and no CORS
+allowlist. `getAuthSession` is a server function reading the session from request headers; the root
+route puts it into the router context.
 
 ## Data loading
 
-The TanStack Query server pre-loading pattern (route `loader` + `queryClient.ensureQueryData` sharing
-a `queryOptions` factory with the component hook, `keepPreviousData`, `invalidateQueries` on
-mutations) is used by the non-Convex web patterns. Full write-up:
-[web/data-loading](https://github.com/csdev19/general-knowledge/blob/main/web/data-loading.md). The
-Convex pattern uses reactive `useQuery` subscriptions instead —
-[convex/client-connection](https://github.com/csdev19/general-knowledge/blob/main/convex/client-connection.md).
+TanStack Query server pre-loading: route `loader` + `queryClient.ensureQueryData` sharing a
+`queryOptions` factory with the component hook, `keepPreviousData`, `invalidateQueries` on
+mutations. Full write-up:
+[web/data-loading](https://github.com/csdev19/general-knowledge/blob/main/web/data-loading.md).
 
 ## Conventions
 
-- **Protected routes:** create under `src/routes/_authenticated/`; session is guaranteed by the
-  parent `beforeLoad`. Call `router.invalidate()` after session changes so the root `beforeLoad`
-  re-runs.
+- **Protected routes:** create under `src/routes/_authenticated/`; the parent `beforeLoad` redirects
+  unauthenticated visitors. That guard is UX only — **every server function must re-check the
+  session itself** before touching data. Call `router.invalidate()` after session changes so the
+  root `beforeLoad` re-runs.
+- **Server functions are adapters:** validate input with a domain schema, check the session, build
+  the repository, call the use case. No business logic in `src/server-functions/`.
 - **Domain is the source of truth:** Zod schemas/types live in `packages/domain/` and are reused by
-  backend validation, client forms, and (Convex pattern) Convex functions.
+  server-function validation and client forms.

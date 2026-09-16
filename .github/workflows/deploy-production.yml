@@ -1,10 +1,6 @@
-name: Deploy Backend and Frontend to Production
+name: Deploy to Production
 
 on:
-  # just to testing
-  # pull_request:
-  #   branches:
-  #     - production
   push:
     branches:
       - production
@@ -28,97 +24,35 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Install Wrangler
-        run: bun add -g wrangler@4.110.0
+        run: bun add -g wrangler
 
       - name: Build packages only
-        run: bun run build --filter='@monorepo-template/*'
+        run: bun run build --filter='@port-watcher/*'
 
-      # - name: Build Frontend step
-      #   working-directory: apps/web
-      #   env:
-      #     VITE_SERVER_URL: ${{ vars.VITE_SERVER_URL }}
-      #     DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      #     BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
-      #   run: bun run build
-
-      # - name: Deploy Frontend to Cloudflare Workers 🚀
-      #   uses: cloudflare/wrangler-action@v3.14.1
-      #   with:
-      #     apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      #     accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      #     workingDirectory: apps/web
-      #     secrets: |
-      #       VITE_SERVER_URL
-      #       CLOUDFLARE_API_TOKEN
-      #       CLOUDFLARE_ACCOUNT_ID
-      #       DATABASE_URL
-      #       BETTER_AUTH_SECRET
-      #   env:
-      #     ENVIRONMENT: production
-      #     VITE_SERVER_URL: ${{ vars.VITE_SERVER_URL }}
-      #     CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      #     CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      #     DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      #     BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
-
-      # - name: Deploy Backend to Cloudflare Workers 🚀
-      #   uses: cloudflare/wrangler-action@v3.14.1
-      #   with:
-      #     apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      #     accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      #     workingDirectory: apps/server
-      #     secrets: |
-      #       DATABASE_URL
-      #       DATABASE_URL_DIRECT
-      #       BETTER_AUTH_SECRET
-      #       CORS_ORIGIN
-      #   env:
-      #     DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      #     DATABASE_URL_DIRECT: ${{ secrets.DATABASE_URL_DIRECT }}
-      #     CORS_ORIGIN: ${{ vars.CORS_ORIGIN }}
-      #     BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
-
-      - name: Build Frontend (web-elysia) step
-        working-directory: apps/web-elysia
+      - name: Build app
+        working-directory: apps/fullstack-fn-only
         env:
-          VITE_SERVER_URL: ${{ vars.VITE_SERVER_URL }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
         run: bun run build
 
-      - name: Deploy Frontend (web-elysia) to Cloudflare Workers 🚀
+      - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3.14.1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: apps/web-elysia
+          workingDirectory: apps/fullstack-fn-only
           secrets: |
-            VITE_SERVER_URL
             CLOUDFLARE_API_TOKEN
             CLOUDFLARE_ACCOUNT_ID
             DATABASE_URL
             BETTER_AUTH_SECRET
+            BETTER_AUTH_URL
         env:
           ENVIRONMENT: production
-          VITE_SERVER_URL: ${{ vars.VITE_SERVER_URL }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
-
-      - name: Deploy Backend (server-elysia) to Cloudflare Workers 🚀
-        uses: cloudflare/wrangler-action@v3.14.1
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: apps/server-elysia
-          secrets: |
-            DATABASE_URL
-            DATABASE_URL_DIRECT
-            BETTER_AUTH_SECRET
-            CORS_ORIGIN
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DATABASE_URL_DIRECT: ${{ secrets.DATABASE_URL_DIRECT }}
-          CORS_ORIGIN: ${{ vars.CORS_ORIGIN }}
-          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}

@@ -142,14 +142,14 @@
     "**/routeTree.gen.ts",
     "**/*routeTree.gen.ts",
     "routeTree.gen.ts",
-    "apps/web-elysia/src/routeTree.gen.ts",
-    "apps/web-hono/src/routeTree.gen.ts",
     "**/worker-configuration.d.ts",
     "**/.next/**",
     "**/.astro/**",
     "**/out/**",
     "**/.wrangler/**",
     "**/.source/**",
-    "**/convex/_generated/**"
+    "**/convex/_generated/**",
+    "**/src-tauri/target/**",
+    "**/src-tauri/gen/**"
   ]
 }

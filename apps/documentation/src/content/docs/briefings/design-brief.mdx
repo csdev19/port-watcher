@@ -1,0 +1,266 @@
+---
+title: Design Brief — chapay
+description: Self-contained design briefing for the menu-bar desktop app. Paste it whole into a design tool.
+---
+
+> **How to use this document.** Paste it whole into a design tool or another
+> model; it is written to stand alone, with no links to follow. Where it
+> disagrees with the repository, the repository wins for anything already built
+> (`apps/desktop/src-tauri/tauri.conf.json` for window geometry,
+> `packages/tokens/src/` for token values). Everything marked _not decided_ is
+> genuinely open — design into it, do not assume a default was implied.
+> **Current as of 2026-09-15.**
+
+## 1. What the app is
+
+**chapay — port watcher** is a macOS menu-bar app that shows which processes are
+holding TCP ports open, explains what each one is, and kills the one you point
+at.
+
+The name is Quechua: _chapay_, to watch, to guard. Pronounced cha-PAI.
+
+**Naming rules for any surface:**
+
+- The brand is **chapay**, lowercase. That is the app name, the binary name and
+  the subdomain.
+- The full title is **"chapay — port watcher"**: the name, then the descriptor
+  that says what it does. Use it where the reader has no context — a landing page
+  headline, a window title, the first line of a README.
+- Use **chapay** alone wherever the context is already established: in-app copy,
+  the tray tooltip, the second mention on a page.
+- Never capitalise it as "Chapay", and never set the descriptor in title case.
+- Trademark, domain and package-registry checks are still pending.
+
+### The problem it solves
+
+A developer with several terminals open — Vite, Next, Wrangler, Bun, Docker,
+Postgres — ends up with ports held by orphaned processes. Today the workaround is
+shell functions:
+
+```sh
+findPort() { lsof -w -n -i "tcp:$1"; }
+killPort()  { kill -9 "$1"; }
+```
+
+That works, and it is slow: you have to remember the port, read `lsof` output,
+copy the PID, kill it. And it never tells you **what** the process is or **which
+project** it came from.
+
+### The job, in one sentence
+
+See every listening port in one click, and kill the right one without thinking:
+which port, what it is, which project it belongs to, one click to kill.
+
+### Who it is for
+
+Developers running several local projects at once, on macOS, who already know
+what a port and a PID are. It is not a network monitor, not a firewall, not an
+admin tool. Out of scope: traffic, outbound connections, UDP, remote machines.
+
+### Positioning rules for any copy
+
+- **Allowed:** open source, free, local-first, macOS first.
+- **Never claim:** that it is published, installable, notarized, available on
+  Homebrew, or that Windows and Linux are supported. None of that is true yet.
+
+## 2. The aesthetic, in one paragraph
+
+A dense, quiet instrument that appears under the menu-bar icon, answers one
+question, and disappears. It should read as a system utility rather than a
+product: monospaced numerals, hairline separators, no illustration, no
+onboarding, no chrome it does not need. The port number is the largest thing on
+screen because the port number is what the user arrived with. Everything else —
+the label, the folder, the uptime — is support. The one moment of colour is
+destruction: killing a process. Nothing else competes with it.
+
+## 3. Palette — not decided
+
+**There is no product palette yet, and none should be inferred from this
+repository.** `packages/tokens` currently holds the monorepo template's neutral
+shadcn scale (greyscale `oklch` values, no brand accent). That is scaffolding,
+not a decision. The colour direction is being chosen separately; design against
+the roles below and supply the values.
+
+What the palette **must** cover, and what each role means here:
+
+| Role             | Meaning in this app                                       | Carries data? |
+| ---------------- | --------------------------------------------------------- | ------------- |
+| Surface          | The panel itself, over a translucent macOS background     | No            |
+| Foreground       | Port numbers, labels — the text you read first            | No            |
+| Muted foreground | Folder path, uptime, PID, the row's second line           | No            |
+| Hairline         | Row separators and the panel's inner edges                | No            |
+| Danger           | **Kill only.** The ✕ button, the confirm state, the toast | **Yes**       |
+| Focus / accent   | Keyboard focus ring and the tray icon's active dot        | **Yes**       |
+
+**Danger and focus carry meaning — never reuse them decoratively.** If danger red
+appears anywhere that is not destruction, the one signal the app has stops
+working. Everything else in the interface can be neutral.
+
+### Two constraints the palette has to satisfy
+
+1. **Translucency.** The window uses native macOS vibrancy
+   (`NSVisualEffectView`). The panel surface must be **semi-transparent** — an
+   opaque background cancels the effect entirely and the app stops looking
+   native. Whatever the surface colour is, it needs an alpha channel and has to
+   stay legible over both a bright and a dark desktop.
+2. **Light and dark, following the system.** Not a toggle. macOS decides, the app
+   follows, and both have to be designed — a menu-bar panel is seen against the
+   user's wallpaper in both modes.
+
+## 4. Typography
+
+The repository's token file currently declares `font-sans: "Inter Variable"` —
+again, template scaffolding rather than a decision. The intended direction is
+**Geist** for the interface and **Geist Mono** for ports, PIDs and commands.
+
+| Use                            | Face             | Notes                                                   |
+| ------------------------------ | ---------------- | ------------------------------------------------------- |
+| Port number                    | Mono             | 18–20px, the largest element in a row                   |
+| Label ("Vite", "PostgreSQL")   | Sans, weight 500 | The row's identity line                                 |
+| Folder path, uptime, PID       | Sans, muted      | Secondary line, smaller                                 |
+| Full command (tooltip, detail) | Mono             | Can be long; wraps or scrolls, never truncates silently |
+
+Two rules that prevent real bugs:
+
+- **Bundle the fonts as local files.** A signed desktop app cannot depend on
+  Google Fonts; with no network it would fall back and the layout would shift.
+  Only load the weights actually used.
+- **Use tabular numerals for ports and uptimes.** Rows are scanned vertically as
+  a column of numbers; proportional digits make them jitter.
+
+## 5. Structure and texture
+
+- **Panel: 360 × 480 px**, fixed. This is the real value in
+  `src-tauri/tauri.conf.json`. It is a panel anchored to the tray icon, not a
+  resizable window. The list scrolls inside it; the panel itself never does.
+- **Radius: `0.625rem` (10px)** — the actual value in `packages/tokens/src/base.ts`,
+  and the one piece of the current token file worth keeping.
+- **Undecorated window.** No title bar, no traffic lights, no menu. The panel
+  hides when it loses focus.
+- **Hairlines, not boxes.** Rows are separated by a single low-contrast line.
+  Avoid cards, shadows and nested containers — at this density they cost more
+  space than they give.
+- **Density is the point.** Four to ten rows should be readable at a glance
+  without scrolling. Vertical rhythm matters more than breathing room.
+
+### Anatomy of a row
+
+```
+┌──────────────────────────────────────┐
+│  ⌕  Search port, app or folder       │
+├──────────────────────────────────────┤
+│  3000   Next.js dev                  │
+│         ~/dev/tapuy/apps/web   12m ✕ │
+│  5173   Vite                         │
+│         ~/dev/laqi/panel       2h  ✕ │
+│  5432   PostgreSQL                   │
+│         Homebrew service       3d  ✕ │
+│  8787   Wrangler (Workers)           │
+│         ~/dev/niway/api        40m ✕ │
+├──────────────────────────────────────┤
+│  4 ports · updated 1s ago          ⚙ │
+└──────────────────────────────────────┘
+```
+
+- **Left:** the port, mono, 18–20px. The anchor of the whole row.
+- **Centre:** the label (weight 500) and, below it, the project folder in muted
+  text — `~` abbreviated and **truncated in the middle**, never at the end. The
+  end of a path is the part that identifies it.
+- **Right:** uptime, and the ✕ button, which appears on hover or keyboard focus.
+
+## 6. The screens and states
+
+There is one view. Everything below is a state of it.
+
+### Search — a first-class element, not a utility
+
+A single input pinned to the top of the panel, focused automatically when the
+panel opens. Typing `3000` filters instantly; so does typing `vite` or a folder
+name. It matches across **port, label and folder** at once — the user does not
+have to know which field their memory came from.
+
+Design it as the first thing the eye lands on, because in the common case the
+user opens the panel already knowing which port they came for. It needs: a
+placeholder naming all three things it searches, a visible clear affordance once
+there is text, and a filtered-empty state distinct from the global empty state.
+
+### Row states
+
+| State           | What it looks like                                                                                             |
+| --------------- | -------------------------------------------------------------------------------------------------------------- |
+| Default         | Port, label, folder, uptime. No ✕                                                                              |
+| Hover / focused | ✕ appears; the full command shows in a tooltip                                                                 |
+| Confirming kill | The ✕ becomes "Kill?" for 2 seconds; a second click confirms                                                   |
+| Killing         | The row fades out                                                                                              |
+| Expanded        | Click opens a detail block: PID, user, memory, full command, actions (open in browser, copy, reveal in Finder) |
+| Not killable    | A lock instead of ✕ — the process belongs to another user                                                      |
+
+### Panel states
+
+| State          | Content                                                                 |
+| -------------- | ----------------------------------------------------------------------- |
+| Populated      | The list, plus a footer: "4 ports · updated 1s ago" and a settings gear |
+| Empty          | "All ports free", with a minimal mark — no illustration                 |
+| Filtered empty | Distinct from the above: the query matched nothing, offer to clear it   |
+| No permission  | A lock and "Belongs to another user"                                    |
+| Read error     | A short message and a retry button                                      |
+| Toast          | After a kill: "Vite (5173) stopped · Copy command"                      |
+
+The toast is the app's undo: it names what died and offers the command to bring
+it back. Killing is one click precisely because this exists.
+
+### Keyboard
+
+The panel is usable without the mouse, and the design has to show it:
+
+| Key     | Action                                |
+| ------- | ------------------------------------- |
+| `↑` `↓` | Move between rows                     |
+| `Enter` | Expand the focused row                |
+| `⌘⌫`    | Kill the focused row, no confirmation |
+| `Esc`   | Close the panel                       |
+| `⌘,`    | Settings                              |
+
+Focus has to be visible on every row and on the search input — this is the one
+place the accent colour earns its keep.
+
+## 7. Brand assets
+
+`apps/desktop/src-tauri/icons/` holds **Tauri's default placeholder icons**
+(`32x32.png`, `128x128.png`, `128x128@2x.png`, `icon.icns`, `icon.ico`, plus the
+Windows `Square*` set). None of it is branded. Replacing it is part of the design
+work; keep the filenames, Tauri's bundler reads them by name.
+
+Two assets do not exist yet and are needed:
+
+1. **The menu-bar icon** — a monochrome glyph supplied as a macOS _template
+   image_, so the system tints it for light and dark menu bars automatically. It
+   must read at 16–18px. The name suggests a door or an eye; both fit "the one
+   who watches". Optionally a small dot carrying the count of active ports.
+2. **The app icon** — the `.icns`, seen in the DMG, in Finder and in the About
+   panel. The app is accessory-only and never appears in the Dock, so this icon
+   matters less than the tray glyph. Design the tray glyph first.
+
+Bundle identifier, for reference: `dev.csdev19.portwatcher`.
+
+## 8. Voice
+
+Terse, factual, lowercase-friendly. The app is a tool the user already knows how
+to use; it does not explain itself.
+
+- **Name the thing that happened, not the feeling about it.** "Vite (5173)
+  stopped" — not "Successfully terminated process!"
+- **No exclamation marks. No emoji in the interface.**
+- **Never apologise and never congratulate.** An error says what failed and
+  offers the retry. A kill says what died.
+- **Use the developer's own words** — port, PID, process, kill. Do not soften
+  "kill" into "stop", "close" or "quit": the user is looking for the thing they
+  would have typed `kill -9` at.
+- **Empty states state a fact.** "All ports free" — not "Nothing to see here".
+
+### Off-limits
+
+- Anything implying the app is downloadable, released, notarized or on Homebrew.
+- Anything implying Windows or Linux support.
+- Marketing register: "effortless", "powerful", "seamless", "supercharge".
+- Claiming it monitors, protects or secures anything. It lists and it kills.

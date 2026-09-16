@@ -1,0 +1,90 @@
+---
+title: Building the UI
+description: Two dev loops, design tokens, and the constraints a menu-bar panel imposes
+---
+
+## The renderer is an ordinary web app
+
+`apps/desktop/src/` is React + Vite with HMR. No Node, no bundler quirks, no special imports. You
+lay out exactly the way you lay out anything else.
+
+## Two dev loops
+
+Use the lighter one for most of the work:
+
+```bash
+bun run --cwd apps/desktop dev   # Vite alone -> localhost:1420 in your browser
+bun run dev:desktop              # the real Tauri window
+```
+
+The browser loop reloads instantly and gives you full DevTools. It covers roughly everything visual.
+The Tauri window is what you need when the work touches `invoke()` or window behaviour — vibrancy,
+blur, tray, positioning.
+
+The condition for the browser loop to work is that every `invoke()` sits behind a guard with mock
+data, so the page does not explode outside Tauri:
+
+```typescript
+const inTauri = "__TAURI_INTERNALS__" in window;
+
+export async function listPorts(): Promise<PortEntry[]> {
+  if (!inTauri) return MOCK_PORTS;
+  return invoke<PortEntry[]>("list_ports");
+}
+```
+
+In the real window, DevTools open with right-click → Inspect Element (debug builds only).
+
+### Why there are two clients at all
+
+Nothing in this is Tauri-specific. `tauri dev` starts **one** Vite dev server on `localhost:1420`
+and points the app's webview at that URL. A browser tab on the same URL is just a second client of
+the same server — same bundle, same HMR socket. The old Electron app did the same thing through
+`electron-vite`; any framework that loads its renderer from a dev server URL behaves this way.
+
+What differs between the two clients is the **runtime injected around the page**. The Tauri window
+has `window.__TAURI_INTERNALS__`; the browser tab does not. So in the browser:
+
+```
+TypeError: Cannot read properties of undefined (reading 'invoke')
+```
+
+That is the whole reason for the `inTauri` guard above. Pure layout work is identical in both; the
+moment a component calls Rust, only the window is telling the truth.
+
+## Design tokens
+
+`@port-watcher/tokens` is kept in this monorepo specifically for this app. Import the **unprefixed**
+variant — the one generated for consumers with no shadcn in the page:
+
+```css
+@import "@port-watcher/tokens/css/desktop";
+```
+
+It declares `--background`, `--foreground`, `--muted`, `--border`, `--destructive` and friends on
+`:root` for light, re-declared under `.dark`.
+
+App-specific tokens (the translucent panel background, the kill-red) belong in
+`packages/tokens/src/` and get regenerated with `bun run --cwd packages/tokens generate` — not
+hardcoded in a component. The generator writes both stylesheets from one typed source, which is the
+point of the package.
+
+## Conventions for this app
+
+- **CSS Modules, no component library.** The whole app is four components — `PortList`, `Row`,
+  `Search`, `Toast`. A library would weigh more than it helps.
+- **Bundle the fonts.** Geist and Geist Mono ship as local files. A signed, offline-capable app
+  cannot depend on Google Fonts — with no network it would render in a fallback.
+- **Vibrancy is half Rust, half CSS.** The `window-vibrancy` crate makes the window translucent;
+  the CSS then has to paint a semi-transparent layer on top (`rgba(15, 15, 17, 0.72)`). An opaque
+  background cancels the effect entirely.
+- **Layout is fixed at 360×480.** It is a panel anchored to a tray icon, not a resizable window.
+  The list scrolls inside; the body never does.
+- **Lay out against WKWebView.** macOS renders through Safari's engine, not Chromium. Verify
+  anything recent in CSS in the real window, not only in the browser loop.
+
+## Suggested order of work
+
+Build the Rust commands before the UI. Laying out against real data is a different exercise than
+laying out against a mock: how wide project names actually get, how many rows there really are, what
+a missing `cwd` looks like. Those answers shape the layout, and guessing them costs a redesign.

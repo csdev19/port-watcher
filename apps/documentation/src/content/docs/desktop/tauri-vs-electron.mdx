@@ -1,0 +1,113 @@
+---
+title: Tauri vs Electron
+description: Why this repo ships a Tauri app, and what that trades away
+---
+
+## First, a word that means two things here
+
+"Backend" in this documentation means the **server** — TanStack Start server functions running in a
+Cloudflare Worker and talking to Neon PostgreSQL through Drizzle. That is what the
+[Backend](/backend/result-types) section is about.
+
+Desktop-framework jargon uses the same word for something unrelated: the **privileged process** that
+can touch the operating system, as opposed to the sandboxed webview. In Electron that is the main
+process (Node); in Tauri it is the Rust core in `src-tauri/`. No HTTP, no server, no database.
+
+These pages say **Rust core** or **native side** for the second meaning, and reserve "backend" for
+the first. Worth keeping in mind, because the desktop app has no backend in the server sense at all:
+it is local-first, it never calls the Worker and never touches Neon. It reads the machine it runs on.
+
+## The part that does not change
+
+React and TypeScript are identical in both. Same components, same hooks, same Vite, same HMR. If you
+have written an Electron renderer, you have written a Tauri renderer. The difference is underneath.
+
+## The comparison
+
+|                 | Electron                                              | Tauri 2                                                      |
+| --------------- | ----------------------------------------------------- | ------------------------------------------------------------ |
+| **Web engine**  | Bundles Chromium (~150–200 MB for the binary alone)   | Uses the OS webview: WKWebView on macOS, WebView2 on Windows |
+| **Bundle size** | 100–200 MB                                            | 3–10 MB                                                      |
+| **Native side** | Node.js (main process)                                | Rust (`src-tauri/`)                                          |
+| **Bridge**      | `ipcMain` / `ipcRenderer` + preload `contextBridge`   | `invoke()` ↔ `#[tauri::command]`                             |
+| **Permissions** | You wire them (`contextIsolation`, `nodeIntegration`) | Capabilities, deny-by-default                                |
+| **Rendering**   | Identical on every OS                                 | Each OS's own engine — Safari on macOS, Chromium on Windows  |
+
+Two of those rows actually decide things.
+
+### In Tauri's favour: the permission model
+
+Look at `src-tauri/capabilities/default.json`. A Rust command does not exist for the frontend until
+it is declared there. It is an allowlist, and it is the default.
+
+This repo previously shipped an Electron app (removed when the template was stripped down). Its
+`preload.ts` exposed whatever you chose to expose across the `contextBridge`, and nothing stopped
+the surface from growing. For an app whose whole job is **killing processes**, an explicit allowlist
+is not cosmetic.
+
+### Against Tauri: you lose the single-engine guarantee
+
+Electron gave you one Chromium everywhere. Tauri means you lay out against WKWebView on macOS and
+Chromium-based WebView2 on Windows, and those are not the same browser. Anything recent in CSS gets
+verified on both. This is the real tax, and it is worth knowing before you reach for a new feature.
+
+The same trade shows up in the debugger. Electron ships Chromium DevTools — the ones you already
+know, opened with `webContents.openDevTools()`. Tauri on macOS gives you WKWebView's inspector,
+which is Safari's Web Inspector: it works, but the profiler, the React DevTools integration and the
+network panel are not the tools you are used to. On Windows the inspector is Chromium's again,
+because the webview is. Debugging is not a reason to pick Tauri; it is something Tauri costs you on
+macOS.
+
+## Why Tauri for this app specifically
+
+chapay has to enumerate listening sockets, read a process's working directory, uptime and
+memory, and send signals to it. In Node that means spawning `lsof` and `kill` and parsing text —
+which is exactly the shell-function workflow the app exists to replace. In Rust it is two crates
+(`listeners`, `sysinfo`) plus `nix` for the signals, with typed results instead of scraped stdout.
+
+The secondary reason is deliberate: this is a real, distributed Rust project — IPC, process signals,
+packaging, signing, auto-update.
+
+## Both use Vite — but for a different amount of work
+
+The Electron app this repo used to ship was built with
+[`electron-vite`](https://electron-vite.org). So "Tauri uses Vite" is not a difference; what changes
+is **how much** Vite is responsible for.
+
+**Electron:** one config, three builds — because all three processes are JavaScript.
+
+```typescript
+// the old apps/desktop/electron.vite.config.ts
+export default defineConfig({
+  main: { plugins: [externalizeDepsPlugin()], resolve: { alias } },      // Node target
+  preload: { plugins: [externalizeDepsPlugin()], resolve: { alias } },   // bridge
+  renderer: { plugins: [react()], resolve: { dedupe: ["react", "react-dom"] } }, // browser
+});
+```
+
+`externalizeDepsPlugin` existed because the main process runs in Node and must not bundle what
+`electron-builder` will package separately — the reason the workspace packages had to sit in
+`devDependencies`. The `dedupe` line existed because two copies of React reaching the bundle made
+every hook throw.
+
+**Tauri:** one build, renderer only. An ordinary web app config.
+
+```typescript
+// apps/desktop/vite.config.ts
+export default defineConfig(() => ({
+  plugins: [react()],
+  clearScreen: false,                          // don't hide Rust errors
+  server: {
+    port: 1420,                                // Tauri expects a fixed port
+    strictPort: true,
+    watch: { ignored: ["**/src-tauri/**"] },   // Rust is not Vite's business
+  },
+}));
+```
+
+Three lines of Tauri-awareness, and nothing else. The Rust core is compiled by cargo, in a process
+Vite knows nothing about.
+
+That is the structural consequence of the native side being Rust instead of JavaScript: the bundler
+stops being responsible for it, and a whole category of traps — externalize rules,
+duplicated React, `.ts` files reaching `require()` at runtime — stops existing.

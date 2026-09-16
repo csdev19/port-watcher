@@ -1,0 +1,119 @@
+---
+title: Desktop App (Tauri 2)
+description: What apps/desktop is, what it needs installed, and how to run it
+---
+
+## What it is
+
+`apps/desktop` is **chapay** (full title: _chapay — port watcher_), the menu-bar app: it lists the TCP ports in `LISTEN`, explains
+what each process is, which project it belongs to, and kills the one you point at — one click, no
+`lsof | grep | kill -9`.
+
+It is a [Tauri 2](https://tauri.app) app, scaffolded with the official `create-tauri-app` CLI
+(`react-ts` template) and then wired into this monorepo. Two halves:
+
+| Half          | Path                      | Language           | Can touch the OS |
+| ------------- | ------------------------- | ------------------ | ---------------- |
+| **Renderer**  | `apps/desktop/src/`       | React + TypeScript | No               |
+| **Rust core** | `apps/desktop/src-tauri/` | Rust               | Yes              |
+
+The renderer never touches the OS. Everything it needs — the port list, killing a process — crosses
+to Rust through `invoke()`.
+
+:::note[This app has no backend]
+It is **local-first**: it never calls the web app's Worker and never reads Neon. Its only data
+source is the machine it runs on. Desktop-framework jargon calls the privileged half the "backend",
+but in this documentation "backend" means the server — see
+[Tauri vs Electron](/desktop/tauri-vs-electron) for the distinction. Here it is always the
+**Rust core**.
+:::
+
+```
+src/                  React renderer — plain web app, no Node
+src-tauri/
+  src/lib.rs          Tauri builder: plugins, invoke_handler
+  src/main.rs         Binary entry — calls port_watcher_lib::run()
+  tauri.conf.json     Window, bundle, identifier (dev.csdev19.portwatcher)
+  capabilities/       Per-window permission grants
+  Cargo.toml          Crate `port-watcher`, lib `port_watcher_lib`
+```
+
+## Prerequisites
+
+On macOS, Tauri needs exactly two things —
+[official list](https://tauri.app/start/prerequisites/):
+
+1. **Xcode Command Line Tools** — `xcode-select --install` (full Xcode also satisfies it)
+2. **Rust**, via rustup:
+
+   ```bash
+   curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh
+   ```
+
+No Homebrew, no CocoaPods, no iOS or Android targets. Tauri renders through the system WebView, so
+there are no extra libraries to install (that is the Linux problem, not the macOS one).
+
+Verify with `bun run --cwd apps/desktop tauri info`.
+
+:::caution[Rust must be on `PATH` in the shell you run from]
+rustup appends `. "$HOME/.cargo/env"` to `~/.zshenv`, which only affects **new** shells. A terminal
+that was already open when you installed Rust will fail with a cryptic
+`failed to run 'cargo metadata'`. See [Troubleshooting](/desktop/troubleshooting).
+:::
+
+## Running it
+
+From the monorepo root:
+
+```bash
+bun run dev:desktop     # tauri dev — compiles Rust, opens the window
+bun run build:desktop   # tauri build — .app / .dmg bundle
+```
+
+The first `dev:desktop` compiles the whole Rust dependency tree and takes a few minutes. After that
+it is incremental and fast. Build output lands in `src-tauri/target/` (~650 MB, gitignored).
+
+## Scripts, and why they look inverted
+
+| Script        | What it actually does                                      |
+| ------------- | ---------------------------------------------------------- |
+| `dev`         | **Vite only.** Tauri calls it through `beforeDevCommand`   |
+| `build`       | **Vite only.** Tauri calls it through `beforeBuildCommand` |
+| `tauri:dev`   | The actual app                                             |
+| `tauri:build` | The actual bundle                                          |
+| `check-types` | `tsc --noEmit` over the renderer                           |
+
+Because `dev` is the headless half, the root `dev` script filters this package out
+(`turbo run dev --filter=!desktop`) — a bare `turbo run dev` would otherwise start an orphan Vite on
+port 1420 with no window attached. Renaming either script means editing
+`src-tauri/tauri.conf.json` in the same commit.
+
+## Monorepo integration
+
+The scaffold assumes a standalone project. What was changed after generating it:
+
+- **Catalog alignment** — the template shipped `vite ^8` and `typescript ~6`; both now point at the
+  root catalog (`vite 7.3.0`, `typescript 5.9.3`, `react 19.2.3`), so two TypeScript versions never
+  typecheck the same shared packages.
+- **`tsconfig.json`** extends `@port-watcher/config/tsconfig.web.json` instead of its own copy.
+- **Crate identity** — `desktop` → `port-watcher`, lib `port_watcher_lib`, product name
+  "chapay", window 360×480.
+- **Turbo tasks** `tauri:dev` (persistent) and `tauri:build`.
+- **Ignores** — `target/` and `src-tauri/gen/` excluded from git, oxlint and oxfmt.
+
+## Status
+
+The scaffold still contains Tauri's `greet` demo — an input, a button, and an `invoke("greet")`
+round trip to Rust. That demo **is** the full React → Rust → React cycle working; everything else is
+replacing it.
+
+| #   | Work                                                                                      | Where               |
+| --- | ----------------------------------------------------------------------------------------- | ------------------- |
+| 1   | Remove the `greet` demo                                                                   | renderer + `lib.rs` |
+| 2   | `list_ports` / `kill_port` commands (`listeners`, `sysinfo`, `nix`)                       | Rust                |
+| 3   | Menu bar: `tray-icon` feature, `tauri-plugin-positioner`, `tauri-plugin-global-shortcut`  | plugins             |
+| 4   | No Dock: `ActivationPolicy::Accessory`, undecorated window, `always_on_top`, hide-on-blur | `lib.rs` + config   |
+| 5   | Vibrancy (`window-vibrancy`), tokens, light/dark theme                                    | renderer            |
+
+Steps 3 and 4 are what turn "a window" into "a menu-bar panel". None of them is more than a few
+dozen lines.

@@ -8,13 +8,19 @@ export default defineConfig({
   integrations: [
     mermaid(),
     starlight({
-      title: "Monorepo Template",
+      title: "chapay",
       lastUpdated: true,
-      social: [{ icon: "github", label: "GitHub", href: "https://github.com/withastro/starlight" }],
+      social: [
+        { icon: "github", label: "GitHub", href: "https://github.com/csdev19/port-watcher" },
+      ],
       sidebar: [
         {
           label: "Getting Started",
           items: [{ slug: "index" }],
+        },
+        {
+          label: "Briefings",
+          autogenerate: { directory: "briefings" },
         },
         {
           label: "Architecture",
@@ -22,30 +28,25 @@ export default defineConfig({
         },
         {
           label: "Authentication",
-          items: [
-            { slug: "authentication" },
-            { slug: "authentication/overview" },
-            { slug: "authentication/implementation" },
-            { slug: "authentication/quick-reference" },
-          ],
+          items: [{ slug: "authentication" }],
         },
         {
           label: "Backend",
           autogenerate: { directory: "backend" },
         },
         {
-          label: "Frontend",
-          autogenerate: { directory: "frontend" },
+          label: "Desktop (Tauri)",
+          items: [
+            { slug: "desktop" },
+            { slug: "desktop/tauri-vs-electron" },
+            { slug: "desktop/ui-development" },
+            { slug: "desktop/debugging" },
+            { slug: "desktop/troubleshooting" },
+          ],
         },
         {
-          label: "Features",
-          items: [
-            { slug: "convex" },
-            {
-              label: "Convex",
-              autogenerate: { directory: "features/convex" },
-            },
-          ],
+          label: "Frontend",
+          autogenerate: { directory: "frontend" },
         },
         {
           label: "Guides",
@@ -54,9 +55,7 @@ export default defineConfig({
             { slug: "constants-pattern" },
             { slug: "domain-architecture-patterns" },
             { slug: "environment-variables" },
-            { slug: "fullstack-tanstack-elysia" },
             { slug: "infrastructure-naming" },
-            { slug: "mobile-app" },
             { slug: "schemas-implementation" },
             { slug: "web-ui-package" },
           ],
