@@ -1,6 +1,11 @@
 # Native-overlay audit: residual panel flicker + tray icon
 
 **Status:** report only — no code changed. Findings mapped for a later execution pass.
+**Implementation expansion (2026-09-16):** start with the
+[execution index](native-overlay/README.md), then load only the relevant F1–F7 document.
+That expansion corrects confidence claims below and specifies missing implementation contracts.
+The original audit is preserved as historical input; where details conflict, use the expansion.
+
 **Context:** PR #3 (`fix/native-tooltip-flicker`) removed the two `title` attributes in the
 renderer, but the panel still flickers/vibrates in some situations (reported over a
 fullscreen, semi-transparent cmux window), and a native tooltip reading **"chapay"** still
