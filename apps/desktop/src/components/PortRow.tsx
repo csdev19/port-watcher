@@ -21,6 +21,7 @@ export function PortRow({ entry, selected, expanded, onSelect, onToggleExpand, o
       onMouseEnter={onSelect}
       onClick={onToggleExpand}
       title={entry.command}
+      role="option"
       aria-selected={selected}
     >
       <div className={styles.rowMain}>

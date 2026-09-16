@@ -4,7 +4,7 @@ import { usePorts } from "@/hooks/use-ports";
 import { useListNavigation } from "@/hooks/use-list-navigation";
 import { filterPorts } from "@/lib/filter";
 import { inTauri, killPort } from "@/lib/ports";
-import type { PortEntry } from "@/lib/types";
+import { portKey, type PortEntry } from "@/lib/types";
 import { PortList } from "@/components/PortList";
 import { SearchInput } from "@/components/SearchInput";
 import { EmptyState, ErrorState, FilteredEmptyState } from "@/components/PanelStates";
@@ -21,23 +21,31 @@ export default function App() {
   const queryClient = useQueryClient();
   const { data, error, refetch, dataUpdatedAt } = usePorts();
   const [query, setQuery] = useState("");
-  const [expandedPid, setExpandedPid] = useState<number | null>(null);
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastData | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const entries = useMemo(() => filterPorts(data ?? [], query), [data, query]);
-  const nav = useListNavigation(entries.length);
+  const nav = useListNavigation(entries);
+  const selectedIndex = entries.findIndex((e) => portKey(e) === nav.selectedKey);
 
   async function handleKill(entry: PortEntry) {
-    const result = await killPort(entry);
-    if (result === "terminated" || result === "killed") {
-      setToast({ message: `${entry.label} (${entry.port}) stopped`, command: entry.command });
-      queryClient.invalidateQueries({ queryKey: ["ports"] });
-    } else if (result === "alreadyGone") {
-      setToast({ message: `${entry.label} (${entry.port}) was already gone`, command: null });
-      queryClient.invalidateQueries({ queryKey: ["ports"] });
-    } else {
-      setToast({ message: `Cannot kill ${entry.label} (${entry.port})`, command: null });
+    try {
+      const result = await killPort(entry);
+      if (result === "terminated" || result === "killed") {
+        setToast({ message: `${entry.label} (${entry.port}) stopped`, command: entry.command });
+        queryClient.invalidateQueries({ queryKey: ["ports"] });
+      } else if (result === "alreadyGone") {
+        setToast({ message: `${entry.label} (${entry.port}) was already gone`, command: null });
+        queryClient.invalidateQueries({ queryKey: ["ports"] });
+      } else {
+        setToast({ message: `Cannot kill ${entry.label} (${entry.port})`, command: null });
+      }
+    } catch (err) {
+      setToast({
+        message: `Could not kill ${entry.label} (${entry.port}): ${String(err)}`,
+        command: null,
+      });
     }
   }
 
@@ -45,9 +53,10 @@ export default function App() {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const action = nav.onKeyDown(e);
-      const current = entries[nav.selected];
+      const current = entries.find((entry) => portKey(entry) === nav.selectedKey);
       if (action === "expand" && current) {
-        setExpandedPid((p) => (p === current.pid ? null : current.pid));
+        const k = portKey(current);
+        setExpandedKey((prev) => (prev === k ? null : k));
       } else if (action === "kill" && current?.killable) {
         void handleKill(current);
       } else if (action === "close") {
@@ -84,15 +93,15 @@ export default function App() {
   return (
     <main className={styles.panel}>
       <SearchInput ref={searchRef} value={query} onChange={setQuery} />
-      {error ? (
+      {error && !data ? (
         <ErrorState message={String(error)} onRetry={() => void refetch()} />
       ) : entries.length > 0 ? (
         <PortList
           entries={entries}
-          selected={nav.selected}
-          expandedPid={expandedPid}
-          onSelect={nav.setSelected}
-          onToggleExpand={(pid) => setExpandedPid((p) => (p === pid ? null : pid))}
+          selected={selectedIndex}
+          expandedKey={expandedKey}
+          onSelect={nav.setSelectedKey}
+          onToggleExpand={(k) => setExpandedKey((prev) => (prev === k ? null : k))}
           onKill={(entry) => void handleKill(entry)}
         />
       ) : query.trim() !== "" ? (
@@ -101,13 +110,19 @@ export default function App() {
         <EmptyState />
       )}
       <footer className={styles.footer}>
-        {data ? `${entries.length} ports · updated ${updatedSecondsAgo}s ago` : "loading…"}
+        {data
+          ? `${entries.length} ports · updated ${updatedSecondsAgo}s ago${error ? " (update failed)" : ""}`
+          : "loading…"}
       </footer>
       {toast && (
         <Toast
           toast={toast}
           onCopy={() => {
-            if (toast.command) void navigator.clipboard.writeText(toast.command);
+            if (toast.command) {
+              navigator.clipboard
+                .writeText(toast.command)
+                .catch(() => setToast({ message: "Could not copy command", command: null }));
+            }
             setToast(null);
           }}
         />
