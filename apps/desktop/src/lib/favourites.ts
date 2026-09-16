@@ -1,9 +1,18 @@
+import type { PortEntry } from "./types";
+
 /** F7 Slice 1: a favourite is a saved port number, not a process, address,
  * reservation or background monitor. It survives restarts via localStorage;
  * live presentation (join against `usePorts` snapshots) is Slice 2+. */
 export interface FavouritePort {
   port: number;
   name?: string;
+}
+
+/** F7 Slice 2: one saved favourite joined against the latest live snapshot.
+ * `listeners` is empty when nothing is currently listening on that port. */
+export interface FavouriteMatch {
+  favourite: FavouritePort;
+  listeners: PortEntry[];
 }
 
 export const FAVOURITES_STORAGE_KEY = "chapay.favourites";
@@ -102,4 +111,30 @@ export function sanitizeFavourites(raw: unknown): {
   }
 
   return { items, changed };
+}
+
+/**
+ * Pure join of saved favourites against a live snapshot. Groups entries by
+ * port number in one pass (no per-favourite `find`, no Rust IPv4/IPv6
+ * dedupe), then maps favourites in saved order, preserving snapshot order
+ * within each `listeners` array. Neither `items` nor `entries` is mutated;
+ * a favourite with no current listener gets an empty array, never a
+ * fabricated or persisted-metadata row — live fields always come from the
+ * snapshot passed in, never from an earlier run.
+ */
+export function joinFavourites(items: FavouritePort[], entries: PortEntry[]): FavouriteMatch[] {
+  const byPort = new Map<number, PortEntry[]>();
+  for (const entry of entries) {
+    const existing = byPort.get(entry.port);
+    if (existing) {
+      existing.push(entry);
+    } else {
+      byPort.set(entry.port, [entry]);
+    }
+  }
+
+  return items.map((favourite) => ({
+    favourite,
+    listeners: byPort.get(favourite.port) ?? [],
+  }));
 }

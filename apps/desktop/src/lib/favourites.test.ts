@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   duplicatePortMessage,
+  joinFavourites,
   normalizeName,
   parsePortInput,
   sanitizeFavourites,
 } from "./favourites";
+import { MOCK_PORTS } from "./mock-ports";
+import type { PortEntry } from "./types";
 
 describe("parsePortInput", () => {
   it("accepts the boundaries", () => {
@@ -137,5 +140,86 @@ describe("sanitizeFavourites", () => {
       items: [{ port: 3000 }, { port: 8080, name: "api" }],
       changed: true,
     });
+  });
+});
+
+describe("joinFavourites", () => {
+  const entry = (overrides: Partial<PortEntry>): PortEntry => ({
+    ...MOCK_PORTS[0],
+    ...overrides,
+  });
+
+  it("a favourite with zero listeners maps to an empty listeners array", () => {
+    const result = joinFavourites([{ port: 9999 }], MOCK_PORTS);
+    expect(result).toEqual([{ favourite: { port: 9999 }, listeners: [] }]);
+  });
+
+  it("a favourite with one listener maps to a single-row listeners array", () => {
+    const result = joinFavourites([{ port: 3000 }], MOCK_PORTS);
+    expect(result).toEqual([
+      { favourite: { port: 3000 }, listeners: [MOCK_PORTS.find((e) => e.port === 3000)] },
+    ]);
+  });
+
+  it("two PIDs on one watched port: both listener rows are returned, in snapshot order", () => {
+    const a = entry({ port: 4000, pid: 1, processName: "first" });
+    const b = entry({ port: 4000, pid: 2, processName: "second" });
+    const result = joinFavourites([{ port: 4000 }], [a, b]);
+    expect(result).toEqual([{ favourite: { port: 4000 }, listeners: [a, b] }]);
+  });
+
+  it("one PID listening on two watched ports appears under both favourites", () => {
+    const a = entry({ port: 4000, pid: 7 });
+    const b = entry({ port: 5000, pid: 7 });
+    const result = joinFavourites([{ port: 4000 }, { port: 5000 }], [a, b]);
+    expect(result).toEqual([
+      { favourite: { port: 4000 }, listeners: [a] },
+      { favourite: { port: 5000 }, listeners: [b] },
+    ]);
+  });
+
+  it("preserves the saved favourites order, independent of snapshot order", () => {
+    const items = [{ port: 8787 }, { port: 3000 }, { port: 5432 }];
+    const result = joinFavourites(items, MOCK_PORTS);
+    expect(result.map((m) => m.favourite.port)).toEqual([8787, 3000, 5432]);
+  });
+
+  it("reflects current live metadata, never a prior run's persisted fields", () => {
+    const staleFavourite = { port: 3000, name: "old saved name" };
+    const freshEntry = entry({
+      port: 3000,
+      pid: 999,
+      processName: "totally-different",
+      label: "New process",
+    });
+    const result = joinFavourites([staleFavourite], [freshEntry]);
+    expect(result[0].listeners).toEqual([freshEntry]);
+    expect(result[0].listeners[0].label).toBe("New process");
+    // The favourite's own saved fields are untouched by the join.
+    expect(result[0].favourite).toEqual(staleFavourite);
+  });
+
+  it("does not mutate the input items or entries arrays/objects", () => {
+    const items = [{ port: 3000, name: "api" }];
+    const entries = [entry({ port: 3000 })];
+    const itemsSnapshot = JSON.parse(JSON.stringify(items));
+    const entriesSnapshot = JSON.parse(JSON.stringify(entries));
+
+    joinFavourites(items, entries);
+
+    expect(items).toEqual(itemsSnapshot);
+    expect(entries).toEqual(entriesSnapshot);
+  });
+
+  it("empty favourites list yields an empty result regardless of snapshot", () => {
+    expect(joinFavourites([], MOCK_PORTS)).toEqual([]);
+  });
+
+  it("empty snapshot yields every favourite with zero listeners", () => {
+    const result = joinFavourites([{ port: 3000 }, { port: 8080 }], []);
+    expect(result).toEqual([
+      { favourite: { port: 3000 }, listeners: [] },
+      { favourite: { port: 8080 }, listeners: [] },
+    ]);
   });
 });
