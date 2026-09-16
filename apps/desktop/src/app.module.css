@@ -223,6 +223,32 @@
   white-space: nowrap;
 }
 
+.watch,
+.watchActive {
+  display: flex;
+  border: none;
+  background: transparent;
+  color: var(--pw-muted-2);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  transition: background 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.watch:hover {
+  color: var(--pw-fg-2);
+  background: var(--pw-raised-hover);
+}
+.watchActive {
+  color: var(--pw-accent);
+}
+.watchActive svg {
+  fill: currentColor;
+}
+.watchActive:hover {
+  color: var(--pw-accent-hover);
+  background: var(--pw-raised-hover);
+}
+
 .kill,
 .killArmed,
 .killNeutral,
@@ -260,6 +286,19 @@
   font-weight: 600;
   font-size: 11px;
   padding: 4px 8px;
+}
+/* F7 Slice 4: a stale Favourites snapshot disables the kill control —
+ * real `disabled`, not just a swallowed click — so it never reads as
+ * actionable while liveness is out of date. */
+.killDisabled {
+  border: none;
+  background: transparent;
+  color: var(--pw-muted-2);
+  opacity: 0.4;
+  cursor: not-allowed;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
 }
 .lock {
   position: relative;
@@ -401,4 +440,213 @@
 }
 .toast button:hover {
   color: var(--pw-accent-hover);
+}
+
+/* F7 Slice 3: tab panel wrapper — plain flex passthrough so the child
+ * `.list`/`.state` element (which expects to be a direct flex child of
+ * `.panel`) still grows to fill the remaining height under the tabs. */
+.tabPanel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* F7 Slice 3: tabs */
+.tablist {
+  display: flex;
+  gap: 4px;
+  margin: 0 9px 8px;
+}
+.tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--pw-muted);
+  cursor: pointer;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.tab:hover {
+  color: var(--pw-fg-2);
+}
+.tabActive {
+  color: var(--pw-fg);
+  background: var(--pw-raised);
+  border-color: var(--pw-line);
+}
+.tabCount {
+  font-variant-numeric: tabular-nums;
+  color: var(--pw-muted-2);
+}
+.tabActive .tabCount {
+  color: var(--pw-muted);
+}
+
+/* F7 Slice 3: Favourites watch groups */
+.watchGroup + .watchGroup {
+  border-top: 1px solid var(--pw-line-row);
+}
+.watchHeading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 4px;
+}
+.watchHeadingLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pw-fg-2);
+}
+.watchHeadingPort {
+  font-family: var(--font-mono);
+  color: var(--pw-fg);
+}
+.watchStatus {
+  font-size: 11px;
+  color: var(--pw-muted);
+  white-space: nowrap;
+}
+.watchStatusFree {
+  color: var(--pw-free);
+}
+.watchStatusStale {
+  color: var(--status-danger);
+}
+.watchRemove {
+  display: flex;
+  border: none;
+  background: transparent;
+  color: var(--pw-muted-2);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+}
+.watchRemove:hover {
+  color: var(--status-danger);
+  background: var(--pw-raised-hover);
+}
+.watchError {
+  margin: 0 12px 6px;
+  font-size: 11px;
+  color: var(--status-danger);
+}
+
+/* F7 Slice 3: inline watch form */
+.watchFormTrigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: calc(100% - 24px);
+  margin: 8px 12px;
+  border: 1px dashed var(--pw-line);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--pw-muted);
+  cursor: pointer;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+.watchFormTrigger:hover {
+  color: var(--pw-fg-2);
+  background: var(--pw-raised-hover);
+}
+.watchForm {
+  margin: 8px 12px;
+  padding: 10px;
+  border: 1px solid var(--pw-line);
+  border-radius: var(--radius-md);
+  background: var(--pw-raised);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.watchFormRow {
+  display: flex;
+  gap: 8px;
+}
+.watchFormField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.watchFormField label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--pw-muted-2);
+}
+.watchFormField input {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--pw-line);
+  border-radius: var(--radius-sm);
+  background: var(--pw-surface);
+  color: var(--pw-fg);
+  font-family: inherit;
+  font-size: 12px;
+  outline: none;
+  /* Text-content inputs stay selectable even though the rest of the
+   * panel's chrome is not — a user must be able to select/copy what
+   * they typed. */
+  user-select: text;
+  -webkit-user-select: text;
+}
+.watchFormField input:focus {
+  border-color: var(--pw-accent);
+  box-shadow: 0 0 0 3px var(--pw-accent-ring);
+}
+.watchFormField input[aria-invalid="true"] {
+  border-color: var(--status-danger);
+}
+.watchFormPort {
+  width: 110px;
+}
+.watchFormName {
+  flex: 1;
+}
+.watchFormError {
+  margin: 0;
+  font-size: 11px;
+  color: var(--status-danger);
+}
+.watchFormActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.watchFormCancel,
+.watchFormSubmit {
+  border: 1px solid var(--pw-line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+.watchFormCancel {
+  background: transparent;
+  color: var(--pw-fg-2);
+}
+.watchFormCancel:hover {
+  background: var(--pw-raised-hover);
+}
+.watchFormSubmit {
+  background: var(--pw-accent);
+  border-color: var(--pw-accent);
+  color: #04181a;
+  font-weight: 600;
+}
+.watchFormSubmit:hover {
+  background: var(--pw-accent-hover);
 }

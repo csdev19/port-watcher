@@ -13,6 +13,8 @@ import {
   TriangleAlert,
   Eye,
   ChevronRight,
+  Star,
+  Trash2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -34,6 +36,8 @@ const ICONS: Record<string, LucideIcon> = {
   "triangle-alert": TriangleAlert,
   eye: Eye,
   "chevron-right": ChevronRight,
+  star: Star,
+  "trash-2": Trash2,
 };
 
 export type IconName = keyof typeof ICONS;

@@ -3,15 +3,27 @@ import { useQueryClient } from "@tanstack/react-query";
 import { usePorts } from "@/hooks/use-ports";
 import { useListNavigation } from "@/hooks/use-list-navigation";
 import { useKillConfirm } from "@/hooks/use-kill-confirm";
+import { useFavourites } from "@/hooks/use-favourites";
 import { filterPorts } from "@/lib/filter";
 import { partitionPorts } from "@/lib/port-groups";
+import {
+  favouritesFooterText,
+  favouritesQueryHealth,
+  filterFavouriteMatches,
+  joinFavourites,
+} from "@/lib/favourites";
 import { inTauri, killPort } from "@/lib/ports";
 import { portKey, type PortEntry } from "@/lib/types";
 import { PortList } from "@/components/PortList";
+import { FavouritesPanel } from "@/components/FavouritesPanel";
 import { SearchInput } from "@/components/SearchInput";
 import { EmptyState, ErrorState, FilteredEmptyState } from "@/components/PanelStates";
 import { Toast, type ToastData } from "@/components/Toast";
 import styles from "@/app.module.css";
+
+type Tab = "listening" | "favourites";
+const TABS: Tab[] = ["listening", "favourites"];
+const TAB_LABEL: Record<Tab, string> = { listening: "Listening", favourites: "Favourites" };
 
 async function hidePanel() {
   if (!inTauri) return;
@@ -34,7 +46,17 @@ export default function App() {
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [manuallyExpanded, setManuallyExpanded] = useState(false);
   const [toast, setToast] = useState<ToastData | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>("listening");
   const searchRef = useRef<HTMLInputElement>(null);
+  const tabRefs = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({});
+
+  // F7 Slice 1-3: persisted watched ports, joined against the same live
+  // `usePorts` snapshot both tabs share — no second polling source.
+  const favourites = useFavourites();
+  const favouritePorts = useMemo(
+    () => new Set(favourites.items.map((f) => f.port)),
+    [favourites.items],
+  );
 
   // F6 Slice 3: filter first, then partition into the dev/secondary
   // (app+system) groups the panel renders. Secondary is collapsed by
@@ -50,7 +72,43 @@ export default function App() {
     () => (secondaryOpen ? [...groups.dev, ...groups.secondary] : groups.dev),
     [groups, secondaryOpen],
   );
-  const nav = useListNavigation(visibleEntries);
+
+  // F7 Slice 2/4: the same join/health helpers Favourites renders from,
+  // lifted here so the shared navigation/kill plumbing below can see them
+  // too. `favVisibleMatches` mirrors exactly what `FavouritesPanel` puts
+  // on screen (search-filtered, saved order) — never the raw, unfiltered
+  // `favMatches` used for footer/tab-count totals.
+  const favMatches = useMemo(
+    () => joinFavourites(favourites.items, data ?? []),
+    [favourites.items, data],
+  );
+  const favHealth = favouritesQueryHealth(data, error);
+  const favVisibleMatches = useMemo(
+    () => filterFavouriteMatches(favMatches, query),
+    [favMatches, query],
+  );
+  // F7 Slice 4: flatten only the *currently visible* watches' listener
+  // arrays, in render order (saved order, then each watch's listeners in
+  // snapshot order) — free/unknown watches (`listeners: []`) contribute
+  // nothing here, so they can never become a keyboard-selectable or
+  // killable target; only real listener rows are navigable.
+  const favVisibleEntries = useMemo(
+    () => favVisibleMatches.flatMap((m) => m.listeners),
+    [favVisibleMatches],
+  );
+  // Kill actions are disabled while the snapshot backing Favourites is
+  // stale (a background refetch failed and we're showing retained data)
+  // — keyboard ⌘⌫ must respect the same guard as the row's disabled
+  // kill button.
+  const favKillDisabled = favHealth === "stale";
+
+  // F7 Slice 4: the active tab decides which live entries are
+  // keyboard-navigable/killable — Listening's grouped rows, or
+  // Favourites' currently visible listener rows. Both route through the
+  // same identity-based `useListNavigation`/`useKillConfirm` plumbing;
+  // neither tab gets a parallel implementation.
+  const activeEntries = activeTab === "favourites" ? favVisibleEntries : visibleEntries;
+  const nav = useListNavigation(activeEntries);
 
   // The global keydown listener below is registered once (empty deps) so
   // it isn't re-attached on every render; it reads `entries`/selectedKey
@@ -58,8 +116,16 @@ export default function App() {
   // this, a keydown that lands in the same tick as a selection update
   // (e.g. the default-selection effect that fires right after the first
   // fetch resolves) could still be handled by a stale listener closure.
-  const latest = useRef({ entries: visibleEntries, selectedKey: nav.selectedKey });
-  latest.current = { entries: visibleEntries, selectedKey: nav.selectedKey };
+  const latest = useRef({
+    entries: activeEntries,
+    selectedKey: nav.selectedKey,
+    killDisabled: activeTab === "favourites" && favKillDisabled,
+  });
+  latest.current = {
+    entries: activeEntries,
+    selectedKey: nav.selectedKey,
+    killDisabled: activeTab === "favourites" && favKillDisabled,
+  };
 
   // `useListNavigation` is called fresh every render, so `nav.onKeyDown`
   // is a *new* closure each time (it closes over that render's `entries`
@@ -104,7 +170,9 @@ export default function App() {
 
   // F6 Slice 2: one shared confirmation instance for both pointer and
   // keyboard kill requests — neither path can confirm without the other
-  // seeing the same armed target, timer and invalidation.
+  // seeing the same armed target, timer and invalidation. F7 Slice 3
+  // reuses this same instance for Favourites' listener rows (Slice 4
+  // extends it to a Favourites-aware visible-entries array).
   const confirm = useKillConfirm((entry) => {
     // Resolve the latest entry from the currently visible list and
     // re-validate right before executing: never act on a saved snapshot.
@@ -118,6 +186,19 @@ export default function App() {
     confirm.request(entry, source);
   }
 
+  // F7 Slice 3: toggling the star on a Listening row. Saves `{ port }`
+  // only — no process label baked in, since labels change as processes
+  // restart. Failure surfaces through the existing toast rather than a
+  // second error UI.
+  function toggleWatch(entry: PortEntry) {
+    const result = favouritePorts.has(entry.port)
+      ? favourites.remove(entry.port)
+      : favourites.add(String(entry.port));
+    if (!result.ok) {
+      setToast({ message: result.message, command: null });
+    }
+  }
+
   // Keyboard drives the list even while the search input owns focus.
   // Registered once; reads current entries/selection via `latest.current`
   // (see above) rather than depending on a re-attached closure.
@@ -125,9 +206,15 @@ export default function App() {
     function onKey(e: KeyboardEvent) {
       if (e.isComposing) return;
 
+      // F7 Slice 3: the inline watch form is an excluded keyboard scope —
+      // arrows/⌘⌫ edit its fields, never navigate or kill a row.
+      const target = e.target;
+      if (target instanceof HTMLElement && target.closest('[data-list-shortcuts="off"]')) {
+        return;
+      }
+
       // Enter/Space on a focused control (e.g. the kill/disclosure
       // button) must activate that control, not expand/navigate a row.
-      const target = e.target;
       if (target instanceof HTMLButtonElement && (e.key === "Enter" || e.key === " ")) {
         return;
       }
@@ -141,12 +228,12 @@ export default function App() {
       }
 
       const action = navRef.current.onKeyDown(e);
-      const { entries: currentEntries, selectedKey } = latest.current;
+      const { entries: currentEntries, selectedKey, killDisabled } = latest.current;
       const current = currentEntries.find((entry) => portKey(entry) === selectedKey);
       if (action === "expand" && current) {
         const k = portKey(current);
         setExpandedKey((prev) => (prev === k ? null : k));
-      } else if (action === "kill" && current) {
+      } else if (action === "kill" && current && !killDisabled) {
         requestKill(current, "keyboard");
       } else if (action === "close") {
         void hidePanel();
@@ -164,18 +251,19 @@ export default function App() {
   useEffect(() => {
     const armedTarget = confirm.armedTarget;
     if (!armedTarget) return;
-    const current = visibleEntries.find((e) => portKey(e) === armedTarget.key);
+    const current = activeEntries.find((e) => portKey(e) === armedTarget.key);
     if (
       !current ||
       current.startedAt !== armedTarget.startedAt ||
       !current.killable ||
       current.category !== armedTarget.category ||
-      portKey(current) !== nav.selectedKey
+      portKey(current) !== nav.selectedKey ||
+      (activeTab === "favourites" && favKillDisabled)
     ) {
       confirm.disarm();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visibleEntries, nav.selectedKey, confirm.armedTarget]);
+  }, [activeEntries, nav.selectedKey, confirm.armedTarget, activeTab, favKillDisabled]);
 
   // A query change disarms any pending confirmation — the armed row may
   // no longer even be visible.
@@ -196,9 +284,12 @@ export default function App() {
 
   // Shell emits panel-shown on every open: reset all ephemeral panel state
   // to the same defaults the initial mount uses (manual expansion, query,
-  // detail key, selection and confirmation), then refetch and focus main
-  // search. Clearing the query on open is deliberate — search entered
-  // after opening still overrides the collapsed default.
+  // detail key, selection, confirmation and active tab), then refetch and
+  // focus main search. Clearing the query on open is deliberate — search
+  // entered after opening still overrides the collapsed default. Resetting
+  // to the Listening tab also unmounts `FavouritesPanel`, which discards
+  // its own local watch-form state — no second competing panel-shown
+  // listener is needed for that.
   //
   // `listen()` resolves asynchronously, so a `disposed` flag guards
   // against the effect's cleanup running (unmount, or a second run under
@@ -211,6 +302,7 @@ export default function App() {
     let unlisten: (() => void) | undefined;
     void import("@tauri-apps/api/event").then(async ({ listen }) => {
       const stop = await listen("panel-shown", () => {
+        setActiveTab("listening");
         setManuallyExpanded(false);
         setQuery("");
         setExpandedKey(null);
@@ -264,35 +356,131 @@ export default function App() {
     setManuallyExpanded((prev) => !prev);
   }
 
+  // F7 Slice 3: switching tabs clears query/detail-expansion/selection/
+  // confirmation — the same reset panel-shown performs, minus the tab
+  // itself (which is exactly what's changing).
+  function switchTab(next: Tab) {
+    if (next === activeTab) return;
+    setActiveTab(next);
+    setQuery("");
+    setExpandedKey(null);
+    nav.setSelectedKey(null);
+    confirm.disarm();
+  }
+
+  // Left/Right move and activate; Home/End jump to first/last. Stops
+  // propagation so these never fall through to list navigation.
+  function onTabKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    const idx = TABS.indexOf(activeTab);
+    let nextIdx: number | null = null;
+    if (e.key === "ArrowRight") nextIdx = (idx + 1) % TABS.length;
+    else if (e.key === "ArrowLeft") nextIdx = (idx - 1 + TABS.length) % TABS.length;
+    else if (e.key === "Home") nextIdx = 0;
+    else if (e.key === "End") nextIdx = TABS.length - 1;
+
+    if (nextIdx === null) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const next = TABS[nextIdx];
+    switchTab(next);
+    tabRefs.current[next]?.focus();
+  }
+
+  const footerText =
+    activeTab === "listening"
+      ? data
+        ? `${filtered.length} ports · ${groups.dev.length} dev · updated ${updatedSecondsAgo}s ago${error ? " (update failed)" : ""}`
+        : "loading…"
+      : favouritesFooterText(favourites.items.length, favMatches, favHealth);
+
   return (
     <main className={styles.panel}>
       <SearchInput ref={searchRef} value={query} onChange={setQuery} />
-      {error && !data ? (
-        <ErrorState message={String(error)} onRetry={() => void refetch()} />
-      ) : filtered.length > 0 ? (
-        <PortList
-          groups={groups}
-          secondaryOpen={secondaryOpen}
-          secondaryForcedOpen={forcedOpen}
-          selectedKey={nav.selectedKey}
-          expandedKey={expandedKey}
-          armedKey={confirm.armedTarget?.key ?? null}
-          onSelect={nav.setSelectedKey}
-          onToggleExpand={(k) => setExpandedKey((prev) => (prev === k ? null : k))}
-          onRequestKill={(entry) => requestKill(entry, "pointer")}
-          onDisarmKill={confirm.disarm}
-          onToggleSecondary={toggleSecondary}
-        />
-      ) : query.trim() !== "" ? (
-        <FilteredEmptyState query={query} onClear={() => setQuery("")} />
+      <div className={styles.tablist} role="tablist" aria-label="Ports" onKeyDown={onTabKeyDown}>
+        {TABS.map((tab) => (
+          <button
+            key={tab}
+            ref={(el) => {
+              tabRefs.current[tab] = el;
+            }}
+            type="button"
+            role="tab"
+            id={`tab-${tab}`}
+            aria-selected={activeTab === tab}
+            aria-controls={`panel-${tab}`}
+            tabIndex={activeTab === tab ? 0 : -1}
+            className={activeTab === tab ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+            onClick={() => switchTab(tab)}
+          >
+            {TAB_LABEL[tab]}
+            <span className={styles.tabCount}>
+              {tab === "listening" ? (data ? data.length : "–") : favourites.items.length}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "listening" ? (
+        <div
+          id="panel-listening"
+          role="tabpanel"
+          aria-labelledby="tab-listening"
+          className={styles.tabPanel}
+        >
+          {error && !data ? (
+            <ErrorState message={String(error)} onRetry={() => void refetch()} />
+          ) : filtered.length > 0 ? (
+            <PortList
+              groups={groups}
+              secondaryOpen={secondaryOpen}
+              secondaryForcedOpen={forcedOpen}
+              selectedKey={nav.selectedKey}
+              expandedKey={expandedKey}
+              armedKey={confirm.armedTarget?.key ?? null}
+              favouritePorts={favouritePorts}
+              onSelect={nav.setSelectedKey}
+              onToggleExpand={(k) => setExpandedKey((prev) => (prev === k ? null : k))}
+              onRequestKill={(entry) => requestKill(entry, "pointer")}
+              onDisarmKill={confirm.disarm}
+              onToggleSecondary={toggleSecondary}
+              onToggleWatch={toggleWatch}
+            />
+          ) : query.trim() !== "" ? (
+            <FilteredEmptyState query={query} onClear={() => setQuery("")} />
+          ) : (
+            <EmptyState />
+          )}
+        </div>
       ) : (
-        <EmptyState />
+        <div
+          id="panel-favourites"
+          role="tabpanel"
+          aria-labelledby="tab-favourites"
+          className={styles.tabPanel}
+        >
+          <FavouritesPanel
+            favourites={favourites.items}
+            favouritesError={favourites.error}
+            onClearFavouritesError={favourites.clearError}
+            add={favourites.add}
+            remove={favourites.remove}
+            data={data}
+            queryError={error}
+            query={query}
+            onClearQuery={() => setQuery("")}
+            onRetry={() => void refetch()}
+            selectedKey={nav.selectedKey}
+            expandedKey={expandedKey}
+            armedKey={confirm.armedTarget?.key ?? null}
+            onSelect={nav.setSelectedKey}
+            onToggleExpand={(k) => setExpandedKey((prev) => (prev === k ? null : k))}
+            onRequestKill={(entry) => requestKill(entry, "pointer")}
+            onDisarmKill={confirm.disarm}
+          />
+        </div>
       )}
-      <footer className={styles.footer}>
-        {data
-          ? `${filtered.length} ports · ${groups.dev.length} dev · updated ${updatedSecondsAgo}s ago${error ? " (update failed)" : ""}`
-          : "loading…"}
-      </footer>
+
+      <footer className={styles.footer}>{footerText}</footer>
       {toast && (
         <Toast
           toast={toast}

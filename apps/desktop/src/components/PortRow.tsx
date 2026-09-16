@@ -15,6 +15,18 @@ interface Props {
   onToggleExpand: () => void;
   onRequestKill: () => void;
   onDisarm: () => void;
+  /** F7 Slice 4: true while the live snapshot backing this row is stale
+   * (a background refetch failed and we're showing retained data). The
+   * kill control is disabled — real, native `disabled`, not just a
+   * no-op handler — so it can never be armed/confirmed against
+   * out-of-date liveness, keyboard or pointer. */
+  killDisabled?: boolean;
+  /** F7 Slice 3: whether this port is currently saved as a favourite.
+   * An undefined `onToggleWatch` hides the star entirely — used by
+   * contexts (e.g. Favourites' own listener rows) that don't offer a
+   * per-row watch action. */
+  watched?: boolean;
+  onToggleWatch?: () => void;
 }
 
 export function PortRow({
@@ -26,6 +38,9 @@ export function PortRow({
   onToggleExpand,
   onRequestKill,
   onDisarm,
+  killDisabled,
+  watched,
+  onToggleWatch,
 }: Props) {
   const protectedCategory = entry.category !== "dev";
   const confirmLabel = entry.category === "system" ? "Kill system?" : "Kill app?";
@@ -53,26 +68,59 @@ export function PortRow({
           </span>
         </div>
         <span className={styles.uptime}>{formatUptime(entry.startedAt)}</span>
+        {onToggleWatch && (
+          <button
+            type="button"
+            className={watched ? styles.watchActive : styles.watch}
+            aria-label={watched ? `Port ${entry.port} is watched` : `Watch port ${entry.port}`}
+            aria-pressed={watched ?? false}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleWatch();
+            }}
+          >
+            <Icon name="star" />
+          </button>
+        )}
         {entry.killable ? (
           <button
             type="button"
+            disabled={killDisabled}
+            aria-disabled={killDisabled || undefined}
             className={
-              armed
-                ? protectedCategory
-                  ? styles.killArmedNeutral
-                  : styles.killArmed
-                : protectedCategory
-                  ? styles.killNeutral
-                  : styles.kill
+              killDisabled
+                ? styles.killDisabled
+                : armed
+                  ? protectedCategory
+                    ? styles.killArmedNeutral
+                    : styles.killArmed
+                  : protectedCategory
+                    ? styles.killNeutral
+                    : styles.kill
             }
-            aria-label={`Kill ${entry.label} on port ${entry.port}`}
+            aria-label={
+              killDisabled
+                ? `Cannot kill ${entry.label} on port ${entry.port}: status is stale`
+                : `Kill ${entry.label} on port ${entry.port}`
+            }
             onClick={(e) => {
               e.stopPropagation();
+              if (killDisabled) return;
               onRequestKill();
             }}
             onMouseLeave={onDisarm}
           >
-            {armed ? protectedCategory ? confirmLabel : "Kill?" : <Icon name="x" />}
+            {killDisabled ? (
+              <Icon name="x" />
+            ) : armed ? (
+              protectedCategory ? (
+                confirmLabel
+              ) : (
+                "Kill?"
+              )
+            ) : (
+              <Icon name="x" />
+            )}
           </button>
         ) : (
           <span

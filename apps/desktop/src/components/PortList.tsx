@@ -21,6 +21,10 @@ interface Props {
   onRequestKill: (entry: PortEntry) => void;
   onDisarmKill: () => void;
   onToggleSecondary: () => void;
+  /** F7 Slice 3: saved favourite port numbers — drives the star's
+   * "watched"/"not watched" state on every listening row. */
+  favouritePorts: Set<number>;
+  onToggleWatch: (entry: PortEntry) => void;
 }
 
 function renderRows(
@@ -28,10 +32,12 @@ function renderRows(
   selectedKey: string | null,
   expandedKey: string | null,
   armedKey: string | null,
+  favouritePorts: Set<number>,
   onSelect: (key: string) => void,
   onToggleExpand: (key: string) => void,
   onRequestKill: (entry: PortEntry) => void,
   onDisarmKill: () => void,
+  onToggleWatch: (entry: PortEntry) => void,
 ) {
   return entries.map((entry) => {
     const k = portKey(entry);
@@ -42,10 +48,12 @@ function renderRows(
         selected={k === selectedKey}
         expanded={expandedKey === k}
         armed={armedKey === k}
+        watched={favouritePorts.has(entry.port)}
         onSelect={() => onSelect(k)}
         onToggleExpand={() => onToggleExpand(k)}
         onRequestKill={() => onRequestKill(entry)}
         onDisarm={onDisarmKill}
+        onToggleWatch={() => onToggleWatch(entry)}
       />
     );
   });
@@ -63,6 +71,8 @@ export function PortList({
   onRequestKill,
   onDisarmKill,
   onToggleSecondary,
+  favouritePorts,
+  onToggleWatch,
 }: Props) {
   const { dev, secondary } = groups;
 
@@ -77,10 +87,12 @@ export function PortList({
               selectedKey,
               expandedKey,
               armedKey,
+              favouritePorts,
               onSelect,
               onToggleExpand,
               onRequestKill,
               onDisarmKill,
+              onToggleWatch,
             )}
           </ul>
         </section>
@@ -113,10 +125,12 @@ export function PortList({
                 selectedKey,
                 expandedKey,
                 armedKey,
+                favouritePorts,
                 onSelect,
                 onToggleExpand,
                 onRequestKill,
                 onDisarmKill,
+                onToggleWatch,
               )}
             </ul>
           )}
