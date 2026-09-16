@@ -33,6 +33,27 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
+            // The panel's frosted-glass look previously relied solely on
+            // CSS `backdrop-filter` inside a `transparent: true` WKWebView
+            // window. That combination is unreliable on macOS: the
+            // captured backdrop can be invalidated by any compositor
+            // recomposite (e.g. a mouse-move repaint), leaving only the
+            // panel's low-alpha background color with no blur — the panel
+            // reads as "gone see-through". Native vibrancy is applied at
+            // the NSWindow/compositor level instead, so it survives
+            // repaints; the CSS blur remains as a secondary refinement.
+            #[cfg(target_os = "macos")]
+            if let Some(window) = app.get_webview_window("main") {
+                if let Err(e) = window_vibrancy::apply_vibrancy(
+                    &window,
+                    window_vibrancy::NSVisualEffectMaterial::HudWindow,
+                    Some(window_vibrancy::NSVisualEffectState::Active),
+                    None,
+                ) {
+                    log::warn!("native panel vibrancy unavailable: {e}; falling back to CSS backdrop-filter only");
+                }
+            }
+
             let quit_item = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
             let tray_menu = MenuBuilder::new(app).item(&quit_item).build()?;
 
