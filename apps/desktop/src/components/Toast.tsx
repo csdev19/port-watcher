@@ -1,3 +1,4 @@
+import { Icon } from "@/components/Icon";
 import styles from "@/app.module.css";
 
 export interface ToastData {
@@ -13,6 +14,7 @@ export function Toast({ toast, onCopy }: { toast: ToastData; onCopy: () => void 
       <span>{toast.message}</span>
       {toast.command && (
         <button type="button" onClick={onCopy}>
+          <Icon name="copy" size={12} />
           Copy command
         </button>
       )}

@@ -52,10 +52,22 @@
   color: var(--pw-fg);
 }
 
-.search {
+.searchWrap {
+  position: relative;
   margin: 9px 9px 8px;
-  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  color: var(--pw-muted);
+}
+.searchWrap > svg {
+  position: absolute;
+  left: 12px;
+  pointer-events: none;
+}
+.search {
+  width: 100%;
   height: 36px;
+  padding: 0 32px 0 34px;
   border: 1px solid var(--pw-line);
   border-radius: var(--radius-md);
   background: var(--pw-raised);
@@ -70,6 +82,21 @@
 .search:focus {
   border-color: var(--pw-accent);
   box-shadow: 0 0 0 3px var(--pw-accent-ring);
+}
+.searchClear {
+  position: absolute;
+  right: 8px;
+  display: flex;
+  border: none;
+  background: transparent;
+  color: var(--pw-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+}
+.searchClear:hover {
+  color: var(--pw-fg);
+  background: var(--pw-raised-hover);
 }
 
 .list {
@@ -228,12 +255,25 @@
   text-align: center;
   color: var(--pw-muted);
 }
-.state p:first-child {
+.state svg {
+  color: var(--pw-muted-2);
+}
+.state p {
+  margin: 0;
+}
+.stateTitle {
   font-size: 17px;
   font-weight: 600;
   color: var(--pw-fg);
 }
-.state button {
+.stateSub {
+  font-size: 13px;
+  color: var(--pw-muted);
+}
+.stateButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   border: 1px solid var(--pw-line);
   border-radius: var(--radius-md);
   background: transparent;
@@ -242,7 +282,7 @@
   font-size: 12px;
   cursor: pointer;
 }
-.state button:hover {
+.stateButton:hover {
   background: var(--pw-raised-hover);
 }
 
@@ -276,6 +316,9 @@
   font-size: 12px;
 }
 .toast button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   border: none;
   background: transparent;
   color: var(--pw-accent);

@@ -105,7 +105,7 @@ export default function App() {
           onKill={(entry) => void handleKill(entry)}
         />
       ) : query.trim() !== "" ? (
-        <FilteredEmptyState onClear={() => setQuery("")} />
+        <FilteredEmptyState query={query} onClear={() => setQuery("")} />
       ) : (
         <EmptyState />
       )}

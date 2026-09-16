@@ -66,7 +66,7 @@ describe("App", () => {
     const search = screen.getByLabelText("Search port, app or folder");
     fireEvent.change(search, { target: { value: "zzz-nothing" } });
 
-    expect(screen.getByText("No match")).toBeTruthy();
+    expect(screen.getByText("No port matches zzz-nothing")).toBeTruthy();
     fireEvent.click(screen.getByText("Clear search"));
 
     await waitFor(() => {
