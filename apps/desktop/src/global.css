@@ -1,0 +1,20 @@
+/* Window is `transparent: true` in tauri.conf.json — every layer up to
+   the panel itself must stay transparent, or the OS paints white behind
+   the rounded corners and it reads as a square white card. */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: transparent;
+}
+
+#root {
+  height: 100%;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}

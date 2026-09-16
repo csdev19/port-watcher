@@ -10,14 +10,17 @@
     "frontendDist": "../dist"
   },
   "app": {
+    "macOSPrivateApi": true,
     "windows": [
       {
         "title": "chapay — port watcher",
         "label": "main",
-        "width": 360,
-        "height": 480,
+        "width": 340,
+        "height": 440,
         "resizable": false,
         "decorations": false,
+        "transparent": true,
+        "shadow": false,
         "alwaysOnTop": true,
         "visible": false,
         "skipTaskbar": true
