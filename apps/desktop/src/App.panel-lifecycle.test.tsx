@@ -122,4 +122,73 @@ describe("App panel-shown lifecycle", () => {
     expect(screen.queryByText("Kill?")).toBeNull();
     expect(document.activeElement).toBe(search);
   });
+
+  // F7 Slice 5, case 11: reopening the panel resets the active tab, query,
+  // form and confirmation, keeps the saved favourites list intact, and
+  // refetches exactly once through the existing panel-shown listener —
+  // no second, parallel poll is started.
+  it("panel-shown resets tab/query/form/confirmation, keeps favourites, and refetches once", async () => {
+    window.localStorage.setItem("chapay.favourites", JSON.stringify([{ port: 3000 }]));
+    renderApp();
+    await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+    resolveNextListen();
+    const listCallsBeforeSwitch = (await import("@/lib/ports")).listPorts as unknown as ReturnType<
+      typeof vi.fn
+    >;
+
+    fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+    await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
+    fireEvent.change(screen.getByLabelText("Search port, app or folder"), {
+      target: { value: "next" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /watch a port/i }));
+    expect(screen.getByLabelText("Port")).toBeTruthy();
+
+    const callsBeforeReopen = listCallsBeforeSwitch.mock.calls.length;
+
+    expect(panelShownHandler).toBeTruthy();
+    panelShownHandler!({});
+
+    await waitFor(() => {
+      expect(screen.getByRole("tab", { name: /listening/i }).getAttribute("aria-selected")).toBe(
+        "true",
+      );
+    });
+    expect((screen.getByLabelText("Search port, app or folder") as HTMLInputElement).value).toBe(
+      "",
+    );
+    // Switching back to Listening unmounts FavouritesPanel, discarding its
+    // local form state — reopening Favourites shows the trigger, not a
+    // form still open.
+    fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+    expect(screen.getByRole("button", { name: /watch a port/i })).toBeTruthy();
+    // The saved favourite survived the reset.
+    expect(screen.getByText("in use")).toBeTruthy();
+
+    // Exactly one refetch call was triggered by panel-shown.
+    expect(listCallsBeforeSwitch.mock.calls.length).toBe(callsBeforeReopen + 1);
+  });
+
+  // Switching tabs (without a panel-shown reopen) must never itself start
+  // an extra poll — the shared `usePorts` interval is the only polling
+  // source for both tabs. This asserts the mocked `listPorts` call count
+  // does not grow from tab switches alone, only from what the shared
+  // 2s interval and explicit refetches already accounted for.
+  it("switching tabs repeatedly does not create an extra polling source", async () => {
+    renderApp();
+    await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+    resolveNextListen();
+    const { listPorts } = await import("@/lib/ports");
+    const spy = listPorts as unknown as ReturnType<typeof vi.fn>;
+
+    const callsBefore = spy.mock.calls.length;
+    for (let i = 0; i < 6; i++) {
+      fireEvent.click(
+        screen.getByRole("tab", { name: i % 2 === 0 ? /favourites/i : /listening/i }),
+      );
+    }
+    // No time has passed (no interval tick), and switching tabs calls no
+    // fetch of its own — the call count must be unchanged.
+    expect(spy.mock.calls.length).toBe(callsBefore);
+  });
 });

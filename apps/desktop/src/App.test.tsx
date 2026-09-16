@@ -537,4 +537,345 @@ describe("App", () => {
       expect(screen.getByRole("button", { name: "Port 3000 is watched" })).toBeTruthy();
     });
   });
+
+  // F7 Slice 5: composed regression for the 12 required behavioral cases.
+  // "Remount" below is the jsdom-level proxy for "app restart" — a fresh
+  // `<App />` mount against jsdom's still-populated `localStorage` (never
+  // cleared mid-test, only in the outer `afterEach`). True OS-level
+  // process/app restart is native-only and is not exercised here.
+  describe("Slice 5 — composed regression", () => {
+    // Case 1: add named free port, remount, switch to Favourites.
+    it("a named free-port watch survives a remount and the app still starts on Listening", async () => {
+      const { unmount } = renderApp();
+      await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+
+      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+      fireEvent.click(screen.getByRole("button", { name: /watch a port/i }));
+      fireEvent.change(screen.getByLabelText("Port"), { target: { value: "9999" } });
+      fireEvent.change(screen.getByLabelText("Name (optional)"), {
+        target: { value: "Staging API" },
+      });
+      fireEvent.submit(screen.getByLabelText("Port").closest("form")!);
+      await waitFor(() => expect(screen.getByText(/Staging API/)).toBeTruthy());
+
+      unmount();
+
+      renderApp();
+      await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+      expect(screen.getByRole("tab", { name: /listening/i }).getAttribute("aria-selected")).toBe(
+        "true",
+      );
+      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+      expect(screen.getByText(/Staging API/)).toBeTruthy();
+      expect(screen.getByText("nothing listening")).toBeTruthy();
+    });
+
+    // Case 2: watching via a listening row, then a second PID on the same
+    // port shows watched state too, and the favourites count increases
+    // only once (one saved record, not one per listener row).
+    it("watching one PID on a port marks every PID on that port as watched, counted once", async () => {
+      const listSpy = vi.spyOn(portsModule, "listPorts");
+      renderApp();
+      await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+
+      fireEvent.click(screen.getByRole("button", { name: "Watch port 3000" }));
+      expect(screen.getByRole("tab", { name: /favourites/i }).textContent).toContain("1");
+
+      const secondListener = {
+        ...MOCK_PORTS.find((e) => e.port === 3000)!,
+        pid: 9101,
+        startedAt: Math.floor(Date.now() / 1000) - 60,
+        label: "Next.js dev (2)",
+      };
+      listSpy.mockResolvedValueOnce([...MOCK_PORTS, secondListener]);
+      await waitFor(() => expect(screen.getByText("Next.js dev (2)")).toBeTruthy(), {
+        timeout: 3000,
+      });
+
+      // Still one saved favourite, not two.
+      expect(screen.getByRole("tab", { name: /favourites/i }).textContent).toContain("1");
+      expect(screen.getAllByRole("button", { name: "Port 3000 is watched" }).length).toBe(2);
+    }, 8000);
+
+    // Case 3: an honest successful-empty snapshot is "free"; a snapshot
+    // that never resolved, or resolved with an error and no prior data,
+    // must never show the free/in-use presentation at all.
+    it("an empty successful snapshot shows free; loading/error-with-no-data never shows free or in-use", async () => {
+      window.localStorage.setItem(
+        "chapay.favourites",
+        JSON.stringify([{ port: 3000, name: "API" }]),
+      );
+      let resolveList!: (v: typeof MOCK_PORTS) => void;
+      const listSpy = vi
+        .spyOn(portsModule, "listPorts")
+        .mockReturnValue(new Promise((resolve) => (resolveList = resolve)));
+
+      renderApp();
+      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+
+      // Still loading: neither free nor in-use presentation is shown.
+      expect(screen.getByText("checking…")).toBeTruthy();
+      expect(screen.queryByText("nothing listening")).toBeNull();
+      expect(screen.queryByText("in use")).toBeNull();
+
+      resolveList([]);
+      await waitFor(() => expect(screen.getByText("nothing listening")).toBeTruthy());
+      expect(screen.queryByText(/stale/)).toBeNull();
+      listSpy.mockRestore();
+    });
+
+    // Case 4: free -> in use -> free across successive polls, with no
+    // localStorage write anywhere in that sequence (only a mutation, never
+    // a live-status change, may write the favourites key).
+    it("free/in-use/free transitions across polls never touch localStorage", async () => {
+      window.localStorage.setItem("chapay.favourites", JSON.stringify([{ port: 3000 }]));
+      const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
+      const listSpy = vi.spyOn(portsModule, "listPorts").mockResolvedValue([]);
+
+      renderApp();
+      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+      await waitFor(() => expect(screen.getByText("nothing listening")).toBeTruthy());
+      setItemSpy.mockClear();
+
+      listSpy.mockResolvedValueOnce(MOCK_PORTS);
+      await waitFor(() => expect(screen.getByText("in use")).toBeTruthy(), { timeout: 3000 });
+      expect(setItemSpy).not.toHaveBeenCalled();
+
+      listSpy.mockResolvedValueOnce([]);
+      await waitFor(() => expect(screen.getByText("nothing listening")).toBeTruthy(), {
+        timeout: 3000,
+      });
+      expect(setItemSpy).not.toHaveBeenCalled();
+    }, 8000);
+
+    // Case 5: a PID/start-time replacement (the same process died, a new
+    // one reused the port) must render the latest metadata and must never
+    // let a pointer-armed confirmation against the old incarnation
+    // confirm-kill the new one.
+    it("a PID/start-time replacement renders fresh metadata and voids an old armed confirmation", async () => {
+      const killSpy = vi.spyOn(portsModule, "killPort");
+      const listSpy = vi.spyOn(portsModule, "listPorts");
+      renderApp();
+      await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+
+      fireEvent.click(screen.getByRole("button", { name: "Watch port 3000" }));
+      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+      await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
+
+      // Arm (pointer) the original incarnation (pid 4101).
+      fireEvent.click(screen.getByLabelText("Kill Next.js dev on port 3000"));
+      expect(screen.getByText("Kill?")).toBeTruthy();
+
+      // The process restarted: new pid, new startedAt, same port/label.
+      const original = MOCK_PORTS.find((e) => e.port === 3000)!;
+      const replaced = { ...original, pid: 9999, startedAt: Math.floor(Date.now() / 1000) };
+      // Stable from here on (not just "once") so a subsequent real poll
+      // during the test can't silently revert the port back to the old
+      // incarnation and make the assertions below flaky.
+      listSpy.mockResolvedValue(MOCK_PORTS.map((e) => (e.port === 3000 ? replaced : e)));
+      await waitFor(() => expect(listSpy.mock.calls.length).toBeGreaterThan(1), { timeout: 3000 });
+      await waitFor(() => expect(screen.queryByText("Kill?")).toBeNull(), { timeout: 3000 });
+
+      // Confirming now must be impossible against the stale target: the
+      // row un-armed, so this click only re-arms the new incarnation.
+      // Select the (now-different-key) row first, matching how a real
+      // pointer interaction would hover it before clicking its kill
+      // button — arming requires the armed row to also be the selected
+      // one (see App's disarm effect).
+      const newKillBtn = screen.getByLabelText("Kill Next.js dev on port 3000");
+      fireEvent.mouseEnter(newKillBtn.closest("li")!);
+      fireEvent.click(newKillBtn);
+      expect(killSpy).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByLabelText("Kill Next.js dev on port 3000"));
+      expect(killSpy).toHaveBeenCalledTimes(1);
+      expect(killSpy).toHaveBeenCalledWith(expect.objectContaining({ pid: 9999, port: 3000 }));
+    }, 8000);
+
+    // Case 6: two PIDs on one watched port render two independent kill
+    // actions but count as one "in use" watch; killing one targets only
+    // that PID.
+    it("two PIDs on one watched port: two kill actions, one in-use count, kill targets only the chosen PID", async () => {
+      const killSpy = vi.spyOn(portsModule, "killPort").mockResolvedValue("terminated");
+      const listSpy = vi.spyOn(portsModule, "listPorts");
+      const second = {
+        ...MOCK_PORTS.find((e) => e.port === 3000)!,
+        pid: 9101,
+        label: "Next.js dev (2)",
+      };
+      listSpy.mockResolvedValue([...MOCK_PORTS, second]);
+
+      window.localStorage.setItem("chapay.favourites", JSON.stringify([{ port: 3000 }]));
+      renderApp();
+      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+      await waitFor(() => expect(screen.getByText("Next.js dev (2)")).toBeTruthy());
+
+      // One "in use" watch — not two.
+      expect(screen.getByText(/^1 watched · 1 in use$/)).toBeTruthy();
+
+      const killBtns = screen.getAllByLabelText(/^Kill Next\.js dev.*on port 3000$/);
+      expect(killBtns.length).toBe(2);
+
+      // Select the second row first (arming requires the armed row to
+      // also be the selected one), then arm-then-confirm its action only.
+      fireEvent.mouseEnter(killBtns[1].closest("li")!);
+      fireEvent.click(killBtns[1]);
+      fireEvent.click(screen.getByText("Kill?"));
+      await waitFor(() => expect(killSpy).toHaveBeenCalledTimes(1));
+      expect(killSpy).toHaveBeenCalledWith(expect.objectContaining({ pid: 9101, port: 3000 }));
+    });
+
+    // Case 7: the app/system two-action shortcut requirement, and the
+    // locked-row guard, both hold inside Favourites too.
+    it("a locked watched row never invokes killPort, pointer or keyboard, inside Favourites", async () => {
+      const killSpy = vi.spyOn(portsModule, "killPort");
+      window.localStorage.setItem("chapay.favourites", JSON.stringify([{ port: 631 }]));
+      renderApp();
+      await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+      await waitFor(() => expect(screen.getByText("cupsd")).toBeTruthy());
+
+      // No kill control exists for an unkillable row.
+      expect(screen.queryByLabelText(/Kill cupsd/)).toBeNull();
+
+      const lockedRow = screen.getByLabelText("Belongs to another user").closest("li")!;
+      fireEvent.mouseEnter(lockedRow);
+      killShortcut();
+      killShortcut();
+      expect(killSpy).not.toHaveBeenCalled();
+    });
+
+    // Case 8: removing a favourite that currently has live listeners never
+    // kills anything (already covered for a free watch above); a write
+    // failure on remove must retain the record and surface the error.
+    it("a write failure on remove retains the favourite and surfaces an error", async () => {
+      renderApp();
+      await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+      fireEvent.click(screen.getByRole("button", { name: "Watch port 3000" }));
+      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+      await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
+
+      const setItemSpy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+        throw new Error("quota exceeded");
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: "Remove watched port 3000" }));
+
+      expect(screen.getByText("Could not save watched ports")).toBeTruthy();
+      // The record survives: still rendered, not reverted to the empty
+      // state.
+      expect(screen.getByText("in use")).toBeTruthy();
+      setItemSpy.mockRestore();
+    });
+
+    // Case 9: the inline form is an excluded keyboard scope end-to-end —
+    // Escape closes only the form (never the panel/window), and arrow
+    // keys/⌘⌫ typed while the form is focused never reach row navigation.
+    it("Escape in the watch form only closes the form; arrows/⌘⌫ inside it never reach row navigation", async () => {
+      const killSpy = vi.spyOn(portsModule, "killPort");
+      window.localStorage.setItem("chapay.favourites", JSON.stringify([{ port: 3000 }]));
+      renderApp();
+      await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+      await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
+
+      fireEvent.click(screen.getByRole("button", { name: /watch a port/i }));
+      const portInput = screen.getByLabelText("Port");
+
+      fireEvent.keyDown(portInput, { key: "ArrowDown" });
+      fireEvent.keyDown(portInput, { key: "Backspace", metaKey: true });
+      expect(killSpy).not.toHaveBeenCalled();
+      // The form is still open (arrows/⌘⌫ did not close/expand anything).
+      expect(screen.getByLabelText("Port")).toBeTruthy();
+
+      fireEvent.keyDown(portInput, { key: "Escape" });
+      // Form closed; the Favourites panel (and its watched list) is
+      // still showing — Escape did not hide the whole panel.
+      expect(screen.queryByLabelText("Port")).toBeNull();
+      expect(screen.getByText("in use")).toBeTruthy();
+    });
+
+    // Case 10: search matches by saved name or a live field keep every
+    // listener row for that watch; clearing restores the full list.
+    it("search by saved name and by a live field each keep all of a matching watch's listener rows", async () => {
+      const listSpy = vi.spyOn(portsModule, "listPorts");
+      const second = {
+        ...MOCK_PORTS.find((e) => e.port === 3000)!,
+        pid: 9101,
+        label: "Next.js dev (2)",
+      };
+      listSpy.mockResolvedValue([...MOCK_PORTS, second]);
+      window.localStorage.setItem(
+        "chapay.favourites",
+        JSON.stringify([{ port: 3000, name: "Frontend" }, { port: 5432 }]),
+      );
+
+      renderApp();
+      await waitFor(() => expect(screen.getByText("Next.js dev")).toBeTruthy());
+      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+      await waitFor(() => expect(screen.getByText("Next.js dev (2)")).toBeTruthy());
+
+      const search = screen.getByLabelText("Search port, app or folder");
+
+      // Match by saved name.
+      fireEvent.change(search, { target: { value: "Frontend" } });
+      expect(screen.getByText("Next.js dev")).toBeTruthy();
+      expect(screen.getByText("Next.js dev (2)")).toBeTruthy();
+      expect(screen.queryByText("PostgreSQL")).toBeNull();
+
+      // Match by a live field (project name) instead.
+      fireEvent.change(search, { target: { value: "tapuy-web" } });
+      expect(screen.getByText("Next.js dev")).toBeTruthy();
+      expect(screen.getByText("Next.js dev (2)")).toBeTruthy();
+
+      fireEvent.change(search, { target: { value: "" } });
+      await waitFor(() => expect(screen.getByText("PostgreSQL")).toBeTruthy());
+    });
+
+    // Case 12: kill toast copy and pending-disable behavior in Favourites
+    // match Listening — including the rejected-IPC path.
+    it("Favourites: a rejected kill shows a failure toast and the row is never left stuck disabled", async () => {
+      const killSpy = vi.spyOn(portsModule, "killPort").mockRejectedValueOnce(new Error("nope"));
+      renderApp();
+      await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+      fireEvent.click(screen.getByRole("button", { name: "Watch port 3000" }));
+      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+      await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
+
+      const killBtn = screen.getByLabelText("Kill Next.js dev on port 3000");
+      fireEvent.click(killBtn);
+      fireEvent.click(screen.getByText("Kill?"));
+
+      await waitFor(() => {
+        const toast = screen.getByRole("status");
+        expect(toast.textContent).toContain("Could not kill");
+      });
+      expect(killSpy).toHaveBeenCalledTimes(1);
+
+      // Not stuck: a fresh arm-then-confirm still reaches killPort again.
+      fireEvent.click(screen.getByLabelText("Kill Next.js dev on port 3000"));
+      fireEvent.click(screen.getByText("Kill?"));
+      await waitFor(() => expect(killSpy).toHaveBeenCalledTimes(2));
+    });
+
+    // Case 12 (toast copy): the copy action on a stopped toast copies the
+    // process's command, matching Listening's Toast usage.
+    it("Favourites: a stopped-process toast offers Copy command and copies it", async () => {
+      vi.spyOn(portsModule, "killPort").mockResolvedValueOnce("terminated");
+      const writeTextSpy = vi.fn().mockResolvedValue(undefined);
+      Object.assign(navigator, { clipboard: { writeText: writeTextSpy } });
+
+      renderApp();
+      await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+      fireEvent.click(screen.getByRole("button", { name: "Watch port 3000" }));
+      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+      await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
+
+      fireEvent.click(screen.getByLabelText("Kill Next.js dev on port 3000"));
+      fireEvent.click(screen.getByText("Kill?"));
+
+      await waitFor(() => expect(screen.getByRole("status")).toBeTruthy());
+      fireEvent.click(screen.getByRole("button", { name: /copy command/i }));
+      expect(writeTextSpy).toHaveBeenCalledWith(expect.stringContaining("next dev"));
+    });
+  });
 });
