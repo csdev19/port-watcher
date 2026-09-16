@@ -16,6 +16,23 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_positioner::init())
         .setup(|app| {
+            {
+                use tauri_plugin_global_shortcut::{Code, Modifiers, ShortcutState};
+
+                app.handle().plugin(
+                    tauri_plugin_global_shortcut::Builder::new()
+                        .with_shortcuts(["alt+cmd+p"])?
+                        .with_handler(|app, shortcut, event| {
+                            if event.state == ShortcutState::Pressed
+                                && shortcut.matches(Modifiers::ALT | Modifiers::META, Code::KeyP)
+                            {
+                                crate::panel::toggle_panel(app);
+                            }
+                        })
+                        .build(),
+                )?;
+            }
+
             // Menu-bar app: no Dock icon, no ⌘Tab entry (spec §4.6).
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
