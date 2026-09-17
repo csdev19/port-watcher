@@ -18,7 +18,7 @@ export interface FavouriteMatch {
 
 export const FAVOURITES_STORAGE_KEY = "chapay.favourites";
 
-const MAX_NAME_LENGTH = 80;
+const MAX_NAME_LENGTH = 30;
 const MIN_PORT = 1;
 const MAX_PORT = 65535;
 

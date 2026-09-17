@@ -82,11 +82,11 @@ describe("useFavourites", () => {
     ]);
   });
 
-  it("add rejects a name over 80 characters", () => {
+  it("add rejects a name over 30 characters", () => {
     const { result } = renderHook(() => useFavourites());
     act(() => {
-      const res = result.current.add("3000", "a".repeat(81));
-      expect(res).toEqual({ ok: false, message: "Name must be 80 characters or fewer" });
+      const res = result.current.add("3000", "a".repeat(31));
+      expect(res).toEqual({ ok: false, message: "Name must be 30 characters or fewer" });
     });
     expect(result.current.items).toEqual([]);
   });

@@ -52,10 +52,10 @@ describe("normalizeName", () => {
     expect(normalizeName("  api  ")).toBe("api");
   });
 
-  it("returns null when the trimmed name exceeds 80 characters", () => {
-    expect(normalizeName("a".repeat(80))).toBe("a".repeat(80));
-    expect(normalizeName("a".repeat(81))).toBeNull();
-    expect(normalizeName(`  ${"a".repeat(81)}  `)).toBeNull();
+  it("returns null when the trimmed name exceeds 30 characters", () => {
+    expect(normalizeName("a".repeat(30))).toBe("a".repeat(30));
+    expect(normalizeName("a".repeat(31))).toBeNull();
+    expect(normalizeName(`  ${"a".repeat(31)}  `)).toBeNull();
   });
 });
 

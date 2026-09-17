@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Star,
   Trash2,
+  Pencil,
   type LucideIcon,
 } from "lucide-react";
 
@@ -38,6 +39,7 @@ const ICONS: Record<string, LucideIcon> = {
   "chevron-right": ChevronRight,
   star: Star,
   "trash-2": Trash2,
+  pencil: Pencil,
 };
 
 export type IconName = keyof typeof ICONS;

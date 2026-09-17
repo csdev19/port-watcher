@@ -9,7 +9,7 @@ import {
   type MutationResult,
 } from "@/lib/favourites";
 
-const MAX_NAME_LENGTH_MESSAGE = "Name must be 80 characters or fewer";
+const MAX_NAME_LENGTH_MESSAGE = "Name must be 30 characters or fewer";
 const INVALID_PORT_MESSAGE = "Enter a port number between 1 and 65535";
 const LOAD_ERROR_MESSAGE = "Could not load watched ports";
 const WRITE_ERROR_MESSAGE = "Could not save watched ports";
@@ -114,5 +114,31 @@ export function useFavourites() {
     [setItems],
   );
 
-  return { items, error, add, remove, clearError };
+  const rename = useCallback(
+    (port: number, nameInput: string): MutationResult => {
+      const normalizedName = normalizeName(nameInput);
+      if (normalizedName === null) {
+        return { ok: false, message: MAX_NAME_LENGTH_MESSAGE };
+      }
+
+      const current = itemsRef.current;
+      const next = current.map((f) =>
+        f.port === port
+          ? normalizedName === undefined
+            ? { port }
+            : { port, name: normalizedName }
+          : f,
+      );
+
+      if (!writeStoredFavourites(next)) {
+        return { ok: false, message: WRITE_ERROR_MESSAGE };
+      }
+
+      setItems(next);
+      return { ok: true };
+    },
+    [setItems],
+  );
+
+  return { items, error, add, remove, rename, clearError };
 }

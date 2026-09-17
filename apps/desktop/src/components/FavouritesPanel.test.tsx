@@ -12,6 +12,7 @@ function baseProps() {
     onClearFavouritesError: noop,
     add: vi.fn().mockReturnValue({ ok: true }),
     remove: vi.fn().mockReturnValue({ ok: true }),
+    rename: vi.fn().mockReturnValue({ ok: true }),
     data: MOCK_PORTS,
     queryError: null,
     query: "",
