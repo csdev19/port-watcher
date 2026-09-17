@@ -78,3 +78,10 @@ change `tauri.conf.json` in the same commit.
 - `bun run dev:fullstack-fn` — start the web app alone
 - `bun run db:push` — push the Drizzle schema to the DB (run from the monorepo root)
 - `bun run db:studio` — open Drizzle Studio
+
+## Manual testing fixtures
+
+- `examples/kill-test-server/` — a disposable Hono server (one endpoint) for manually exercising
+  chapay's listener detection and kill flow. Standalone package, deliberately **outside** the
+  `apps/*`/`packages/*` workspace glob so it never enters `build`/`test`/`check-types`. See its
+  README for usage.
