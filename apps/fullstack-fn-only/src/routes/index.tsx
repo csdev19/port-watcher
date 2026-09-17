@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Download, Eye, Search, Shield, ChevronDown, Settings, Wifi, X } from "lucide-react";
+import { Download, Search, Shield, ChevronDown, Settings, Wifi, X, Star } from "lucide-react";
 import "@fontsource/geist-sans/400.css";
 import "@fontsource/geist-sans/500.css";
 import "@fontsource/geist-sans/600.css";
@@ -43,9 +43,7 @@ function Header() {
   return (
     <header className="lp-header">
       <a href="/" className="lp-brand">
-        <span className="lp-mark">
-          <Eye size={13} strokeWidth={1.75} aria-hidden />
-        </span>
+        <img src="/chapaq-mark.png" alt="" className="lp-mark-img" width={22} height={22} />
         <span className="lp-wordmark">chapaq</span>
       </a>
       <nav className="lp-nav">
@@ -70,9 +68,9 @@ function Hero() {
         A menu-bar panel that lists every process listening on your Mac — by port, by app, by
         project folder — and stops the one you point at. One click, no terminal.
       </p>
-      <div>
+      <div className="lp-hero-cta">
         <DownloadButton />
-        <p className="lp-build lp-mono">v0.1.0 · 4.2 MB · macOS 13+ · Apple silicon</p>
+        <p className="lp-build lp-mono">macOS 13+ · Apple silicon &amp; Intel</p>
       </div>
     </section>
   );
@@ -101,7 +99,13 @@ function ProductShot() {
         <div className="lp-shot-menubar">
           <Wifi size={15} strokeWidth={1.75} aria-hidden />
           <span className="lp-shot-tray">
-            <Eye size={16} strokeWidth={1.75} aria-hidden />
+            <img
+              src="/chapaq-mark.png"
+              alt=""
+              className="lp-shot-tray-icon"
+              width={14}
+              height={14}
+            />
             <span className="lp-shot-tray-count lp-mono">4</span>
           </span>
           <span className="lp-shot-clock lp-mono">9:41</span>
@@ -111,9 +115,24 @@ function ProductShot() {
             <Search size={14} strokeWidth={1.75} aria-hidden />
             Search port, app or folder
           </div>
+          <div className="lp-panel-tabs lp-mono">
+            <span className="lp-panel-tab lp-panel-tab-active">
+              Listening <span className="lp-panel-tab-count">4</span>
+            </span>
+            <span className="lp-panel-tab">
+              Favourites <span className="lp-panel-tab-count">1</span>
+            </span>
+          </div>
           <div className="lp-panel-label lp-mono">4 DEV</div>
           <ShotRow port="3000" label="Next.js dev" folder="~/dev/tapuy/apps/web" uptime="12m" />
-          <ShotRow port="5173" label="Vite" folder="~/dev/laqi/panel" uptime="2h" selected />
+          <ShotRow
+            port="5173"
+            label="Vite"
+            folder="~/dev/laqi/panel"
+            uptime="2h"
+            selected
+            favourited
+          />
           <ShotRow port="8787" label="Wrangler (Workers)" folder="~/dev/niway/api" uptime="40m" />
           <ShotRow port="5432" label="PostgreSQL" folder="Homebrew service" uptime="3d" />
           <div className="lp-fold lp-mono">
@@ -138,12 +157,14 @@ function ShotRow({
   folder,
   uptime,
   selected,
+  favourited,
 }: {
   port: string;
   label: string;
   folder: string;
   uptime: string;
   selected?: boolean;
+  favourited?: boolean;
 }) {
   return (
     <div className={selected ? "lp-row lp-row-selected" : "lp-row"}>
@@ -153,11 +174,17 @@ function ShotRow({
         <br />
         <span className="lp-row-folder">{folder}</span>
       </span>
-      {selected ? (
-        <X size={14} strokeWidth={1.75} className="lp-row-kill" aria-hidden />
-      ) : (
+      <span className="lp-row-actions">
         <span className="lp-row-uptime lp-mono">{uptime}</span>
-      )}
+        <Star
+          size={13}
+          strokeWidth={1.75}
+          className={favourited ? "lp-row-star lp-row-star-active" : "lp-row-star"}
+          fill={favourited ? "currentColor" : "none"}
+          aria-hidden
+        />
+        {selected && <X size={14} strokeWidth={1.75} className="lp-row-kill" aria-hidden />}
+      </span>
     </div>
   );
 }
