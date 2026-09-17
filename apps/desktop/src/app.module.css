@@ -500,14 +500,46 @@
   padding: 8px 12px 4px;
 }
 .watchHeadingLabel {
+  display: flex;
+  align-items: center;
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
   font-size: 12px;
   font-weight: 600;
   color: var(--pw-fg-2);
+  font-family: inherit;
+}
+.watchHeadingLabelText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.watchHeadingPencil {
+  display: flex;
+  flex-shrink: 0;
+  margin-left: 4px;
+  color: var(--pw-muted-2);
+  visibility: hidden;
+}
+.watchHeadingLabel:hover .watchHeadingPencil,
+.watchHeadingLabel:focus-visible .watchHeadingPencil {
+  visibility: visible;
+}
+.watchHeadingRenameInput {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pw-fg);
+  background: var(--pw-raised);
+  border: 1px solid var(--pw-accent, var(--pw-line));
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
 }
 .watchHeadingPort {
   font-family: var(--font-mono);

@@ -1,8 +1,9 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   favouritesQueryHealth,
   filterFavouriteMatches,
   joinFavourites,
+  type FavouriteMatch,
   type FavouritePort,
   type MutationResult,
 } from "@/lib/favourites";
@@ -18,6 +19,7 @@ interface Props {
   onClearFavouritesError: () => void;
   add: (portInput: string, nameInput?: string) => MutationResult;
   remove: (port: number) => MutationResult;
+  rename: (port: number, nameInput: string) => MutationResult;
   /** Raw (unfiltered by the main search) `usePorts` snapshot and query
    * health signals — this component never calls `listPorts`, starts a
    * timer, or calls `killPort` itself; App owns all of that. */
@@ -46,6 +48,7 @@ export function FavouritesPanel({
   onClearFavouritesError,
   add,
   remove,
+  rename,
   data,
   queryError,
   query,
@@ -61,6 +64,7 @@ export function FavouritesPanel({
 }: Props) {
   const [formOpen, setFormOpen] = useState(false);
   const [mutationError, setMutationError] = useState<string | null>(null);
+  const [editingPort, setEditingPort] = useState<number | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   const health = favouritesQueryHealth(data, queryError);
@@ -90,6 +94,16 @@ export function FavouritesPanel({
   function handleRemove(port: number) {
     const result = remove(port);
     setMutationError(result.ok ? null : result.message);
+  }
+
+  function handleRenameSubmit(port: number, nameInput: string) {
+    const result = rename(port, nameInput);
+    if (!result.ok) {
+      setMutationError(result.message);
+      return;
+    }
+    setMutationError(null);
+    setEditingPort(null);
   }
 
   const stale = health === "stale";
@@ -170,10 +184,31 @@ export function FavouritesPanel({
             return (
               <div className={styles.watchGroup} key={favourite.port}>
                 <div className={styles.watchHeading}>
-                  <span className={styles.watchHeadingLabel}>
-                    {favourite.name && `${favourite.name} · `}
-                    <span className={styles.watchHeadingPort}>{favourite.port}</span>
-                  </span>
+                  {editingPort === favourite.port ? (
+                    <WatchNameField
+                      port={favourite.port}
+                      initialValue={favourite.name ?? liveProcessName(listeners) ?? ""}
+                      onSubmit={handleRenameSubmit}
+                      onCancel={() => setEditingPort(null)}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      className={styles.watchHeadingLabel}
+                      onClick={() => setEditingPort(favourite.port)}
+                      aria-label={`Rename watched port ${favourite.port}`}
+                    >
+                      <span className={styles.watchHeadingLabelText}>
+                        {(favourite.name ?? liveProcessName(listeners))
+                          ? `${favourite.name ?? liveProcessName(listeners)} · `
+                          : ""}
+                      </span>
+                      <span className={styles.watchHeadingPort}>{favourite.port}</span>
+                      <span className={styles.watchHeadingPencil}>
+                        <Icon name="pencil" size={12} />
+                      </span>
+                    </button>
+                  )}
                   <span className={statusClass}>{statusLabel}</span>
                   <button
                     type="button"
@@ -228,5 +263,57 @@ export function FavouritesPanel({
         </>
       )}
     </div>
+  );
+}
+
+function liveProcessName(listeners: FavouriteMatch["listeners"]): string | undefined {
+  return listeners[0]?.processName;
+}
+
+interface WatchNameFieldProps {
+  port: number;
+  initialValue: string;
+  onSubmit: (port: number, nameInput: string) => void;
+  onCancel: () => void;
+}
+
+/** Inline rename field for a Favourites heading — never a dialog. Enter
+ * saves, Escape cancels, blur saves (matches click-to-rename UX). */
+function WatchNameField({ port, initialValue, onSubmit, onCancel }: WatchNameFieldProps) {
+  const [value, setValue] = useState(initialValue);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      onCancel();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      onSubmit(port, value);
+    }
+  }
+
+  return (
+    <input
+      ref={inputRef}
+      type="text"
+      className={styles.watchHeadingRenameInput}
+      value={value}
+      maxLength={30}
+      autoComplete="off"
+      autoCorrect="off"
+      autoCapitalize="off"
+      spellCheck={false}
+      data-list-shortcuts="off"
+      aria-label={`Rename watched port ${port}`}
+      onChange={(e) => setValue(e.currentTarget.value)}
+      onKeyDown={handleKeyDown}
+      onBlur={() => onSubmit(port, value)}
+    />
   );
 }

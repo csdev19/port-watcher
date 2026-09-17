@@ -1,173 +1,219 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { Button, Card, CardContent } from "@port-watcher/web-ui";
-import { CheckCircle2, ArrowRight, Layers, Shield, Smartphone } from "lucide-react";
+import { createFileRoute } from "@tanstack/react-router";
+import { Download, Eye, Search, Shield, ChevronDown, Settings, Wifi, X } from "lucide-react";
+import "@fontsource/geist-sans/400.css";
+import "@fontsource/geist-sans/500.css";
+import "@fontsource/geist-sans/600.css";
+import "@fontsource/geist-mono/400.css";
+import "@fontsource/geist-mono/500.css";
+import "./landing.css";
 
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "chapaq — see what's on your ports" },
+      {
+        name: "description",
+        content:
+          "A macOS menu-bar panel that lists every listening port and kills the one you point at. Free, open source.",
+      },
+      { name: "theme-color", content: "#FFFFFF" },
+    ],
+  }),
   component: HomePage,
 });
 
+// TODO: point at the real uploaded build once chapay-updates.cs19.dev is live.
+const RELEASES_URL = "https://github.com/csdev19/port-watcher/releases";
+const GITHUB_URL = "https://github.com/csdev19/port-watcher";
+const CONTACT_EMAIL = "mailto:cristiansotomayor.dev@gmail.com";
+
 function HomePage() {
-  const context = Route.useRouteContext();
-  const { isAuthenticated } = context;
-
   return (
-    <div className="min-h-screen bg-linear-to-b from-background to-muted/20">
-      {/* Hero Section */}
-      <div className="container mx-auto px-4 py-16 md:py-24">
-        <div className="max-w-4xl mx-auto text-center space-y-8">
-          <div className="space-y-4">
-            <h1 className="text-4xl md:text-6xl font-bold tracking-tight">
-              Fullstack Server Functions
-              <span className="block text-primary mt-2">No External API</span>
-            </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              A fullstack app using only TanStack Start server functions for all CRUD operations. No
-              Elysia, no Eden treaty — just createServerFn for everything.
-            </p>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-            {isAuthenticated ? (
-              <Link to="/todos">
-                <Button size="lg" className="text-lg">
-                  Go to Dashboard <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </Link>
-            ) : (
-              <>
-                <Link to="/auth/signup">
-                  <Button size="lg" className="text-lg">
-                    Get Started <ArrowRight className="ml-2 h-5 w-5" />
-                  </Button>
-                </Link>
-                <Link to="/auth/login">
-                  <Button size="lg" variant="outline" className="text-lg">
-                    Sign In
-                  </Button>
-                </Link>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Features Section */}
-      <div className="container mx-auto px-4 py-16">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12">
-            Everything You Need to Build Fast
-          </h2>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <Card>
-              <CardContent className="space-y-4 p-6">
-                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Layers className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="text-xl font-semibold">Server Functions Only</h3>
-                <p className="text-muted-foreground">
-                  All CRUD operations go through createServerFn. No separate API server, no HTTP
-                  client setup needed.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="space-y-4 p-6">
-                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Shield className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="text-xl font-semibold">Authentication Ready</h3>
-                <p className="text-muted-foreground">
-                  Better Auth with email/password, session management, and auth guards
-                  pre-configured.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="space-y-4 p-6">
-                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Smartphone className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="text-xl font-semibold">Self-Contained</h3>
-                <p className="text-muted-foreground">
-                  Single deployable unit. No external server dependency. Everything runs inside
-                  TanStack Start on Cloudflare Workers.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="space-y-4 p-6">
-                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <CheckCircle2 className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="text-xl font-semibold">Todo CRUD Example</h3>
-                <p className="text-muted-foreground">
-                  A complete Todo feature using server functions for create, read, update, and
-                  delete operations.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="space-y-4 p-6">
-                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Layers className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="text-xl font-semibold">Shared Packages</h3>
-                <p className="text-muted-foreground">
-                  Reuses domain, application, and infrastructure packages from the monorepo for
-                  consistent architecture.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="space-y-4 p-6">
-                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <CheckCircle2 className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="text-xl font-semibold">Type Safety</h3>
-                <p className="text-muted-foreground">
-                  End-to-end type safety from server functions to React hooks with Zod validation at
-                  the boundary.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-
-      {/* CTA Section */}
-      <div className="container mx-auto px-4 py-16">
-        <Card className="max-w-3xl mx-auto">
-          <CardContent className="text-center space-y-6 p-12">
-            <h2 className="text-3xl font-bold">
-              {isAuthenticated ? "Your Dashboard Awaits" : "Ready to Build?"}
-            </h2>
-            <p className="text-lg text-muted-foreground">
-              {isAuthenticated
-                ? "Head to the dashboard to manage your todos."
-                : "Sign up and explore the Todo CRUD example to see server functions in action."}
-            </p>
-            <Link to={isAuthenticated ? "/todos" : "/auth/signup"}>
-              <Button size="lg" className="text-lg">
-                {isAuthenticated ? "Go to Dashboard" : "Create Free Account"}{" "}
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Footer */}
-      <footer className="container mx-auto px-4 py-8 border-t">
-        <div className="text-center text-sm text-muted-foreground">
-          <p>Fullstack Server Functions — All CRUD via createServerFn</p>
-        </div>
-      </footer>
+    <div className="lp">
+      <Header />
+      <Hero />
+      <ProductShot />
+      <HowItWorks />
+      <Footer />
     </div>
+  );
+}
+
+function Header() {
+  return (
+    <header className="lp-header">
+      <a href="/" className="lp-brand">
+        <span className="lp-mark">
+          <Eye size={13} strokeWidth={1.75} aria-hidden />
+        </span>
+        <span className="lp-wordmark">chapaq</span>
+      </a>
+      <nav className="lp-nav">
+        <a href="#how">How it works</a>
+        <a href={GITHUB_URL} target="_blank" rel="noreferrer">
+          GitHub
+        </a>
+      </nav>
+    </header>
+  );
+}
+
+function Hero() {
+  return (
+    <section className="lp-hero">
+      <p className="lp-eyebrow lp-mono">
+        <span className="lp-eyebrow-dot" aria-hidden />
+        For macOS · free · open source
+      </p>
+      <h1 className="lp-h1">See what&rsquo;s on your ports. Kill the right one.</h1>
+      <p className="lp-sub">
+        A menu-bar panel that lists every process listening on your Mac — by port, by app, by
+        project folder — and stops the one you point at. One click, no terminal.
+      </p>
+      <div>
+        <DownloadButton />
+        <p className="lp-build lp-mono">v0.1.0 · 4.2 MB · macOS 13+ · Apple silicon</p>
+      </div>
+    </section>
+  );
+}
+
+/** Points at the releases page — no direct asset link exists yet (see the
+ * root TODO). Never claims a non-macOS platform: the label and build line
+ * stay macOS-only regardless of visitor OS. */
+function DownloadButton() {
+  return (
+    <a className="lp-cta" href={RELEASES_URL}>
+      <Download size={16} strokeWidth={1.75} aria-hidden />
+      Download for macOS
+    </a>
+  );
+}
+
+function ProductShot() {
+  return (
+    <div className="lp-shot-wrap">
+      <div
+        className="lp-shot"
+        role="img"
+        aria-label="The chapaq panel under the macOS menu bar, listing four dev ports with one selected."
+      >
+        <div className="lp-shot-menubar">
+          <Wifi size={15} strokeWidth={1.75} aria-hidden />
+          <span className="lp-shot-tray">
+            <Eye size={16} strokeWidth={1.75} aria-hidden />
+            <span className="lp-shot-tray-count lp-mono">4</span>
+          </span>
+          <span className="lp-shot-clock lp-mono">9:41</span>
+        </div>
+        <div className="lp-panel">
+          <div className="lp-panel-search">
+            <Search size={14} strokeWidth={1.75} aria-hidden />
+            Search port, app or folder
+          </div>
+          <div className="lp-panel-label lp-mono">4 DEV</div>
+          <ShotRow port="3000" label="Next.js dev" folder="~/dev/tapuy/apps/web" uptime="12m" />
+          <ShotRow port="5173" label="Vite" folder="~/dev/laqi/panel" uptime="2h" selected />
+          <ShotRow port="8787" label="Wrangler (Workers)" folder="~/dev/niway/api" uptime="40m" />
+          <ShotRow port="5432" label="PostgreSQL" folder="Homebrew service" uptime="3d" />
+          <div className="lp-fold lp-mono">
+            <Shield size={12} strokeWidth={1.75} aria-hidden />
+            APPS &amp; SYSTEM · 79
+            <span className="lp-fold-spacer" />
+            <ChevronDown size={14} strokeWidth={1.75} aria-hidden />
+          </div>
+          <div className="lp-shot-footer lp-mono">
+            83 ports · 4 dev · updated 1s ago
+            <Settings size={16} strokeWidth={1.75} aria-hidden />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ShotRow({
+  port,
+  label,
+  folder,
+  uptime,
+  selected,
+}: {
+  port: string;
+  label: string;
+  folder: string;
+  uptime: string;
+  selected?: boolean;
+}) {
+  return (
+    <div className={selected ? "lp-row lp-row-selected" : "lp-row"}>
+      <span className="lp-row-port lp-mono">{port}</span>
+      <span>
+        <span className="lp-row-label">{label}</span>
+        <br />
+        <span className="lp-row-folder">{folder}</span>
+      </span>
+      {selected ? (
+        <X size={14} strokeWidth={1.75} className="lp-row-kill" aria-hidden />
+      ) : (
+        <span className="lp-row-uptime lp-mono">{uptime}</span>
+      )}
+    </div>
+  );
+}
+
+const HOW_IT_WORKS = [
+  {
+    num: "01",
+    title: "Lists, doesn't monitor",
+    body: "Every listening port, labelled by what it is and which project it belongs to. Apps and system services fold away so your dev ports are the list.",
+  },
+  {
+    num: "02",
+    title: "Kills the right one",
+    body: "Checks the process is still the one on that port before it signals. SIGTERM first, SIGKILL only if it has to. Never touches another user's process.",
+  },
+  {
+    num: "03",
+    title: "Costs nothing idle",
+    body: (
+      <>
+        Polls only while the panel is open. Closed, it does nothing at all. <kbd>⌥⌘P</kbd> brings it
+        back.
+      </>
+    ),
+  },
+];
+
+function HowItWorks() {
+  return (
+    <section id="how" className="lp-how">
+      <div className="lp-how-grid">
+        {HOW_IT_WORKS.map((col) => (
+          <div className="lp-how-col" key={col.num}>
+            <span className="lp-how-num lp-mono">{col.num}</span>
+            <h3 className="lp-how-title">{col.title}</h3>
+            <p className="lp-how-body">{col.body}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="lp-footer">
+      <span>chapaq · by csdev</span>
+      <span className="lp-footer-links">
+        <a href={GITHUB_URL} target="_blank" rel="noreferrer">
+          Source
+        </a>
+        <a href={RELEASES_URL} target="_blank" rel="noreferrer">
+          Releases
+        </a>
+        <a href={CONTACT_EMAIL}>Contact</a>
+      </span>
+    </footer>
   );
 }

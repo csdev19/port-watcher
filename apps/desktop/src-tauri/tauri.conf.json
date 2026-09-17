@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "dev.csdev19.portwatcher",
   "build": {
-    "beforeDevCommand": "bun run dev",
+    "beforeDevCommand": "bun run vite:dev",
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "bun run build",
     "frontendDist": "../dist"

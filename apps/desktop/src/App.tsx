@@ -464,6 +464,7 @@ export default function App() {
             onClearFavouritesError={favourites.clearError}
             add={favourites.add}
             remove={favourites.remove}
+            rename={favourites.rename}
             data={data}
             queryError={error}
             query={query}
