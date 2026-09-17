@@ -33,7 +33,7 @@
     "format": "oxfmt --write .",
     "format:tracked": "git ls-files | grep -E '\\.(ts|tsx|js|jsx|json|jsonc|md|mdx)$' | xargs oxfmt --write",
     "check": "bun run lint && bun run format",
-    "dev": "turbo run dev --filter=!desktop",
+    "dev": "turbo run dev tauri:dev",
     "build": "turbo run build",
     "build:no-cache": "turbo run build --force",
     "check-types": "turbo run check-types",

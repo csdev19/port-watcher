@@ -65,16 +65,20 @@ apps/fullstack-fn-only/.env`, which needs a global `dotenvx` (or a root devDepen
 
 ## Desktop app scripts (sharp gotcha)
 
-`desktop`'s `dev`/`build` scripts are the **frontend only** — Tauri itself calls them through
+`desktop`'s frontend-only scripts are `vite:dev`/`build` — Tauri itself calls them through
 `beforeDevCommand`/`beforeBuildCommand` in `src-tauri/tauri.conf.json`. The real app runs under
-`tauri:dev` / `tauri:build`, which is why the root `dev` script filters the package out
-(`turbo run dev --filter=!desktop`): a bare `turbo run dev` would otherwise start a headless Vite on
-port 1420 with no window attached. Use `bun run dev:desktop`. If you rename the frontend scripts,
-change `tauri.conf.json` in the same commit.
+`tauri:dev` / `tauri:build`. Turbo runs a task by exact script name across every package that
+defines it, so `desktop` deliberately has **no** `dev` script (only `vite:dev`) — if it did, a bare
+`turbo run dev` would launch a second, windowless Vite on port 1420 alongside the one Tauri starts
+itself. This is what lets the root `dev` script run `turbo run dev tauri:dev` as a single Turbo
+invocation: `dev` fires for web + docs (desktop has no `dev` task to match), `tauri:dev` fires for
+desktop, both in parallel. If you rename `vite:dev`, change `tauri.conf.json`'s `beforeDevCommand`
+in the same commit — and never reintroduce a script literally named `dev` on `desktop`.
 
 ## Common Commands
 
-- `bun run dev:desktop` — run the Tauri app · `bun run build:desktop` — bundle it
+- `bun run dev` — run web, docs, and the Tauri desktop app together
+- `bun run dev:desktop` — run only the Tauri app · `bun run build:desktop` — bundle it
 - `bun run dev:fullstack-fn` — start the web app alone
 - `bun run db:push` — push the Drizzle schema to the DB (run from the monorepo root)
 - `bun run db:studio` — open Drizzle Studio
