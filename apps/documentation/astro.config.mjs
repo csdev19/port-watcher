@@ -42,6 +42,7 @@ export default defineConfig({
             { slug: "desktop/ui-development" },
             { slug: "desktop/debugging" },
             { slug: "desktop/troubleshooting" },
+            { slug: "desktop/releasing" },
           ],
         },
         {

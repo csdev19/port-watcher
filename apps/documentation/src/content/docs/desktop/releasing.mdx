@@ -1,0 +1,63 @@
+---
+title: Releasing the Desktop App
+description: How a chapay version gets from main to a signed DMG on R2
+---
+
+The decision and its trade-offs are in
+[ADR 0003](https://github.com/csdev19/port-watcher/blob/main/docs/adr/0003-release-please-and-desktop-distribution.md);
+the general pattern is in the
+[general-knowledge hub](https://github.com/csdev19/general-knowledge/blob/main/monorepos/ci-cd-pipelines.md).
+This page is the day-to-day flow.
+
+## Cutting a release
+
+1. Merge feature PRs to `main` with Conventional Commit titles. Only `feat` and
+   `fix` under `apps/desktop/` count toward a desktop release.
+2. release-please keeps a PR open titled like `chore(main): release desktop 0.2.0`,
+   with the version bump and changelog. Review it.
+3. Merge it. That creates the `desktop-v0.2.0` tag, which runs
+   `release-desktop.yml`.
+4. When the run finishes, the DMGs are in R2 and on a **draft** GitHub Release.
+   Publish the draft when you are happy with the notes.
+
+Web works the same way with `web-v*` tags and `release-web.yml`.
+
+Never bump `apps/desktop/package.json` or tag by hand — `tauri.conf.json` reads
+its version from that `package.json`, and release-please owns both.
+
+## Where the files land
+
+| Path in `port-watcher-bucket`      | Contents                                |
+| ---------------------------------- | --------------------------------------- |
+| `download/latest/chapay-arm64.dmg` | Newest Apple Silicon build              |
+| `download/latest/chapay-x64.dmg`   | Newest Intel build                      |
+| `download/<version>/…`             | The same files per version, last 3 kept |
+
+## Trying the pipeline without releasing
+
+Run **Release Desktop** from the Actions tab (`workflow_dispatch`). It builds,
+signs and notarizes both DMGs and attaches them to the run as an artifact for 3
+days. It uploads nothing to R2 and creates no release.
+
+## Building locally
+
+```sh
+cd apps/desktop
+bun run tauri build --target aarch64-apple-darwin --bundles dmg
+```
+
+The DMG lands in `src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/`.
+It is unsigned unless a Developer ID identity is in your keychain.
+
+## Secrets (`production` environment)
+
+| Name                                                    | Used for                          |
+| ------------------------------------------------------- | --------------------------------- |
+| `RELEASE_PLEASE_TOKEN`                                  | creating tags that fire workflows |
+| `CSC_LINK`, `CSC_KEY_PASSWORD`                          | Developer ID certificate          |
+| `APPLE_API_KEY`, `APPLE_API_KEY_ID`, `APPLE_API_ISSUER` | notarization                      |
+| `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`              | R2 upload (S3 API keys)           |
+| `CLOUDFLARE_ACCOUNT_ID`                                 | R2 endpoint                       |
+
+The R2 keys come from **R2 → Manage R2 API Tokens**; the regular Cloudflare API
+token does not work against the S3 API.

@@ -1,0 +1,40 @@
+name: release-please
+
+# Maintains one rolling "release PR" per app (desktop / web). Merging a release
+# PR bumps that app's package.json, writes its CHANGELOG, creates the
+# component-prefixed tag (desktop-v* / web-v*) and a GitHub Release — which in
+# turn triggers release-desktop.yml / release-web.yml. See
+# docs/adr/0003-release-please-and-desktop-distribution.md.
+#
+# Token note: the tag MUST be created by a non-default token, otherwise the
+# `on: push: tags` workflows won't fire (GitHub suppresses events raised by the
+# default GITHUB_TOKEN). RELEASE_PLEASE_TOKEN is a fine-grained PAT with
+# Contents + Pull requests read/write.
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    # RELEASE_PLEASE_TOKEN lives in the `production` environment, with every
+    # other secret. A job only sees an environment's secrets when it declares
+    # that environment; `production` has no protection rules, so this does not
+    # gate the run.
+    environment: production
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

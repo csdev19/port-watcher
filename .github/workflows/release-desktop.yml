@@ -1,0 +1,215 @@
+name: Release Desktop
+
+# Builds the chapay Tauri app for macOS (arm64 + x64), signs it with the
+# Developer ID certificate and notarizes it, uploads the DMGs to Cloudflare R2
+# and attaches them to the GitHub Release. See
+# docs/adr/0003-release-please-and-desktop-distribution.md.
+#
+# Trigger: a `desktop-v*` tag, created by release-please when the desktop
+# release PR is merged — or run manually from the Actions tab while tuning the
+# pipeline (manual runs build, sign and notarize but publish nothing).
+#
+# Secrets live in the `production` GitHub Environment (hence `environment:`).
+# Names match the other desktop repos so the same values can be reused:
+#   CSC_LINK              base64 of the Developer ID Application .p12
+#   CSC_KEY_PASSWORD      password set when the .p12 was exported
+#   APPLE_API_KEY         the App Store Connect .p8 (raw contents or base64)
+#   APPLE_API_KEY_ID      the key id (10 chars)
+#   APPLE_API_ISSUER      the Issuer ID (UUID)
+#   R2_ACCESS_KEY_ID      R2 S3 API key (R2 → Manage R2 API Tokens)
+#   R2_SECRET_ACCESS_KEY  its secret
+#   CLOUDFLARE_ACCOUNT_ID the account that owns the bucket
+
+on:
+  push:
+    tags:
+      - "desktop-v*.*.*"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write # upload assets to the GitHub Release
+
+env:
+  # Bucket name is not sensitive — a plain constant, not a secret.
+  R2_BUCKET: port-watcher-bucket
+
+jobs:
+  release-mac:
+    name: Build, sign & notarize (macOS)
+    runs-on: macos-latest
+    timeout-minutes: 60
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.4
+
+      - name: Setup Rust (both macOS targets)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build shared packages
+        run: bun run build --filter='@port-watcher/*'
+
+      - name: Import Developer ID certificate
+        # Import the .p12 into a throwaway keychain ourselves and hand Tauri the
+        # resolved identity, instead of relying on the bundler to guess it.
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 24)"
+          CERT="$RUNNER_TEMP/certificate.p12"
+          printf '%s' "$CSC_LINK" | base64 --decode > "$CERT"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$CERT" -k "$KEYCHAIN" -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          # Splitting is intended: each existing keychain is its own argument.
+          # shellcheck disable=SC2046
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          rm -f "$CERT"
+          IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN" \
+            | grep -o '"Developer ID Application: [^"]*"' | head -n 1 | tr -d '"')"
+          test -n "$IDENTITY" || {
+            echo "::error::No 'Developer ID Application' identity in CSC_LINK"
+            exit 1
+          }
+          echo "APPLE_SIGNING_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+
+      - name: Prepare Apple API key file
+        # Tauri's notarization wants the .p8 as a file path. Accept either the
+        # raw .p8 contents or its base64 (whichever was stored in the secret).
+        env:
+          APPLE_API_KEY_SECRET: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          KEY_PATH="$RUNNER_TEMP/apple_api_key.p8"
+          if printf '%s' "$APPLE_API_KEY_SECRET" | grep -q "BEGIN PRIVATE KEY"; then
+            printf '%s' "$APPLE_API_KEY_SECRET" > "$KEY_PATH"
+          else
+            printf '%s' "$APPLE_API_KEY_SECRET" | base64 --decode > "$KEY_PATH"
+          fi
+          echo "APPLE_API_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+
+      - name: Build, sign & notarize
+        working-directory: apps/desktop
+        env:
+          # Tauri notarizes when these are set; APPLE_SIGNING_IDENTITY and
+          # APPLE_API_KEY_PATH come from GITHUB_ENV (steps above).
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          for target in aarch64-apple-darwin x86_64-apple-darwin; do
+            bun run tauri build --target "$target" --bundles dmg
+          done
+
+      - name: Collect DMGs
+        # Tauri names them chapay_<version>_<aarch64|x64>.dmg under each
+        # target's bundle dir; copy them to one folder with stable arch names.
+        run: |
+          OUT="$RUNNER_TEMP/dist"
+          mkdir -p "$OUT"
+          BUNDLE=apps/desktop/src-tauri/target
+          # Same source Tauri reads the version from (tauri.conf.json points
+          # at package.json), so the name can never drift from the build.
+          VERSION="$(node -p "require('./apps/desktop/package.json').version")"
+          # Exact names, not a glob: the Rust cache can restore a previous
+          # release's DMG next to the new one.
+          cp "$BUNDLE/aarch64-apple-darwin/release/bundle/dmg/chapay_${VERSION}_aarch64.dmg" "$OUT/chapay-${VERSION}-arm64.dmg"
+          cp "$BUNDLE/x86_64-apple-darwin/release/bundle/dmg/chapay_${VERSION}_x64.dmg" "$OUT/chapay-${VERSION}-x64.dmg"
+          ls -la "$OUT"
+          echo "DIST=$OUT" >> "$GITHUB_ENV"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Publish installers to R2
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          # R2's S3 API needs its own Access Key + Secret — the Cloudflare API
+          # token does NOT work here.
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          # Installers -> download/<version>/ and download/latest/
+          for arch in arm64 x64; do
+            SRC="$DIST/chapay-${VERSION}-${arch}.dmg"
+            aws s3 cp "$SRC" "s3://${R2_BUCKET}/download/${VERSION}/chapay-${arch}.dmg" --endpoint-url "$ENDPOINT"
+            aws s3 cp "$SRC" "s3://${R2_BUCKET}/download/latest/chapay-${arch}.dmg" --endpoint-url "$ENDPOINT"
+          done
+
+      - name: Prune old release artifacts (keep last N versions)
+        # download/<version>/ accumulates one folder per release forever
+        # otherwise (only download/latest/ self-overwrites). Older versions only
+        # enable manual rollback, so a handful is enough.
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          KEEP_VERSIONS: 3
+        run: |
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          VERSIONS=$(aws s3 ls "s3://${R2_BUCKET}/download/" --endpoint-url "$ENDPOINT" \
+            | awk '{print $2}' | sed 's#/$##' | grep -v '^latest$' | grep -v '^$' | sort -V || true)
+          TOTAL=0
+          if [ -n "$VERSIONS" ]; then
+            TOTAL=$(echo "$VERSIONS" | wc -l | tr -d ' ')
+          fi
+          STALE=$((TOTAL - KEEP_VERSIONS))
+          if [ "$STALE" -gt 0 ]; then
+            echo "$VERSIONS" | head -n "$STALE" | while read -r v; do
+              [ -z "$v" ] && continue
+              echo "Pruning download/${v}/ (keeping last ${KEEP_VERSIONS} versions)"
+              aws s3 rm "s3://${R2_BUCKET}/download/${v}/" --recursive --endpoint-url "$ENDPOINT"
+            done
+          else
+            echo "${TOTAL} version(s) published, nothing to prune (keeping last ${KEEP_VERSIONS})."
+          fi
+
+      - name: Upload build as workflow artifact
+        # Only for manual runs (no tag): a tag release already ships the DMGs to
+        # R2 and the GitHub Release, so this would be a redundant copy.
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: chapay-macos
+          path: ${{ env.DIST }}/*.dmg
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Upload artifacts to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          # Draft so a human reviews the notes before it reaches testers.
+          # Flip to `draft: false` once the pipeline is trusted.
+          draft: true
+          prerelease: true
+          fail_on_unmatched_files: true
+          files: ${{ env.DIST }}/*.dmg
+
+      - name: Remove signing keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
