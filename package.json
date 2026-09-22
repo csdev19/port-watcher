@@ -28,6 +28,7 @@
   },
   "type": "module",
   "scripts": {
+    "setup": "bash scripts/setup.sh",
     "prepare": "lefthook install",
     "lint": "oxlint",
     "format": "oxfmt --write .",
