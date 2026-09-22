@@ -98,11 +98,12 @@ working. Everything else in the interface can be neutral.
 
 ### Two constraints the palette has to satisfy
 
-1. **Translucency.** The window uses native macOS vibrancy
-   (`NSVisualEffectView`). The panel surface must be **semi-transparent** — an
-   opaque background cancels the effect entirely and the app stops looking
-   native. Whatever the surface colour is, it needs an alpha channel and has to
-   stay legible over both a bright and a dark desktop.
+1. **Solid surface, not glass.** The panel was first built on native macOS
+   vibrancy (`NSVisualEffectView`) with a semi-transparent surface. It read as
+   washed out over busy desktops and the native layer ignored the panel's
+   rounded corners, so it was dropped: the window stays `transparent: true`
+   only so its corners can be rounded in CSS, and the panel itself is an
+   opaque `sheet` colour with a hairline edge.
 2. **Light and dark, following the system.** Not a toggle. macOS decides, the app
    follows, and both have to be designed — a menu-bar panel is seen against the
    user's wallpaper in both modes.
