@@ -5,25 +5,31 @@
  * spec requires local font files for a signed, offline app — this falls
  * back to system stacks until those files are added. */
 :root {
-  --pw-surface: rgba(18, 18, 22, 0.72);
-  --pw-raised: rgba(255, 255, 255, 0.05);
-  --pw-raised-hover: rgba(255, 255, 255, 0.1);
-  --pw-footer: rgba(255, 255, 255, 0.03);
+  /* Solid, not glass: a translucent panel over a transparent window
+   * shows whatever is behind it and reads as washed out. */
+  --pw-surface: #141018; /* sheet */
+  --pw-raised: #1d1823;
+  --pw-raised-hover: #27202f;
+  --pw-footer: #141018;
+  --pw-edge: rgba(255, 255, 255, 0.22);
   --pw-line: rgba(255, 255, 255, 0.08);
   --pw-line-row: rgba(255, 255, 255, 0.07);
-  --pw-veil: rgba(18, 18, 22, 0.92);
+  --pw-veil: rgba(20, 16, 24, 0.94);
 
   --pw-fg: #ededef;
   --pw-fg-2: #c7c7ce;
   --pw-muted: #8a8a93;
   --pw-muted-2: #6e6e73;
 
-  --pw-accent: #00c2d6;
-  --pw-accent-hover: #22d6e8;
-  --pw-accent-soft: rgba(0, 194, 214, 0.16);
-  --pw-accent-ring: rgba(0, 194, 214, 0.34);
-  --pw-free: #16d397;
-  --status-danger: #ff5c62;
+  --pw-accent: #0fc2d7; /* focus */
+  --pw-accent-hover: #3dd3e4;
+  --pw-accent-soft: rgba(15, 194, 215, 0.16);
+  --pw-accent-ring: rgba(15, 194, 215, 0.34);
+  --pw-action: #ff1e8c;
+  --pw-action-hover: #ff4aa3;
+  --pw-watched: #ffe600;
+  --pw-free: #00ffc2;
+  --status-danger: #ff5c62; /* kill */
 
   --radius-lg: 12px;
   --radius-md: 8px;
@@ -45,15 +51,23 @@
    * .search opt back in below so command/PID/user text stays copyable. */
   -webkit-user-select: none;
   user-select: none;
-  backdrop-filter: saturate(180%) blur(24px);
-  -webkit-backdrop-filter: saturate(180%) blur(24px);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    0 24px 64px rgba(0, 0, 0, 0.5);
   font-family: var(--font-sans);
   font-size: 13px;
   color: var(--pw-fg);
+}
+
+/* The window is exactly the panel's size, so an outer drop shadow
+ * would be clipped; a hairline ring draws the edge instead. It lives on
+ * a pseudo-element above the content because an inset box-shadow paints
+ * beneath children — the footer and selected row backgrounds hid it. */
+.panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  border: 1px solid var(--pw-edge);
+  border-radius: inherit;
+  pointer-events: none;
 }
 
 .searchWrap {
@@ -239,13 +253,13 @@
   background: var(--pw-raised-hover);
 }
 .watchActive {
-  color: var(--pw-accent);
+  color: var(--pw-watched);
 }
 .watchActive svg {
   fill: currentColor;
 }
 .watchActive:hover {
-  color: var(--pw-accent-hover);
+  color: var(--pw-watched);
   background: var(--pw-raised-hover);
 }
 
@@ -315,7 +329,7 @@
   right: 0;
   padding: 4px 8px;
   border-radius: var(--radius-sm);
-  background: rgba(30, 30, 36, 0.97);
+  background: rgba(34, 27, 40, 0.97);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: var(--pw-fg);
   font-size: 11px;
@@ -422,7 +436,7 @@
   gap: 8px;
   padding: 8px 10px;
   border-radius: var(--radius-md);
-  background: rgba(30, 30, 36, 0.97);
+  background: rgba(34, 27, 40, 0.97);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: var(--pw-fg);
   font-size: 12px;
@@ -674,11 +688,11 @@
   background: var(--pw-raised-hover);
 }
 .watchFormSubmit {
-  background: var(--pw-accent);
-  border-color: var(--pw-accent);
-  color: #04181a;
+  background: var(--pw-action);
+  border-color: var(--pw-action);
+  color: #fff;
   font-weight: 600;
 }
 .watchFormSubmit:hover {
-  background: var(--pw-accent-hover);
+  background: var(--pw-action-hover);
 }
