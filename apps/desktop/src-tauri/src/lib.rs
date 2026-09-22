@@ -48,7 +48,11 @@ pub fn run() {
                     &window,
                     window_vibrancy::NSVisualEffectMaterial::HudWindow,
                     Some(window_vibrancy::NSVisualEffectState::Active),
-                    None,
+                    // Must match `.panel`'s `--radius-lg` (12px) in
+                    // app.module.css. Without it the effect view fills the
+                    // full square window and its corners show behind the
+                    // CSS-rounded panel.
+                    Some(12.0),
                 ) {
                     log::warn!("native panel vibrancy unavailable: {e}; falling back to CSS backdrop-filter only");
                 }
