@@ -1,9 +1,19 @@
-name: Deploy to Production
+name: Release Web
+
+# Builds and deploys the fullstack web Worker.
+#
+# Trigger: a `web-v*` tag, created by release-please when its web release PR is
+# merged — or run manually from the Actions tab.
 
 on:
   push:
-    branches:
-      - production
+    tags:
+      - "web-v*.*.*"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   deploy-production:
