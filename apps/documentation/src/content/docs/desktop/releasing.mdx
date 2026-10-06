@@ -3,9 +3,11 @@ title: Releasing the Desktop App
 description: How a chapay version gets from main to a signed DMG on R2
 ---
 
-The decision and its trade-offs are in
-[ADR 0003](https://github.com/csdev19/port-watcher/blob/main/docs/adr/0003-release-please-and-desktop-distribution.md);
-the general pattern is in the
+The decisions and their trade-offs are in
+[ADR 0003](https://github.com/csdev19/port-watcher/blob/main/docs/adr/0003-release-please-and-desktop-distribution.md)
+(versioning, signing, bucket layout) and
+[ADR 0004](https://github.com/csdev19/port-watcher/blob/main/docs/adr/0004-public-hostnames-and-release-variables.md)
+(public hostnames, release variables); the general pattern is in the
 [general-knowledge hub](https://github.com/csdev19/general-knowledge/blob/main/monorepos/ci-cd-pipelines.md).
 This page is the day-to-day flow.
 
@@ -27,11 +29,18 @@ its version from that `package.json`, and release-please owns both.
 
 ## Where the files land
 
-| Path in `port-watcher-bucket`      | Contents                                |
-| ---------------------------------- | --------------------------------------- |
-| `download/latest/chapay-arm64.dmg` | Newest Apple Silicon build              |
-| `download/latest/chapay-x64.dmg`   | Newest Intel build                      |
-| `download/<version>/…`             | The same files per version, last 3 kept |
+Public URL = `DOWNLOAD_BASE_URL` + path. The landing's download button links
+to the `latest/` aliases.
+
+| Path in the `R2_BUCKET` bucket     | Contents                                | Cache             |
+| ---------------------------------- | --------------------------------------- | ----------------- |
+| `download/latest/chapay-arm64.dmg` | Newest Apple Silicon build              | revalidate always |
+| `download/latest/chapay-x64.dmg`   | Newest Intel build                      | revalidate always |
+| `download/<version>/…`             | The same files per version, last 3 kept | immutable, 1 year |
+
+The release fails on **Verify public URLs** if any of the four does not answer
+at `DOWNLOAD_BASE_URL`: a bucket without public access, or a wrong variable,
+breaks the release and not a user's click.
 
 ## Trying the pipeline without releasing
 
@@ -49,15 +58,48 @@ bun run tauri build --target aarch64-apple-darwin --bundles dmg
 The DMG lands in `src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/`.
 It is unsigned unless a Developer ID identity is in your keychain.
 
+## First release (one-time owner setup)
+
+Nothing below can run from a workflow; it is dashboard work. Names are the
+same as in my-pets, so the Apple and Cloudflare values can be copied from there.
+
+1. **R2.** Create the bucket, enable **public access** (Settings → Public
+   Development URL) and note the `https://pub-<id>.r2.dev` URL. Create an S3
+   API token (**R2 → Manage R2 API Tokens**) scoped to that bucket; the regular
+   Cloudflare API token does not work against the S3 API.
+2. **DNS.** Delete any existing `port-watcher.cs19.dev` record in the
+   `cs19.dev` zone: Cloudflare refuses a Worker custom domain on a hostname
+   that already has one. Wrangler creates the record on the first deploy.
+3. **Cloudflare API token** for the web deploy: Workers Scripts: Edit, plus
+   Zone DNS: Edit on `cs19.dev`.
+4. **GitHub PAT** (fine-grained, this repo, Contents + Pull requests
+   read/write) for `RELEASE_PLEASE_TOKEN`: a tag pushed by the default
+   `GITHUB_TOKEN` fires no workflow.
+5. **Database.** A production Postgres for the Worker; its URL is
+   `DATABASE_URL`.
+6. Load everything into the `production` environment (tables below), e.g.
+   `gh secret set NAME --env production` / `gh variable set NAME --env production --body VALUE`.
+7. **Rehearse**: run **Release Desktop** from the Actions tab. It builds, signs
+   and notarizes but publishes nothing. Then merge the release PRs.
+
 ## Secrets (`production` environment)
 
-| Name                                                    | Used for                          |
-| ------------------------------------------------------- | --------------------------------- |
-| `RELEASE_PLEASE_TOKEN`                                  | creating tags that fire workflows |
-| `CSC_LINK`, `CSC_KEY_PASSWORD`                          | Developer ID certificate          |
-| `APPLE_API_KEY`, `APPLE_API_KEY_ID`, `APPLE_API_ISSUER` | notarization                      |
-| `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`              | R2 upload (S3 API keys)           |
-| `CLOUDFLARE_ACCOUNT_ID`                                 | R2 endpoint                       |
+| Name                                                    | Used for                                                             |
+| ------------------------------------------------------- | -------------------------------------------------------------------- |
+| `RELEASE_PLEASE_TOKEN`                                  | creating tags that fire workflows                                    |
+| `CSC_LINK`, `CSC_KEY_PASSWORD`                          | Developer ID certificate (base64 `.p12`, password)                   |
+| `APPLE_API_KEY`, `APPLE_API_KEY_ID`, `APPLE_API_ISSUER` | notarization (`.p8` raw or base64, key id, issuer)                   |
+| `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`              | R2 upload (S3 API keys)                                              |
+| `CLOUDFLARE_ACCOUNT_ID`                                 | R2 endpoint and Worker deploy                                        |
+| `CLOUDFLARE_API_TOKEN`                                  | Worker deploy + custom-domain DNS record                             |
+| `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` | Worker runtime; `BETTER_AUTH_URL` is `https://port-watcher.cs19.dev` |
 
-The R2 keys come from **R2 → Manage R2 API Tokens**; the regular Cloudflare API
-token does not work against the S3 API.
+## Variables (`production` environment)
+
+| Name                | Content                                                                |
+| ------------------- | ---------------------------------------------------------------------- |
+| `R2_BUCKET`         | bucket name                                                            |
+| `DOWNLOAD_BASE_URL` | the bucket's public URL, no trailing slash (`https://pub-<id>.r2.dev`) |
+
+`DOWNLOAD_BASE_URL` is baked into the landing at web release time, so changing
+it needs a web release.

@@ -9,8 +9,9 @@ name: Release Desktop
 # release PR is merged — or run manually from the Actions tab while tuning the
 # pipeline (manual runs build, sign and notarize but publish nothing).
 #
-# Secrets live in the `production` GitHub Environment (hence `environment:`).
-# Names match the other desktop repos so the same values can be reused:
+# Secrets and variables live in the `production` GitHub Environment (hence
+# `environment:`). Names match my-pets and the other desktop repos so the same
+# values can be reused (ADR 0004). Secrets:
 #   CSC_LINK              base64 of the Developer ID Application .p12
 #   CSC_KEY_PASSWORD      password set when the .p12 was exported
 #   APPLE_API_KEY         the App Store Connect .p8 (raw contents or base64)
@@ -19,6 +20,10 @@ name: Release Desktop
 #   R2_ACCESS_KEY_ID      R2 S3 API key (R2 → Manage R2 API Tokens)
 #   R2_SECRET_ACCESS_KEY  its secret
 #   CLOUDFLARE_ACCOUNT_ID the account that owns the bucket
+# Variables (not sensitive, so `vars.`, readable in the Actions UI):
+#   R2_BUCKET             bucket name
+#   DOWNLOAD_BASE_URL     the bucket's public URL, no trailing slash
+#                         (`https://pub-<id>.r2.dev` or a custom domain)
 
 on:
   push:
@@ -34,8 +39,11 @@ permissions:
   contents: write # upload assets to the GitHub Release
 
 env:
-  # Bucket name is not sensitive — a plain constant, not a secret.
-  R2_BUCKET: port-watcher-bucket
+  # Neither is sensitive, so both are environment *variables* (same names as
+  # my-pets). The web release bakes DOWNLOAD_BASE_URL into the landing's
+  # download button, so the two workflows can never disagree about the host.
+  R2_BUCKET: ${{ vars.R2_BUCKET }}
+  DOWNLOAD_BASE_URL: ${{ vars.DOWNLOAD_BASE_URL }}
 
 jobs:
   release-mac:
@@ -150,12 +158,37 @@ jobs:
           AWS_DEFAULT_REGION: auto
           R2_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
+          : "${R2_BUCKET:?Set the R2_BUCKET variable in the production environment}"
           ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
-          # Installers -> download/<version>/ and download/latest/
+          # Versioned objects never change, so browsers and Cloudflare's cache
+          # may keep them for a year; `latest/` is the live alias the landing
+          # links to, so it must be revalidated on every request.
+          IMMUTABLE="public, max-age=31536000, immutable"
+          LIVE="public, max-age=0, must-revalidate"
+          CT="application/x-apple-diskimage"
+          # Installers -> download/<version>/ first, then download/latest/.
           for arch in arm64 x64; do
             SRC="$DIST/chapay-${VERSION}-${arch}.dmg"
-            aws s3 cp "$SRC" "s3://${R2_BUCKET}/download/${VERSION}/chapay-${arch}.dmg" --endpoint-url "$ENDPOINT"
-            aws s3 cp "$SRC" "s3://${R2_BUCKET}/download/latest/chapay-${arch}.dmg" --endpoint-url "$ENDPOINT"
+            aws s3 cp "$SRC" "s3://${R2_BUCKET}/download/${VERSION}/chapay-${arch}.dmg" \
+              --endpoint-url "$ENDPOINT" --content-type "$CT" --cache-control "$IMMUTABLE"
+          done
+          for arch in arm64 x64; do
+            SRC="$DIST/chapay-${VERSION}-${arch}.dmg"
+            aws s3 cp "$SRC" "s3://${R2_BUCKET}/download/latest/chapay-${arch}.dmg" \
+              --endpoint-url "$ENDPOINT" --content-type "$CT" --cache-control "$LIVE"
+          done
+
+      - name: Verify public URLs
+        # The URLs the landing links to must answer right after publishing;
+        # a bucket without public access or a wrong DOWNLOAD_BASE_URL fails
+        # here, in the release, instead of on a user's click.
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          : "${DOWNLOAD_BASE_URL:?Set the DOWNLOAD_BASE_URL variable in the production environment}"
+          for path in "download/${VERSION}/chapay-arm64.dmg" "download/${VERSION}/chapay-x64.dmg" \
+                      "download/latest/chapay-arm64.dmg" "download/latest/chapay-x64.dmg"; do
+            curl -fsSIL "$DOWNLOAD_BASE_URL/$path" >/dev/null || { echo "::error::Missing: $DOWNLOAD_BASE_URL/$path"; exit 1; }
+            echo "OK: $DOWNLOAD_BASE_URL/$path"
           done
 
       - name: Prune old release artifacts (keep last N versions)
