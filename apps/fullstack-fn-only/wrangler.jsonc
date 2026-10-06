@@ -7,6 +7,17 @@
   "observability": {
     "enabled": true,
   },
+  // The public origin (ADR 0004). A custom domain takes the whole hostname, so
+  // this is a subdomain of `cs19.dev`, whose apex is a separate site. Wrangler
+  // creates the DNS record on deploy: the zone must live in the same
+  // Cloudflare account, the deploy token needs Zone DNS: Edit on it, and no
+  // record may already exist for this hostname.
+  "routes": [
+    {
+      "pattern": "port-watcher.cs19.dev",
+      "custom_domain": true,
+    },
+  ],
   "assets": {
     "directory": "dist/client",
     "binding": "ASSETS",

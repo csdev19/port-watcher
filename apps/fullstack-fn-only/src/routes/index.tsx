@@ -10,7 +10,7 @@ import "./landing.css";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "chapaq — see what's on your ports" },
+      { title: "chapay — see what's on your ports" },
       {
         name: "description",
         content:
@@ -22,8 +22,18 @@ export const Route = createFileRoute("/")({
   component: HomePage,
 });
 
-// TODO: point at the real uploaded build once chapay-updates.cs19.dev is live.
 const RELEASES_URL = "https://github.com/csdev19/port-watcher/releases";
+/** Public base URL of the R2 bucket the desktop release publishes to (ADR 0004).
+ * Baked in at build time by release-web.yml from the DOWNLOAD_BASE_URL
+ * variable; absent in PR validation and local dev, where the button falls
+ * back to the releases page instead of a dead link. */
+const DOWNLOAD_BASE_URL = import.meta.env.VITE_PUBLIC_DOWNLOAD_URL?.replace(/\/+$/, "");
+const DOWNLOAD_URLS = DOWNLOAD_BASE_URL
+  ? {
+      arm64: `${DOWNLOAD_BASE_URL}/download/latest/chapay-arm64.dmg`,
+      x64: `${DOWNLOAD_BASE_URL}/download/latest/chapay-x64.dmg`,
+    }
+  : null;
 const GITHUB_URL = "https://github.com/csdev19/port-watcher";
 const CONTACT_EMAIL = "mailto:cristiansotomayor.dev@gmail.com";
 
@@ -70,18 +80,31 @@ function Hero() {
       </p>
       <div className="lp-hero-cta">
         <DownloadButton />
-        <p className="lp-build lp-mono">macOS 13+ · Apple silicon &amp; Intel</p>
+        <p className="lp-build lp-mono">
+          macOS 13+ · Apple silicon
+          {DOWNLOAD_URLS ? (
+            <>
+              {" "}
+              &middot;{" "}
+              <a className="lp-build-link" href={DOWNLOAD_URLS.x64}>
+                Intel build
+              </a>
+            </>
+          ) : (
+            <> &amp; Intel</>
+          )}
+        </p>
       </div>
     </section>
   );
 }
 
-/** Points at the releases page — no direct asset link exists yet (see the
- * root TODO). Never claims a non-macOS platform: the label and build line
+/** The Apple-silicon DMG when the public download URL is known, otherwise the
+ * releases page. Never claims a non-macOS platform: the label and build line
  * stay macOS-only regardless of visitor OS. */
 function DownloadButton() {
   return (
-    <a className="lp-cta" href={RELEASES_URL}>
+    <a className="lp-cta" href={DOWNLOAD_URLS?.arm64 ?? RELEASES_URL}>
       <Download size={16} strokeWidth={1.75} aria-hidden />
       Download for macOS
     </a>
