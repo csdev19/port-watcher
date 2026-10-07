@@ -68,3 +68,6 @@ lefthook-local.yml
 
 # Written by release-web.yml for `wrangler deploy --secrets-file`; never commit
 worker-secrets.json
+
+# Owner-only values for scripts/production-env.sh; never commit
+.production.env

@@ -77,8 +77,13 @@ same as in my-pets, so the Apple and Cloudflare values can be copied from there.
    `GITHUB_TOKEN` fires no workflow.
 5. **Database.** A production Postgres for the Worker; its URL is
    `DATABASE_URL`.
-6. Load everything into the `production` environment (tables below), e.g.
-   `gh secret set NAME --env production` / `gh variable set NAME --env production --body VALUE`.
+6. Load everything into the `production` environment (tables below). Write
+   the values as `KEY=value` lines in `.production.env` at the repo root
+   (gitignored, `chmod 600`), then run `bash scripts/production-env.sh load`.
+   It pushes each known name with `gh`, fills `BETTER_AUTH_URL` and
+   `R2_BUCKET` with their defaults, generates `BETTER_AUTH_SECRET` when the
+   environment has none, and ends with the audit below. Rerun it any time;
+   `bash scripts/production-env.sh check` lists which names are still missing.
 7. **Rehearse**: run **Release Desktop** from the Actions tab. It builds, signs
    and notarizes but publishes nothing. Then merge the release PRs.
 
