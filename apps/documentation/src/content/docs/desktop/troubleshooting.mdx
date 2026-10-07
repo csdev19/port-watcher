@@ -15,15 +15,21 @@ No such file or directory (os error 2)
 `cargo metadata` because that is the first thing the Tauri CLI runs, but nothing about Rust itself is
 broken.
 
-**Most common cause:** the terminal was already open when Rust was installed. rustup appends
-`. "$HOME/.cargo/env"` to `~/.zshenv`, and that only applies to **new** shells. Turbo and bun inherit
-the parent shell's `PATH`, so a stale terminal propagates the gap all the way down.
+**Two causes, same symptom:**
 
-**Fix:** open a new terminal, or in the current one:
+1. **A stale terminal.** rustup appends `. "$HOME/.cargo/env"` to `~/.zshenv`, and that only
+   applies to **new** shells. Turbo and bun inherit the parent shell's `PATH`, so a terminal that was
+   open when Rust was installed propagates the gap all the way down. Fix: open a new terminal, or
+   `source ~/.cargo/env` in the current one.
+2. **Dotfiles that never load Rust.** If your shell startup files are managed (symlinked from a
+   dotfiles repo), rustup's edit to `~/.zshenv` is overwritten or never happened, and **no** terminal,
+   new or old, finds `cargo`. `bun run setup` passes anyway because it puts `~/.cargo/bin` on its own
+   `PATH`; since 2026-10 it ends by probing a fresh shell and **fails loudly** when that shell cannot
+   see `cargo`. Fix it once in the dotfiles:
 
-```bash
-source ~/.cargo/env
-```
+   ```bash
+   export PATH="$HOME/.cargo/bin:$PATH"   # or: . "$HOME/.cargo/env"
+   ```
 
 **Confirm:** `command -v cargo` prints a path, and `bun run --cwd apps/desktop tauri info` reports
 rustc, cargo and rustup with check marks.
