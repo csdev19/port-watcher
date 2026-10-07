@@ -20,11 +20,12 @@ drift from that single source of truth.
 
 ## Variables by Context
 
-| Variable             | Server functions | Client | infra-db | Sensitive? |
-| -------------------- | ---------------- | ------ | -------- | ---------- |
-| `DATABASE_URL`       | Yes              | -      | Yes      | **Yes**    |
-| `BETTER_AUTH_SECRET` | Yes              | -      | -        | **Yes**    |
-| `BETTER_AUTH_URL`    | Yes              | -      | -        | No         |
+| Variable                   | Server functions | Client                 | infra-db | Sensitive? |
+| -------------------------- | ---------------- | ---------------------- | -------- | ---------- |
+| `DATABASE_URL`             | Yes              | -                      | Yes      | **Yes**    |
+| `BETTER_AUTH_SECRET`       | Yes              | -                      | -        | **Yes**    |
+| `BETTER_AUTH_URL`          | Yes              | -                      | -        | No         |
+| `VITE_PUBLIC_DOWNLOAD_URL` | -                | Yes (inlined at build) | -        | No         |
 
 The schema that enforces this is `fullstackServerEnvSchema` in
 `packages/infra-env/src/fullstack-server.ts`. Adding a variable means adding it there first —

@@ -155,6 +155,14 @@
   color: var(--faint);
   margin: 0;
 }
+.lp-build-link {
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.lp-build-link:hover {
+  color: var(--ink);
+}
 
 /* Product shot */
 .lp-shot-wrap {
