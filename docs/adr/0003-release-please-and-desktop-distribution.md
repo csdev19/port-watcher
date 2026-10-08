@@ -1,7 +1,10 @@
 # ADR 0003: release-please versioning and desktop distribution through R2
 
-**Status:** accepted; pipeline files are on this branch. Not yet exercised in
-CI — the first real run needs the owner setup listed under Consequences.
+**Status:** accepted; amended by [ADR 0004](0004-public-hostnames-and-release-variables.md)
+(public hostnames, `R2_BUCKET`/`DOWNLOAD_BASE_URL` as variables, secrets shipped
+with the deploy). Not yet exercised in CI — the first run on `main`
+(2026-10-05) failed for lack of `RELEASE_PLEASE_TOKEN`; the owner setup is now
+listed in ADR 0004.
 **Date:** 2026-09-21.
 
 ## Context
