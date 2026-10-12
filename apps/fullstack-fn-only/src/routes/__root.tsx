@@ -12,15 +12,17 @@ import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
 import { Toaster } from "@port-watcher/web-ui";
 
-import Header from "../components/header";
+// Auth is disabled for now (see vite.config.ts). Restore these imports, the
+// context fields and `beforeLoad` below together with the auth routes.
+// import Header from "../components/header";
 import appCss from "../index.css?url";
-import { getAuthSession } from "@/lib/auth/get-auth-session";
-import type { AuthSession } from "@/lib/auth/types";
+// import { getAuthSession } from "@/lib/auth/get-auth-session";
+// import type { AuthSession } from "@/lib/auth/types";
 
 export interface RouterAppContext {
   queryClient: QueryClient;
-  isAuthenticated: boolean;
-  session: AuthSession | null;
+  // isAuthenticated: boolean;
+  // session: AuthSession | null;
 }
 
 export const Route = createRootRouteWithContext<RouterAppContext>()({
@@ -45,14 +47,14 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
     ],
   }),
   component: RootDocument,
-  staleTime: 10 * 60 * 1000, // 10 minutes
-  beforeLoad: async () => {
-    const session = await getAuthSession();
-    return {
-      session: session ?? null,
-      isAuthenticated: !!session,
-    };
-  },
+  // staleTime: 10 * 60 * 1000, // 10 minutes
+  // beforeLoad: async () => {
+  //   const session = await getAuthSession();
+  //   return {
+  //     session: session ?? null,
+  //     isAuthenticated: !!session,
+  //   };
+  // },
 });
 
 // Critical inline styles to prevent flash of unstyled content, matched to
@@ -76,8 +78,8 @@ const criticalStylesLight = `
 `;
 
 function RootDocument() {
-  const context = Route.useRouteContext();
-  const { isAuthenticated, session } = context;
+  // const context = Route.useRouteContext();
+  // const { isAuthenticated, session } = context;
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   // The marketing homepage is its own light, chrome-free page — no app
   // header/Sign In, no dark theme forced by the authenticated app shell.
@@ -99,11 +101,11 @@ function RootDocument() {
             <Outlet />
           ) : (
             <>
-              <Header
+              {/* <Header
                 isAuthenticated={isAuthenticated}
                 userName={session?.user?.name ?? ""}
                 userEmail={session?.user?.email ?? ""}
-              />
+              /> */}
               <main className="pt-12">
                 <Outlet />
               </main>

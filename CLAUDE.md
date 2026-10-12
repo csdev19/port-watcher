@@ -86,7 +86,7 @@ in the same commit — and never reintroduce a script literally named `dev` on `
 ## Releases (sharp gotcha)
 
 release-please owns versions: `desktop` (`desktop-v*` → `release-desktop.yml`, signed DMGs to R2
-`port-watcher-bucket`) and `web` (`web-v*` → `release-web.yml`). Never bump `apps/desktop` or
+`chapay-bucket`) and `web` (`web-v*` → `release-web.yml`). Never bump `apps/desktop` or
 `apps/fullstack-fn-only` `package.json` versions or push tags by hand — merge the release PR.
 `tauri.conf.json` reads its version from `apps/desktop/package.json`. Flow and secrets:
 `apps/documentation/src/content/docs/desktop/releasing.mdx`; decision: `docs/adr/0003-*`.

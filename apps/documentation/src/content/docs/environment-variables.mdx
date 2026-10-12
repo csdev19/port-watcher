@@ -27,6 +27,11 @@ drift from that single source of truth.
 | `BETTER_AUTH_URL`          | Yes              | -                      | -        | No         |
 | `VITE_PUBLIC_DOWNLOAD_URL` | -                | Yes (inlined at build) | -        | No         |
 
+Auth and the database are currently **disabled** in the web app (see
+`apps/fullstack-fn-only/vite.config.ts`): no shipped code reads `DATABASE_URL`
+or `BETTER_AUTH_*`, and production does not set them. The rows above describe
+the app once they are turned back on.
+
 The schema that enforces this is `fullstackServerEnvSchema` in
 `packages/infra-env/src/fullstack-server.ts`. Adding a variable means adding it there first —
 the app fails fast at boot if it is missing.

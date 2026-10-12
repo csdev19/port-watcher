@@ -75,29 +75,28 @@ same as in my-pets, so the Apple and Cloudflare values can be copied from there.
 4. **GitHub PAT** (fine-grained, this repo, Contents + Pull requests
    read/write) for `RELEASE_PLEASE_TOKEN`: a tag pushed by the default
    `GITHUB_TOKEN` fires no workflow.
-5. **Database.** A production Postgres for the Worker; its URL is
-   `DATABASE_URL`.
+5. **Database.** Not needed while auth and the database are disabled in the
+   web app (`apps/fullstack-fn-only/vite.config.ts`). When they come back, a
+   production Postgres for the Worker; its URL is `DATABASE_URL`.
 6. Load everything into the `production` environment (tables below). Write
    the values as `KEY=value` lines in `.production.env` at the repo root
    (gitignored, `chmod 600`), then run `bash scripts/production-env.sh load`.
-   It pushes each known name with `gh`, fills `BETTER_AUTH_URL` and
-   `R2_BUCKET` with their defaults, generates `BETTER_AUTH_SECRET` when the
-   environment has none, and ends with the audit below. Rerun it any time;
+   It pushes each known name with `gh`, fills `R2_BUCKET` with its default
+   (`chapay-bucket`) and ends with the audit below. Rerun it any time;
    `bash scripts/production-env.sh check` lists which names are still missing.
 7. **Rehearse**: run **Release Desktop** from the Actions tab. It builds, signs
    and notarizes but publishes nothing. Then merge the release PRs.
 
 ## Secrets (`production` environment)
 
-| Name                                                    | Used for                                                             |
-| ------------------------------------------------------- | -------------------------------------------------------------------- |
-| `RELEASE_PLEASE_TOKEN`                                  | creating tags that fire workflows                                    |
-| `CSC_LINK`, `CSC_KEY_PASSWORD`                          | Developer ID certificate (base64 `.p12`, password)                   |
-| `APPLE_API_KEY`, `APPLE_API_KEY_ID`, `APPLE_API_ISSUER` | notarization (`.p8` raw or base64, key id, issuer)                   |
-| `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`              | R2 upload (S3 API keys)                                              |
-| `CLOUDFLARE_ACCOUNT_ID`                                 | R2 endpoint and Worker deploy                                        |
-| `CLOUDFLARE_API_TOKEN`                                  | Worker deploy + custom-domain DNS record                             |
-| `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` | Worker runtime; `BETTER_AUTH_URL` is `https://port-watcher.cs19.dev` |
+| Name                                                    | Used for                                           |
+| ------------------------------------------------------- | -------------------------------------------------- |
+| `RELEASE_PLEASE_TOKEN`                                  | creating tags that fire workflows                  |
+| `CSC_LINK`, `CSC_KEY_PASSWORD`                          | Developer ID certificate (base64 `.p12`, password) |
+| `APPLE_API_KEY`, `APPLE_API_KEY_ID`, `APPLE_API_ISSUER` | notarization (`.p8` raw or base64, key id, issuer) |
+| `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`              | R2 upload (S3 API keys)                            |
+| `CLOUDFLARE_ACCOUNT_ID`                                 | R2 endpoint and Worker deploy                      |
+| `CLOUDFLARE_API_TOKEN`                                  | Worker deploy + custom-domain DNS record           |
 
 ## Variables (`production` environment)
 
@@ -108,3 +107,7 @@ same as in my-pets, so the Apple and Cloudflare values can be copied from there.
 
 `DOWNLOAD_BASE_URL` is baked into the landing at web release time, so changing
 it needs a web release.
+
+`DATABASE_URL`, `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` are not read while
+auth and the database are disabled in the web app; their workflow lines are
+commented out, not removed, and come back together with the auth routes.

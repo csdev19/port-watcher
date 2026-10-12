@@ -12,7 +12,8 @@ export const getRouter = () => {
       routeTree,
       scrollRestoration: true,
       defaultPreloadStaleTime: 0,
-      context: { queryClient, isAuthenticated: false, session: null },
+      // isAuthenticated and session are disabled with auth (see vite.config.ts).
+      context: { queryClient /* , isAuthenticated: false, session: null */ },
       defaultPendingComponent: () => <Loader />,
       defaultNotFoundComponent: () => <div>Not Found</div>,
     }),
