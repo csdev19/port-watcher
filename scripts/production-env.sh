@@ -38,7 +38,7 @@ VARIABLES=(
 
 # Constants of this deployment (ADR 0004). Applied by `load` when the env file
 # does not override them and the environment does not have them yet.
-# DEFAULT_BETTER_AUTH_URL="https://port-watcher.cs19.dev"  # disabled with auth
+# DEFAULT_BETTER_AUTH_URL="https://chapay.cs19.dev"  # disabled with auth
 DEFAULT_R2_BUCKET="chapay-bucket"
 
 usage() {
