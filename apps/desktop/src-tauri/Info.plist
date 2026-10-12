@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Menu-bar app: no Dock icon from the first frame. lib.rs also sets the
+	     Accessory activation policy, but only after launch, so without this key
+	     the Dock icon flashes when chapay starts. Tauri merges this file into
+	     the bundle's Info.plist. -->
+	<key>LSUIElement</key>
+	<true/>
+</dict>
+</plist>
