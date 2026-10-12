@@ -12,6 +12,11 @@ of the owner setup below, and the deploy ships no Worker secrets. The code is
 unregistered and commented out, not deleted; `packages/infra-auth` and
 `packages/infra-db` are unchanged.
 
+**Amendment (2026-10-12, hostname):** the web app is served on
+`chapay.cs19.dev`, not `port-watcher.cs19.dev`, matching the owner's other apps
+(`pichay.cs19.dev`, `rikchay.cs19.dev`), which use the product name rather than
+the repository name. Nothing had been deployed on the old hostname.
+
 ## Context
 
 ADR 0003 put the release pipeline in place but left two things open: where the
@@ -34,7 +39,7 @@ layout so the same account, token scopes and mental model serve both apps.
 
 ## Decision
 
-- **Web:** the Worker declares `port-watcher.cs19.dev` as a custom domain in
+- **Web:** the Worker declares `chapay.cs19.dev` as a custom domain in
   `apps/fullstack-fn-only/wrangler.jsonc` (`custom_domain: true`). Wrangler
   creates the DNS record on deploy; the zone must be in the same Cloudflare
   account and the deploy token needs Zone DNS: Edit on it. `BETTER_AUTH_URL`
@@ -68,7 +73,7 @@ layout so the same account, token scopes and mental model serve both apps.
 
 ## Alternatives rejected
 
-- **Serving the DMGs through the web Worker** (`port-watcher.cs19.dev/download/…`
+- **Serving the DMGs through the web Worker** (`chapay.cs19.dev/download/…`
   with an R2 binding). One hostname, but tens of megabytes per download would
   stream through the Worker, and a web release would then depend on a desktop
   release.
@@ -92,9 +97,9 @@ layout so the same account, token scopes and mental model serve both apps.
     `CLOUDFLARE_API_TOKEN`, `DATABASE_URL`, `BETTER_AUTH_SECRET`,
     `BETTER_AUTH_URL`;
   - variables `R2_BUCKET`, `DOWNLOAD_BASE_URL`;
-  - the bucket itself with public access enabled, and the removal of the
-    pre-existing `port-watcher.cs19.dev` DNS record, which otherwise blocks the
-    custom domain.
+  - the bucket itself with public access enabled. No DNS record is needed
+    for the web hostname: wrangler creates it, and the zone's `*.cs19.dev`
+    wildcard does not block a custom domain.
 - `r2.dev` URLs are rate-limited by Cloudflare and documented as
   development-grade. Acceptable at chapay's scale; see "Reopen when".
 - Changing `DOWNLOAD_BASE_URL` requires a web release to update the landing.

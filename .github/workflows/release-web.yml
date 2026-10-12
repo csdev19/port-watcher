@@ -1,6 +1,6 @@
 name: Release Web
 
-# Builds and deploys the fullstack web Worker to port-watcher.cs19.dev (the
+# Builds and deploys the fullstack web Worker to chapay.cs19.dev (the
 # custom domain is declared in apps/fullstack-fn-only/wrangler.jsonc).
 #
 # Trigger: a `web-v*` tag, created by release-please when its web release PR is

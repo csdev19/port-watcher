@@ -67,9 +67,9 @@ same as in my-pets, so the Apple and Cloudflare values can be copied from there.
    Development URL) and note the `https://pub-<id>.r2.dev` URL. Create an S3
    API token (**R2 → Manage R2 API Tokens**) scoped to that bucket; the regular
    Cloudflare API token does not work against the S3 API.
-2. **DNS.** Delete any existing `port-watcher.cs19.dev` record in the
-   `cs19.dev` zone: Cloudflare refuses a Worker custom domain on a hostname
-   that already has one. Wrangler creates the record on the first deploy.
+2. **DNS.** Nothing to create: wrangler adds the `chapay.cs19.dev` record on
+   the first deploy. Only an exact record for that hostname would block it;
+   the zone's `*.cs19.dev` wildcard does not.
 3. **Cloudflare API token** for the web deploy: Workers Scripts: Edit, plus
    Zone DNS: Edit on `cs19.dev`.
 4. **GitHub PAT** (fine-grained, this repo, Contents + Pull requests

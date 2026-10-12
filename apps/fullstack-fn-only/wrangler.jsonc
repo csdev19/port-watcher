@@ -14,7 +14,7 @@
   // record may already exist for this hostname.
   "routes": [
     {
-      "pattern": "port-watcher.cs19.dev",
+      "pattern": "chapay.cs19.dev",
       "custom_domain": true,
     },
   ],
