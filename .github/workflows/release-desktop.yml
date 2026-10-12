@@ -38,19 +38,20 @@ concurrency:
 permissions:
   contents: write # upload assets to the GitHub Release
 
-env:
-  # Neither is sensitive, so both are environment *variables* (same names as
-  # my-pets). The web release bakes DOWNLOAD_BASE_URL into the landing's
-  # download button, so the two workflows can never disagree about the host.
-  R2_BUCKET: ${{ vars.R2_BUCKET }}
-  DOWNLOAD_BASE_URL: ${{ vars.DOWNLOAD_BASE_URL }}
-
 jobs:
   release-mac:
     name: Build, sign & notarize (macOS)
     runs-on: macos-latest
     timeout-minutes: 60
     environment: production
+    env:
+      # Neither is sensitive, so both are environment *variables* (same names
+      # as my-pets). The web release bakes DOWNLOAD_BASE_URL into the landing's
+      # download button, so the two workflows can never disagree about the
+      # host. Job level, not workflow level: environment-scoped variables only
+      # resolve inside a job that declares the environment.
+      R2_BUCKET: ${{ vars.R2_BUCKET }}
+      DOWNLOAD_BASE_URL: ${{ vars.DOWNLOAD_BASE_URL }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
