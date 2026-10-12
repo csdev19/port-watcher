@@ -25,9 +25,11 @@ SECRETS=(
   R2_SECRET_ACCESS_KEY
   CLOUDFLARE_ACCOUNT_ID
   CLOUDFLARE_API_TOKEN
-  DATABASE_URL
-  BETTER_AUTH_SECRET
-  BETTER_AUTH_URL
+  # Disabled with auth and the database in the web app
+  # (apps/fullstack-fn-only/vite.config.ts). Restore with them.
+  # DATABASE_URL
+  # BETTER_AUTH_SECRET
+  # BETTER_AUTH_URL
 )
 VARIABLES=(
   R2_BUCKET
@@ -36,8 +38,8 @@ VARIABLES=(
 
 # Constants of this deployment (ADR 0004). Applied by `load` when the env file
 # does not override them and the environment does not have them yet.
-DEFAULT_BETTER_AUTH_URL="https://port-watcher.cs19.dev"
-DEFAULT_R2_BUCKET="port-watcher-bucket"
+# DEFAULT_BETTER_AUTH_URL="https://port-watcher.cs19.dev"  # disabled with auth
+DEFAULT_R2_BUCKET="chapay-bucket"
 
 usage() {
   sed -n '2,11p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
@@ -158,14 +160,15 @@ load() {
 
   local present
   present="$(remote_secrets)"
-  if ! contains BETTER_AUTH_URL "${loaded[@]}" && ! grep -qx BETTER_AUTH_URL <<<"$present"; then
-    printf 'Default  BETTER_AUTH_URL = %s\n' "$DEFAULT_BETTER_AUTH_URL"
-    set_secret BETTER_AUTH_URL "$DEFAULT_BETTER_AUTH_URL"
-  fi
-  if ! contains BETTER_AUTH_SECRET "${loaded[@]}" && ! grep -qx BETTER_AUTH_SECRET <<<"$present"; then
-    printf 'Generated BETTER_AUTH_SECRET (openssl rand -base64 32). It lives only in the environment; rotate it by running load with a new value.\n'
-    set_secret BETTER_AUTH_SECRET "$(openssl rand -base64 32)"
-  fi
+  # Auth defaults, disabled with auth (see SECRETS above).
+  # if ! contains BETTER_AUTH_URL "${loaded[@]}" && ! grep -qx BETTER_AUTH_URL <<<"$present"; then
+  #   printf 'Default  BETTER_AUTH_URL = %s\n' "$DEFAULT_BETTER_AUTH_URL"
+  #   set_secret BETTER_AUTH_URL "$DEFAULT_BETTER_AUTH_URL"
+  # fi
+  # if ! contains BETTER_AUTH_SECRET "${loaded[@]}" && ! grep -qx BETTER_AUTH_SECRET <<<"$present"; then
+  #   printf 'Generated BETTER_AUTH_SECRET (openssl rand -base64 32). It lives only in the environment; rotate it by running load with a new value.\n'
+  #   set_secret BETTER_AUTH_SECRET "$(openssl rand -base64 32)"
+  # fi
   present="$(remote_variables)"
   if ! contains R2_BUCKET "${loaded[@]}" && ! grep -qx R2_BUCKET <<<"$present"; then
     printf 'Default  R2_BUCKET = %s\n' "$DEFAULT_R2_BUCKET"

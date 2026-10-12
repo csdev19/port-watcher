@@ -1,6 +1,24 @@
 {
   "extends": "@port-watcher/config/tsconfig.web.json",
   "include": ["**/*.ts", "**/*.tsx"],
+  // Disabled with the auth/todos routes (see vite.config.ts). Kept on disk,
+  // not compiled: they reference routes that are no longer registered.
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/routes/auth",
+    "src/routes/api",
+    "src/routes/_authenticated",
+    "src/routes/_authenticated.tsx",
+    "src/components/header.tsx",
+    "src/components/user-menu.tsx",
+    "src/components/sign-in-form.tsx",
+    "src/components/sign-up-form.tsx",
+    "src/hooks",
+    "src/server-functions",
+    "src/lib/auth",
+    "src/env"
+  ],
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {

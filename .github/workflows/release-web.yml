@@ -9,8 +9,10 @@ name: Release Web
 # `production` environment:
 #   secrets   CLOUDFLARE_API_TOKEN (Workers Scripts: Edit + Zone DNS: Edit on
 #             cs19.dev, so wrangler can create the custom-domain record),
-#             CLOUDFLARE_ACCOUNT_ID, DATABASE_URL, BETTER_AUTH_SECRET,
-#             BETTER_AUTH_URL (= https://port-watcher.cs19.dev)
+#             CLOUDFLARE_ACCOUNT_ID
+#             (DATABASE_URL, BETTER_AUTH_SECRET and BETTER_AUTH_URL are not
+#             read while auth and the database are disabled in the web app;
+#             see apps/fullstack-fn-only/vite.config.ts.)
 #   variables DOWNLOAD_BASE_URL (public R2 URL, shared with release-desktop.yml)
 
 on:
@@ -53,9 +55,10 @@ jobs:
       - name: Build app
         working-directory: apps/fullstack-fn-only
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
-          BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
+          # Disabled with auth and the database (see the header above).
+          # DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          # BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          # BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
           # Baked into the landing's download button at build time (Vite
           # inlines VITE_* vars). Same variable the desktop release publishes
           # to, so the button can only ever point where the DMGs land.
@@ -69,19 +72,23 @@ jobs:
       # `--secrets-file` is additive: a secret left out of the file keeps its
       # value, so empty values are dropped rather than blanking the Worker's.
       # Hub: monorepos/worker-secrets-with-deploy.md.
-      - name: Write Worker secrets file
-        working-directory: apps/fullstack-fn-only
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
-          BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
-        run: |
-          umask 077
-          jq -n \
-            --arg DATABASE_URL "$DATABASE_URL" \
-            --arg BETTER_AUTH_SECRET "$BETTER_AUTH_SECRET" \
-            --arg BETTER_AUTH_URL "$BETTER_AUTH_URL" \
-            '$ARGS.named | with_entries(select(.value != ""))' > worker-secrets.json
+      #
+      # The Worker has no secrets while auth and the database are disabled, so
+      # the secrets file and its cleanup are commented out and the deploy runs
+      # without `--secrets-file`. Restore all three together.
+      # - name: Write Worker secrets file
+      #   working-directory: apps/fullstack-fn-only
+      #   env:
+      #     DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      #     BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+      #     BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
+      #   run: |
+      #     umask 077
+      #     jq -n \
+      #       --arg DATABASE_URL "$DATABASE_URL" \
+      #       --arg BETTER_AUTH_SECRET "$BETTER_AUTH_SECRET" \
+      #       --arg BETTER_AUTH_URL "$BETTER_AUTH_URL" \
+      #       '$ARGS.named | with_entries(select(.value != ""))' > worker-secrets.json
 
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3.14.1
@@ -89,8 +96,9 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: apps/fullstack-fn-only
-          command: deploy --secrets-file worker-secrets.json
+          command: deploy
+          # command: deploy --secrets-file worker-secrets.json
 
-      - name: Remove Worker secrets file
-        if: always()
-        run: rm -f apps/fullstack-fn-only/worker-secrets.json
+      # - name: Remove Worker secrets file
+      #   if: always()
+      #   run: rm -f apps/fullstack-fn-only/worker-secrets.json

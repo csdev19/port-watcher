@@ -40,7 +40,7 @@ Electron; chapay is Tauri.
   DMGs separately (not universal, to keep each download at half the size),
   signs with the Developer ID certificate imported into a throwaway keychain,
   notarizes through Tauri with the App Store Connect API key, uploads to
-  `port-watcher-bucket` under `download/<version>/` and `download/latest/`,
+  `chapay-bucket` (originally `port-watcher-bucket`) under `download/<version>/` and `download/latest/`,
   keeps the last 3 versions, and attaches the DMGs to a draft GitHub Release.
   Secret names match the other desktop repos so the same values can be reused.
 - **`release-web.yml`** (renamed from `deploy-production.yml`) runs on `web-v*`
@@ -63,7 +63,7 @@ Electron; chapay is Tauri.
 - Owner setup before the first real run (the `production` environment):
   `RELEASE_PLEASE_TOKEN`, the five signing secrets, `R2_ACCESS_KEY_ID`,
   `R2_SECRET_ACCESS_KEY`, and `CLOUDFLARE_ACCOUNT_ID`; create the
-  `port-watcher-bucket` R2 bucket and, for public downloads, a custom domain
+  `chapay-bucket` R2 bucket and, for public downloads, a custom domain
   or `r2.dev` URL on it.
 - Commits touching only `packages/*` route to no component. They reach the web
   release only when a later `feat`/`fix` under `apps/fullstack-fn-only` ships,

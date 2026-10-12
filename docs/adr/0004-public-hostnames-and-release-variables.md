@@ -4,6 +4,14 @@
 needs the owner setup listed under Consequences.
 **Date:** 2026-10-06.
 
+**Amendment (2026-10-12):** the R2 bucket is `chapay-bucket`, not
+`port-watcher-bucket`. Auth (better-auth) and the database are disabled in the
+web app until it needs accounts: the landing is the only route, so
+`DATABASE_URL`, `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` are no longer part
+of the owner setup below, and the deploy ships no Worker secrets. The code is
+unregistered and commented out, not deleted; `packages/infra-auth` and
+`packages/infra-db` are unchanged.
+
 ## Context
 
 ADR 0003 put the release pipeline in place but left two things open: where the
