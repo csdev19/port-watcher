@@ -11,15 +11,16 @@ frontmatter and must be registered in `apps/documentation/astro.config.mjs`.
 
 ## Briefings in this repo
 
-| Briefing         | File               | Notes                                                                      |
-| ---------------- | ------------------ | -------------------------------------------------------------------------- |
-| `index`          | —                  | not created; only one briefing exists so far                               |
-| `pitch`          | —                  | not created                                                                |
-| `ai-briefing`    | —                  | not created                                                                |
-| `stack`          | —                  | not created                                                                |
-| `roadmap`        | —                  | not created                                                                |
-| `design-brief`   | `design-brief.mdx` | For the Tauri desktop app. Palette deliberately undecided — see Repo rules |
-| `business-brief` | —                  | not created; founder not yet interviewed                                   |
+| Briefing         | File                | Notes                                                                                                                                                                                                                      |
+| ---------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `index`          | —                   | not created yet; two briefings now exist, so it is due                                                                                                                                                                     |
+| `pitch`          | —                   | not created                                                                                                                                                                                                                |
+| `ai-briefing`    | —                   | not created                                                                                                                                                                                                                |
+| `stack`          | —                   | not created                                                                                                                                                                                                                |
+| `roadmap`        | —                   | not created                                                                                                                                                                                                                |
+| `design-brief`   | `design-brief.mdx`  | For the Tauri desktop app. Palette deliberately undecided — see Repo rules                                                                                                                                                 |
+| `business-brief` | —                   | not created; founder not yet interviewed                                                                                                                                                                                   |
+| `product-brief`  | `product-brief.mdx` | Repo-specific, not a canonical briefing: shipped scope, in-flight work and owner ideas, phrased as a feature-ideation prompt. Regenerate from the desktop app surface, `gh release list`, open PRs/branches, and the owner |
 
 ## Sources of truth
 
