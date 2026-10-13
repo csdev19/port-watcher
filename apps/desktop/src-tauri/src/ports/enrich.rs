@@ -3,6 +3,7 @@ use std::path::Path;
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind, Users};
 
 use super::classify::{app_bundle_path, classify_port};
+use super::kill::is_killable;
 use super::label::label_for;
 use super::models::PortEntry;
 use super::project::{detect_project, tildify};
@@ -85,7 +86,7 @@ fn entry_for(
             .map(|u| u.name().to_string()),
         started_at: proc.map(|p| p.start_time()).unwrap_or(0),
         memory_bytes: proc.map(|p| p.memory()).unwrap_or(0),
-        killable: same_user && crate::ports::kill::static_guard(raw.pid, self_pid).is_none(),
+        killable: is_killable(same_user, category, raw.pid, self_pid),
         process_name: raw.process_name,
         category,
         executable_path,
