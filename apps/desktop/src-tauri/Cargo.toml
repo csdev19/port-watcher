@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Menu-bar app that shows which processes hold TCP ports open"
 authors = ["Cristian Sotomayor"]
 edition = "2021"
+license = "GPL-3.0-or-later"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

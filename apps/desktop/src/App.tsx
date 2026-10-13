@@ -219,6 +219,12 @@ export default function App() {
         return;
       }
 
+      // ⌘⌫ in the search box is the macOS "delete to line start" shortcut:
+      // let it clear the field instead of killing the selected row.
+      if (e.key === "Backspace" && e.metaKey && target === searchRef.current) {
+        return;
+      }
+
       // Holding ⌘⌫ fires repeated keydown events; only the first press
       // should arm/confirm — otherwise a single hold could arm then
       // immediately confirm itself.

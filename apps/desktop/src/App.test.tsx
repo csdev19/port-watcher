@@ -235,6 +235,16 @@ describe("App", () => {
     });
   });
 
+  it("⌘⌫ with the search input focused never kills the selected row", async () => {
+    const killSpy = vi.spyOn(portsModule, "killPort");
+    renderApp();
+    await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+
+    const search = screen.getByLabelText("Search port, app or folder");
+    fireEvent.keyDown(search, { key: "Backspace", metaKey: true, code: "Backspace" });
+    expect(killSpy).not.toHaveBeenCalled();
+  });
+
   it("⌘⌫ on a protected (system) row requires a second shortcut within the window", async () => {
     const killSpy = vi.spyOn(portsModule, "killPort");
     renderApp();

@@ -1,4 +1,4 @@
-/* chapaq.dev landing — scoped to the "/" route only. Five colours, no
+/* chapay.dev landing — scoped to the "/" route only. Five colours, no
  * gradient/violet outside the product shot, self-hosted Geist/Geist Mono. */
 
 .lp {
@@ -143,6 +143,20 @@
   box-shadow: 0 0 0 3px rgba(0, 194, 214, 0.3);
   border: 1px solid var(--accent);
 }
+.lp-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+.lp-cta-secondary {
+  background: transparent;
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+.lp-cta-secondary:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
 .lp-hero-cta {
   display: flex;
   flex-direction: column;
@@ -154,14 +168,6 @@
   line-height: 1;
   color: var(--faint);
   margin: 0;
-}
-.lp-build-link {
-  color: var(--muted);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-.lp-build-link:hover {
-  color: var(--ink);
 }
 
 /* Product shot */

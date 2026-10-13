@@ -2,9 +2,10 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
-/// UX-facing classification of a listening process. This is a heuristic for
-/// grouping and confirmation friction in the renderer — it is never a
-/// backend permission boundary. All kill guards stay in `ports::kill`.
+/// Classification of a listening process. The renderer uses it for grouping
+/// and confirmation friction (App, Dev). `System` is also enforced in the
+/// backend: `ports::kill` re-derives the category from the live process and
+/// refuses to signal a System listener.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum PortCategory {
