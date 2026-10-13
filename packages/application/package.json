@@ -7,7 +7,7 @@
     "server-only",
     "use-cases"
   ],
-  "license": "ISC",
+  "license": "GPL-3.0-or-later",
   "author": "",
   "files": [
     "dist",

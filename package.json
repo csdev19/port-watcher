@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "A monorepo template with DDD + Hexagonal Architecture, auth, deployment configs, and a Todo CRUD example",
-  "license": "MIT",
+  "license": "GPL-3.0-or-later",
   "workspaces": {
     "packages": [
       "apps/*",
