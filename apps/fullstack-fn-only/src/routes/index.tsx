@@ -53,8 +53,8 @@ function Header() {
   return (
     <header className="lp-header">
       <a href="/" className="lp-brand">
-        <img src="/chapaq-mark.png" alt="" className="lp-mark-img" width={22} height={22} />
-        <span className="lp-wordmark">chapaq</span>
+        <img src="/chapay-mark.png" alt="" className="lp-mark-img" width={22} height={22} />
+        <span className="lp-wordmark">chapay</span>
       </a>
       <nav className="lp-nav">
         <a href="#how">How it works</a>
@@ -117,13 +117,13 @@ function ProductShot() {
       <div
         className="lp-shot"
         role="img"
-        aria-label="The chapaq panel under the macOS menu bar, listing four dev ports with one selected."
+        aria-label="The chapay panel under the macOS menu bar, listing four dev ports with one selected."
       >
         <div className="lp-shot-menubar">
           <Wifi size={15} strokeWidth={1.75} aria-hidden />
           <span className="lp-shot-tray">
             <img
-              src="/chapaq-mark.png"
+              src="/chapay-mark.png"
               alt=""
               className="lp-shot-tray-icon"
               width={14}
@@ -254,7 +254,7 @@ function HowItWorks() {
 function Footer() {
   return (
     <footer className="lp-footer">
-      <span>chapaq · by csdev</span>
+      <span>chapay · by csdev</span>
       <span className="lp-footer-links">
         <a href={GITHUB_URL} target="_blank" rel="noreferrer">
           Source
