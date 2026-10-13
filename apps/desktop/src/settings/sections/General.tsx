@@ -24,7 +24,29 @@ export default function General() {
       <Group>
         <RefreshRow />
       </Group>
+      <SectionHeading>Updates</SectionHeading>
+      <Group>
+        <AutoCheckUpdatesRow />
+      </Group>
     </>
+  );
+}
+
+/** Only the check is automatic; installing always takes a click. */
+function AutoCheckUpdatesRow() {
+  const [autoCheck, setAutoCheck] = useSetting("autoCheckUpdates");
+  return (
+    <Row
+      label="Check for updates automatically"
+      reason="Once when chapay opens, then daily. Nothing else is sent."
+      control={
+        <Switch
+          label="Check for updates automatically"
+          checked={autoCheck}
+          onChange={setAutoCheck}
+        />
+      }
+    />
   );
 }
 

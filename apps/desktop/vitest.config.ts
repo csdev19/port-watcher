@@ -8,7 +8,9 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
-    include: ["src/**/*.test.{ts,tsx}"],
+    // scripts/ holds the release workflow's update-feed script and its test
+    // (Node APIs, so it stays outside src/ and its browser tsconfig).
+    include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.ts"],
     // No tests exist yet in this task; later tasks in the plan add them.
     // Vitest 4 exits non-zero on an empty suite by default.
     passWithNoTests: true,

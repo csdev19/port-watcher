@@ -47,5 +47,12 @@
     "macOS": {
       "minimumSystemVersion": "13.0"
     }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "CHAPAY_UPDATER_PUBLIC_KEY_NOT_SET",
+      "endpoints": [],
+      "requireSignedVersion": true
+    }
   }
 }

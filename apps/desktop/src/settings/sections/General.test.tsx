@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import General from "./General";
 import { getSetting, resetMemorySettings } from "../store";
 
@@ -105,6 +105,20 @@ describe("General: launch at login", () => {
     await waitFor(() => expect((toggle as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(toggle);
     await screen.findByText("Couldn't turn launch at login on. Try again.");
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+  });
+});
+
+describe("General: automatic update check", () => {
+  it("is on by default and saves when turned off", async () => {
+    render(<General />);
+    const toggle = screen.getByRole("switch", { name: "Check for updates automatically" });
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
+    screen.getByText("Once when chapay opens, then daily. Nothing else is sent.");
+    // Let the stored value load first, as a user's click always would.
+    await act(async () => {});
+    fireEvent.click(toggle);
+    await waitFor(async () => expect(await getSetting("autoCheckUpdates")).toBe(false));
     expect(toggle.getAttribute("aria-checked")).toBe("false");
   });
 });

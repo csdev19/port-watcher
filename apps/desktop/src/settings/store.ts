@@ -19,6 +19,13 @@ export const SETTINGS_DEFAULTS = {
   showAppsAndSystem: true,
   /** Poll interval while the panel is open. */
   refreshIntervalMs: 2000,
+  /**
+   * Check the update feed once at launch, then daily. Read by Rust
+   * (src-tauri/src/update/policy.rs); only the check is automatic.
+   */
+  autoCheckUpdates: true,
+  /** The version whose update banner the user dismissed ("" = none). */
+  dismissedUpdateVersion: "",
 };
 
 export type Settings = typeof SETTINGS_DEFAULTS;

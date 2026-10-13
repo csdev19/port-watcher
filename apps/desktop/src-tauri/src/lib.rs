@@ -49,9 +49,13 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
         ))
+        // No window gets an `updater:*` permission: only the `update_*`
+        // commands in src/update/ drive the updater (ADR 0007).
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             app.manage(LastBlurHide(Mutex::new(None)));
             app.manage(TrayRect(Mutex::new(None)));
+            update::init(app.handle());
 
             #[cfg(target_os = "macos")]
             if let Some(window) = app.get_webview_window("main") {
@@ -207,7 +211,10 @@ pub fn run() {
             commands::finish_setup,
             commands::show_setup_window,
             commands::app_arch,
-            commands::check_for_update,
+            commands::update_status,
+            commands::update_check,
+            commands::update_install,
+            commands::update_restart,
             commands::open_settings,
             commands::set_shortcut
         ])

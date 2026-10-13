@@ -61,14 +61,29 @@ pub fn app_arch() -> String {
     crate::update::arch_label(std::env::consts::ARCH)
 }
 
-/// Asks GitHub Releases whether a newer desktop release exists. Called on
-/// click only; it is the app's one network request.
+/// The updater's current state, for a window that just opened.
 #[tauri::command]
-pub async fn check_for_update(current: String) -> Result<crate::update::UpdateCheck, AppError> {
-    tauri::async_runtime::spawn_blocking(move || crate::update::check(&current))
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?
-        .map_err(AppError::Internal)
+pub fn update_status(app: tauri::AppHandle) -> crate::update::UpdateStatus {
+    crate::update::status(&app)
+}
+
+/// Asks the update feed whether a newer chapay exists ("Check for updates").
+#[tauri::command]
+pub async fn update_check(app: tauri::AppHandle) -> crate::update::UpdateStatus {
+    crate::update::check(&app).await
+}
+
+/// Downloads, verifies and installs the update the last check found. Only
+/// ever called from a click ("Update" in the banner or About).
+#[tauri::command]
+pub async fn update_install(app: tauri::AppHandle) -> crate::update::UpdateStatus {
+    crate::update::install(&app).await
+}
+
+/// Relaunches into the installed update ("Restart chapay").
+#[tauri::command]
+pub fn update_restart(app: tauri::AppHandle) -> Result<(), AppError> {
+    crate::update::restart(&app).map_err(AppError::Internal)
 }
 
 /// Swaps the global shortcut that toggles the panel. The renderer saves

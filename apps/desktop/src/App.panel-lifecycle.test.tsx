@@ -31,6 +31,13 @@ vi.mock("@/settings/store", () => ({
   ],
 }));
 
+// The update banner subscribes to `update-status` with its own `listen()`;
+// stub its hook so the only listener here is `panel-shown`.
+vi.mock("@/lib/update", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/update")>()),
+  useUpdate: () => [{ state: "disabled" }, { check: vi.fn(), install: vi.fn(), restart: vi.fn() }],
+}));
+
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({ hide: vi.fn(async () => {}) }),
 }));

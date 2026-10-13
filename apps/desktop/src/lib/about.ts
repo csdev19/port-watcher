@@ -10,10 +10,6 @@ export function releaseNotesUrl(version: string | null): string {
   return version ? `${RELEASES_URL}/tag/desktop-v${version}` : RELEASES_URL;
 }
 
-export type UpdateCheck =
-  | { status: "latest" }
-  | { status: "available"; version: string; url: string };
-
 export interface AppInfo {
   version: string | null;
   commit: string;
@@ -27,11 +23,6 @@ export async function loadAppInfo(): Promise<AppInfo> {
     invoke<string>("app_arch").catch(() => null),
   ]);
   return { version, commit: __COMMIT__, arch };
-}
-
-/** The app's only network call. Rejects when the request fails. */
-export function checkForUpdate(current: string): Promise<UpdateCheck> {
-  return invoke<UpdateCheck>("check_for_update", { current });
 }
 
 export function openExternal(url: string): Promise<void> {

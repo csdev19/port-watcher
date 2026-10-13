@@ -1,27 +1,14 @@
-import { useEffect, useState } from "react";
-import { Download, FileText, Github, RefreshCw } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Download, FileText, Github, RefreshCw, RotateCw } from "lucide-react";
 import door from "@/setup/door.png";
-import {
-  checkForUpdate,
-  loadAppInfo,
-  openExternal,
-  releaseNotesUrl,
-  REPO_URL,
-  type AppInfo,
-  type UpdateCheck,
-} from "@/lib/about";
+import { loadAppInfo, openExternal, releaseNotesUrl, REPO_URL, type AppInfo } from "@/lib/about";
+import { installFailureText, progressText, useUpdate, type UpdateStatus } from "@/lib/update";
 import { Button } from "../ui";
 import styles from "./about.module.css";
 
-type CheckState =
-  | { kind: "idle" }
-  | { kind: "checking" }
-  | { kind: "done"; result: UpdateCheck }
-  | { kind: "error" };
-
 export default function About() {
   const [info, setInfo] = useState<AppInfo | null>(null);
-  const [check, setCheck] = useState<CheckState>({ kind: "idle" });
+  const [update, actions] = useUpdate();
 
   useEffect(() => {
     let live = true;
@@ -34,22 +21,7 @@ export default function About() {
   }, []);
 
   const version = info?.version ?? null;
-
-  async function onCheck() {
-    if (!version) {
-      setCheck({ kind: "error" });
-      return;
-    }
-    setCheck({ kind: "checking" });
-    try {
-      setCheck({ kind: "done", result: await checkForUpdate(version) });
-    } catch {
-      setCheck({ kind: "error" });
-    }
-  }
-
   const meta = info ? [version ? `v${version}` : null, info.commit, info.arch] : [];
-  const checking = check.kind === "checking";
 
   return (
     <div className={styles.about}>
@@ -66,15 +38,7 @@ export default function About() {
       </p>
 
       <div className={styles.buttons}>
-        <Button
-          variant="primary"
-          icon={RefreshCw}
-          iconClassName={checking ? styles.spin : undefined}
-          disabled={checking}
-          onClick={onCheck}
-        >
-          {checking ? "Checking…" : "Check for updates"}
-        </Button>
+        <PrimaryUpdateButton status={update} actions={actions} />
         <Button icon={Github} onClick={() => void openExternal(REPO_URL)}>
           Source
         </Button>
@@ -84,13 +48,7 @@ export default function About() {
       </div>
 
       <div className={styles.result} role="status">
-        {check.kind === "done" && check.result.status === "latest" ? (
-          <span>You're on the latest version.</span>
-        ) : null}
-        {check.kind === "done" && check.result.status === "available" ? (
-          <AvailableUpdate result={check.result} />
-        ) : null}
-        {check.kind === "error" ? <span>Couldn't check for updates.</span> : null}
+        <UpdateLine status={update} />
       </div>
 
       <div className={styles.footer}>A Niway product · built by csdev · GPL-3.0</div>
@@ -98,13 +56,99 @@ export default function About() {
   );
 }
 
-function AvailableUpdate({ result }: { result: Extract<UpdateCheck, { status: "available" }> }) {
-  return (
-    <>
-      <span>chapay {result.version} is available.</span>
-      <Button icon={Download} onClick={() => void openExternal(result.url)}>
-        Download
-      </Button>
-    </>
+/** The fuchsia button is the update state machine (spec §3.8). */
+function PrimaryUpdateButton({
+  status,
+  actions,
+}: {
+  status: UpdateStatus;
+  actions: ReturnType<typeof useUpdate>[1];
+}) {
+  const check = (
+    <Button
+      variant="primary"
+      icon={RefreshCw}
+      disabled={status.state === "disabled"}
+      onClick={() => void actions.check()}
+    >
+      Check for updates
+    </Button>
   );
+  switch (status.state) {
+    case "checking":
+      return (
+        <Button variant="primary" icon={RefreshCw} iconClassName={styles.spin} disabled>
+          Checking…
+        </Button>
+      );
+    case "available":
+      return (
+        <Button variant="primary" icon={Download} onClick={() => void actions.install()}>
+          Update to {status.version}
+        </Button>
+      );
+    case "downloading":
+      return (
+        <Button variant="primary" icon={RefreshCw} iconClassName={styles.spin} disabled>
+          Updating…
+        </Button>
+      );
+    case "ready":
+      return (
+        <Button variant="primary" icon={RotateCw} onClick={() => void actions.restart()}>
+          Restart chapay
+        </Button>
+      );
+    case "cannotInstallHere":
+      return (
+        <Button
+          variant="primary"
+          icon={Download}
+          onClick={() => void openExternal(releaseNotesUrl(status.version))}
+        >
+          Download
+        </Button>
+      );
+    case "installFailed":
+      return (
+        <Button variant="primary" icon={RefreshCw} onClick={() => void actions.install()}>
+          Try again
+        </Button>
+      );
+    default:
+      return check;
+  }
+}
+
+function UpdateLine({ status }: { status: UpdateStatus }): ReactNode {
+  switch (status.state) {
+    case "disabled":
+      return <span>Updates are off in this build.</span>;
+    case "upToDate":
+      return <span>You're on the latest version.</span>;
+    case "checkFailed":
+      return <span>Couldn't check for updates.</span>;
+    case "available":
+      return <span>chapay {status.version} is available.</span>;
+    case "downloading":
+      return <span>Downloading {progressText(status.downloaded, status.total)}</span>;
+    case "ready":
+      return <span>{status.version} is installed. Restart chapay to finish.</span>;
+    case "cannotInstallHere":
+      return <span>Move chapay to Applications to update in place.</span>;
+    case "installFailed":
+      return (
+        <>
+          <span>{installFailureText(status.reason)}</span>
+          <Button
+            icon={Download}
+            onClick={() => void openExternal(releaseNotesUrl(status.version))}
+          >
+            Download instead
+          </Button>
+        </>
+      );
+    default:
+      return null;
+  }
 }

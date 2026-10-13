@@ -21,6 +21,8 @@ import { SearchInput } from "@/components/SearchInput";
 import { EmptyState, ErrorState, FilteredEmptyState } from "@/components/PanelStates";
 import { Toast, type ToastData } from "@/components/Toast";
 import { Icon } from "@/components/Icon";
+import { UpdateBanner } from "@/components/UpdateBanner";
+import { pendingVersion, useUpdate } from "@/lib/update";
 import styles from "@/app.module.css";
 
 type Tab = "listening" | "favourites";
@@ -46,6 +48,8 @@ export default function App() {
   const { data: allPorts, error, refetch, dataUpdatedAt } = usePorts();
   const [confirmBeforeKill] = useSetting("confirmBeforeKill");
   const [showAppsAndSystem] = useSetting("showAppsAndSystem");
+  const [update, updateActions] = useUpdate();
+  const [dismissedUpdate, setDismissedUpdate] = useSetting("dismissedUpdateVersion");
   // Settings > Ports > "Show apps & system": when off, app/system rows are
   // dropped from the Listening tab (list, counts, search, keyboard). The
   // Favourites tab keeps the full snapshot: a watched port is watched
@@ -423,6 +427,12 @@ export default function App() {
 
   return (
     <main className={styles.panel}>
+      <UpdateBanner
+        status={update}
+        actions={updateActions}
+        dismissedVersion={dismissedUpdate}
+        onDismiss={setDismissedUpdate}
+      />
       <SearchInput ref={searchRef} value={query} onChange={setQuery} />
       <div className={styles.tablist} role="tablist" aria-label="Ports" onKeyDown={onTabKeyDown}>
         {TABS.map((tab) => (
@@ -514,11 +524,18 @@ export default function App() {
         <button
           type="button"
           className={styles.footerButton}
-          aria-label="Settings"
+          aria-label={
+            pendingVersion(update)
+              ? `Settings (chapay ${pendingVersion(update)} is available)`
+              : "Settings"
+          }
           title="Settings (⌘,)"
           onClick={() => void openSettings()}
         >
           <Icon name="settings" />
+          {pendingVersion(update) ? (
+            <span className={styles.updateDot} data-testid="update-dot" aria-hidden />
+          ) : null}
         </button>
       </footer>
       {toast && (

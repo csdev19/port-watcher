@@ -387,6 +387,7 @@
 }
 
 .footerButton {
+  position: relative;
   display: grid;
   place-items: center;
   width: 24px;
@@ -679,4 +680,83 @@
 }
 .watchFormSubmit:hover {
   background: var(--pw-action-hover);
+}
+
+/* In-app update notice (ADR 0007): one slim bar above the search, never a
+ * dialog. Fuchsia is the one main action, as everywhere in chapay. */
+.updateBanner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 4px 6px 4px 12px;
+  border-bottom: 1px solid var(--pw-line);
+  background: var(--pw-raised);
+  color: var(--pw-fg-2);
+  font-size: 12px;
+  overflow: hidden;
+}
+.updateText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.updateAction {
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--pw-action);
+  color: #fff;
+  cursor: pointer;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.updateAction:hover {
+  background: var(--pw-action-hover);
+}
+.updateAction:focus-visible,
+.updateDismiss:focus-visible {
+  outline: 2px solid var(--pw-accent-ring);
+  outline-offset: 1px;
+}
+.updateDismiss {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--pw-muted);
+  cursor: pointer;
+}
+.updateDismiss:hover {
+  background: var(--pw-raised-hover);
+  color: var(--pw-fg);
+}
+.updateProgress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--pw-action);
+  transition: width 140ms linear;
+}
+
+/* The gear carries a fuchsia dot while a newer chapay is waiting. */
+.updateDot {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--pw-action);
+  box-shadow: 0 0 0 1.5px var(--pw-footer);
 }

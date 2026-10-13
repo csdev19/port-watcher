@@ -1,0 +1,15 @@
+{
+  "version": "0.2.1",
+  "notes": "chapay 0.2.1: https://github.com/csdev19/port-watcher/releases/tag/desktop-v0.2.1",
+  "pub_date": "2026-11-01T12:00:00Z",
+  "platforms": {
+    "darwin-aarch64": {
+      "url": "https://downloads.example.com/download/0.2.1/chapay-arm64.app.tar.gz",
+      "signature": "c2lnLWFybTY0"
+    },
+    "darwin-x86_64": {
+      "url": "https://downloads.example.com/download/0.2.1/chapay-x64.app.tar.gz",
+      "signature": "c2lnLXg2NA=="
+    }
+  }
+}
