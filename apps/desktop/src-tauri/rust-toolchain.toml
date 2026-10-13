@@ -1,0 +1,7 @@
+# The one Rust version for local builds, CI and releases. rustup reads this
+# file whenever cargo runs under src-tauri (tauri-cli runs cargo here too).
+# Bump it on purpose, in its own commit, after `cargo clippy` passes on it.
+[toolchain]
+channel = "1.98.1"
+components = ["rustfmt", "clippy"]
+profile = "minimal"
