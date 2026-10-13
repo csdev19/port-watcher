@@ -7,17 +7,34 @@ import "@fontsource/geist-mono/400.css";
 import "@fontsource/geist-mono/500.css";
 import "./landing.css";
 
+/** Public origin of the landing: the Worker's custom domain (ADR 0004,
+ * wrangler.jsonc). Social crawlers need absolute URLs. */
+const SITE_URL = "https://chapay.cs19.dev";
+const TITLE = "chapay — see what's on your ports";
+const DESCRIPTION =
+  "A macOS menu-bar panel that lists every listening port and kills the one you point at. Free, open source.";
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "chapay — see what's on your ports" },
-      {
-        name: "description",
-        content:
-          "A macOS menu-bar panel that lists every listening port and kills the one you point at. Free, open source.",
-      },
+      { title: TITLE },
+      { name: "description", content: DESCRIPTION },
       { name: "theme-color", content: "#FFFFFF" },
+      { property: "og:type", content: "website" },
+      { property: "og:site_name", content: "chapay" },
+      { property: "og:title", content: TITLE },
+      { property: "og:description", content: DESCRIPTION },
+      { property: "og:url", content: `${SITE_URL}/` },
+      { property: "og:image", content: `${SITE_URL}/apple-touch-icon.png` },
+      { property: "og:image:width", content: "180" },
+      { property: "og:image:height", content: "180" },
+      { property: "og:image:alt", content: "The chapay app icon." },
+      { name: "twitter:card", content: "summary" },
+      { name: "twitter:title", content: TITLE },
+      { name: "twitter:description", content: DESCRIPTION },
+      { name: "twitter:image", content: `${SITE_URL}/apple-touch-icon.png` },
     ],
+    links: [{ rel: "canonical", href: `${SITE_URL}/` }],
   }),
   component: HomePage,
 });
@@ -53,8 +70,8 @@ function Header() {
   return (
     <header className="lp-header">
       <a href="/" className="lp-brand">
-        <img src="/chapaq-mark.png" alt="" className="lp-mark-img" width={22} height={22} />
-        <span className="lp-wordmark">chapaq</span>
+        <img src="/chapay-mark.png" alt="" className="lp-mark-img" width={22} height={22} />
+        <span className="lp-wordmark">chapay</span>
       </a>
       <nav className="lp-nav">
         <a href="#how">How it works</a>
@@ -79,35 +96,31 @@ function Hero() {
         project folder — and stops the one you point at. One click, no terminal.
       </p>
       <div className="lp-hero-cta">
-        <DownloadButton />
+        <DownloadButtons />
         <p className="lp-build lp-mono">
-          macOS 13+ · Apple silicon
-          {DOWNLOAD_URLS ? (
-            <>
-              {" "}
-              &middot;{" "}
-              <a className="lp-build-link" href={DOWNLOAD_URLS.x64}>
-                Intel build
-              </a>
-            </>
-          ) : (
-            <> &amp; Intel</>
-          )}
+          macOS 13+ &middot; Not sure which? Apple menu &gt; About This Mac
         </p>
       </div>
     </section>
   );
 }
 
-/** The Apple-silicon DMG when the public download URL is known, otherwise the
- * releases page. Never claims a non-macOS platform: the label and build line
- * stay macOS-only regardless of visitor OS. */
-function DownloadButton() {
+/** Two explicit buttons, one per architecture. No user-agent sniffing: Apple
+ * silicon Macs report themselves as Intel, so detection would be wrong. When
+ * the public download URL is unknown both fall back to the releases page.
+ * Labels stay macOS-only regardless of visitor OS. */
+function DownloadButtons() {
   return (
-    <a className="lp-cta" href={DOWNLOAD_URLS?.arm64 ?? RELEASES_URL}>
-      <Download size={16} strokeWidth={1.75} aria-hidden />
-      Download for macOS
-    </a>
+    <div className="lp-cta-row">
+      <a className="lp-cta" href={DOWNLOAD_URLS?.arm64 ?? RELEASES_URL}>
+        <Download size={16} strokeWidth={1.75} aria-hidden />
+        Download for Apple silicon
+      </a>
+      <a className="lp-cta lp-cta-secondary" href={DOWNLOAD_URLS?.x64 ?? RELEASES_URL}>
+        <Download size={16} strokeWidth={1.75} aria-hidden />
+        Download for Intel
+      </a>
+    </div>
   );
 }
 
@@ -117,13 +130,13 @@ function ProductShot() {
       <div
         className="lp-shot"
         role="img"
-        aria-label="The chapaq panel under the macOS menu bar, listing four dev ports with one selected."
+        aria-label="The chapay panel under the macOS menu bar, listing four dev ports with one selected."
       >
         <div className="lp-shot-menubar">
           <Wifi size={15} strokeWidth={1.75} aria-hidden />
           <span className="lp-shot-tray">
             <img
-              src="/chapaq-mark.png"
+              src="/chapay-mark.png"
               alt=""
               className="lp-shot-tray-icon"
               width={14}
@@ -254,7 +267,7 @@ function HowItWorks() {
 function Footer() {
   return (
     <footer className="lp-footer">
-      <span>chapaq · by csdev</span>
+      <span>chapay · by csdev</span>
       <span className="lp-footer-links">
         <a href={GITHUB_URL} target="_blank" rel="noreferrer">
           Source
