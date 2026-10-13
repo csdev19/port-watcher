@@ -33,6 +33,11 @@ nix = { version = "0.29", features = ["signal", "user"] }
 log = "0.4"
 
 
+[target.'cfg(target_os = "macos")'.dependencies]
+# Turns the panel window into a non-activating NSPanel: the only kind of
+# window macOS lets another app show over a full-screen Space.
+tauri-nspanel = "2.1"
+
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
 [profile.release]
 codegen-units = 1
