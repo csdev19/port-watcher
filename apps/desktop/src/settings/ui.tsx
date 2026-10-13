@@ -50,6 +50,7 @@ export type ButtonVariant = "primary" | "state" | "plain";
 export function Button({
   variant = "plain",
   icon: Icon,
+  iconClassName,
   children,
   onClick,
   disabled,
@@ -57,6 +58,7 @@ export function Button({
 }: {
   variant?: ButtonVariant;
   icon?: LucideIcon;
+  iconClassName?: string;
   children: ReactNode;
   onClick?: () => void;
   disabled?: boolean;
@@ -69,7 +71,7 @@ export function Button({
       onClick={onClick}
       disabled={disabled}
     >
-      {Icon ? <Icon size={14} strokeWidth={1.75} aria-hidden /> : null}
+      {Icon ? <Icon size={14} strokeWidth={1.75} aria-hidden className={iconClassName} /> : null}
       {children}
     </button>
   );

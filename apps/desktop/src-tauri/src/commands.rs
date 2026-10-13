@@ -47,3 +47,19 @@ pub fn finish_setup(app: tauri::AppHandle) {
     }
     crate::panel::toggle_panel(&app);
 }
+
+/// CPU architecture label for About: "Apple silicon", "Intel", or the raw value.
+#[tauri::command]
+pub fn app_arch() -> String {
+    crate::update::arch_label(std::env::consts::ARCH)
+}
+
+/// Asks GitHub Releases whether a newer desktop release exists. Called on
+/// click only; it is the app's one network request.
+#[tauri::command]
+pub async fn check_for_update(current: String) -> Result<crate::update::UpdateCheck, AppError> {
+    tauri::async_runtime::spawn_blocking(move || crate::update::check(&current))
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?
+        .map_err(AppError::Internal)
+}

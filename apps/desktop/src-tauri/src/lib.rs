@@ -6,6 +6,7 @@ mod ports;
 mod settings;
 mod setup;
 mod shortcut;
+mod update;
 
 use std::sync::Mutex;
 use std::time::Instant;
@@ -194,7 +195,9 @@ pub fn run() {
             commands::kill_port,
             commands::check_full_disk_access,
             commands::open_full_disk_access_settings,
-            commands::finish_setup
+            commands::finish_setup,
+            commands::app_arch,
+            commands::check_for_update
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
