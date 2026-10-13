@@ -1,21 +1,31 @@
 name: Release Desktop
 
 # Builds the chapay Tauri app for macOS (arm64 + x64), signs it with the
-# Developer ID certificate and notarizes it, uploads the DMGs to Cloudflare R2
-# and attaches them to the GitHub Release. See
-# docs/adr/0003-release-please-and-desktop-distribution.md.
+# Developer ID certificate and notarizes it, uploads the DMGs and the in-app
+# update archives to Cloudflare R2, attaches them to the GitHub Release, and
+# finally moves the update feed (`updates/latest.json`) to the new version.
+# See docs/adr/0003-release-please-and-desktop-distribution.md and
+# docs/adr/0007-desktop-updates-through-tauri-updater.md.
 #
 # Trigger: a `desktop-v*` tag, created by release-please when the desktop
 # release PR is merged — or run manually from the Actions tab on `main` while
-# tuning the pipeline (manual runs build, sign and notarize but publish
-# nothing). A manual run on any other branch is skipped: the signing job must
-# only ever run code that is already on `main`.
+# tuning the pipeline (manual runs build, sign and notarize, and attach the
+# DMGs, update archives and feed to the run, but publish nothing). A manual
+# run on any other branch is skipped: the signing job must only ever run code
+# that is already on `main`.
 #
 # Order matters for the signing secrets. Everything that executes third-party
-# code (bun install, the Vite build, crate build scripts) runs first, with no
-# certificate and no API key on the machine. Only then is the certificate
-# imported and the .p8 written, and `tauri bundle` (no compilation) signs and
-# notarizes. Both are removed right after.
+# code (bun install, minisign from Homebrew, the Vite build, crate build
+# scripts) runs first, with no certificate and no key on the machine. Only
+# then is the certificate imported and the .p8 written, and `tauri bundle`
+# (no compilation) signs, notarizes and signs the update archives. The
+# certificate and .p8 are removed right after; the updater key only ever
+# lives in that one step's environment.
+#
+# Order matters for publishing, too: versioned files → check → `latest/` DMGs
+# → check → update feed → check. The feed is the release boundary for every
+# installed copy, so it moves last, only once everything it points at answers
+# publicly, and never to an older version.
 #
 # Secrets and variables live in the `production` GitHub Environment (hence
 # `environment:`). Names match my-pets and the other desktop repos so the same
@@ -28,10 +38,20 @@ name: Release Desktop
 #   R2_ACCESS_KEY_ID      R2 S3 API key (R2 → Manage R2 API Tokens)
 #   R2_SECRET_ACCESS_KEY  its secret
 #   CLOUDFLARE_ACCOUNT_ID the account that owns the bucket
+#   TAURI_SIGNING_PRIVATE_KEY           updater private key (`tauri signer
+#                                       generate` output file contents)
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  its password
 # Variables (not sensitive, so `vars.`, readable in the Actions UI):
 #   R2_BUCKET             bucket name
 #   DOWNLOAD_BASE_URL     the bucket's public URL, no trailing slash
-#                         (`https://pub-<id>.r2.dev` or a custom domain)
+#                         (`https://pub-<id>.r2.dev` or a custom domain). It is
+#                         also baked into every build as the update endpoint
+#                         (`$DOWNLOAD_BASE_URL/updates/latest.json`), so
+#                         changing it strands installed copies on the old
+#                         host unless a bridge release keeps the old feed
+#                         alive (ADR 0007).
+# The updater public key is committed in src-tauri/tauri.conf.json
+# (`plugins.updater.pubkey`); every update archive is checked against it here.
 
 on:
   push:
@@ -64,16 +84,56 @@ jobs:
       # resolve inside a job that declares the environment.
       R2_BUCKET: ${{ vars.R2_BUCKET }}
       DOWNLOAD_BASE_URL: ${{ vars.DOWNLOAD_BASE_URL }}
+      # Where installed copies look for updates, relative to DOWNLOAD_BASE_URL.
+      # A key rotation moves it to a new path (updates/v2/latest.json): see
+      # the runbook in apps/documentation/.../desktop/releasing.mdx.
+      FEED_PATH: updates/latest.json
+      # chapay's designated requirement: bundle id + Developer ID + Team ID.
+      # Identical to DESIGNATED_REQUIREMENT in src-tauri/src/update/identity.rs,
+      # which installed copies check before installing an update.
+      CHAPAY_DR: >-
+        identifier "dev.csdev19.portwatcher" and anchor apple generic
+        and certificate 1[field.1.2.840.113635.100.6.2.6]
+        and certificate leaf[field.1.2.840.113635.100.6.1.13]
+        and certificate leaf[subject.OU] = K9TKC5GG76
+      HOMEBREW_NO_AUTO_UPDATE: "1"
     steps:
       - name: Checkout code
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
 
+      - name: Check the update endpoint and public key
+        # Fail in seconds, not after a 20-minute build: every build from here
+        # carries this endpoint and key for good.
+        run: |
+          : "${DOWNLOAD_BASE_URL:?Set the DOWNLOAD_BASE_URL variable in the production environment}"
+          case "$DOWNLOAD_BASE_URL" in
+            https://*) ;;
+            *) echo "::error::DOWNLOAD_BASE_URL must use https"; exit 1 ;;
+          esac
+          case "$DOWNLOAD_BASE_URL" in
+            */) echo "::error::DOWNLOAD_BASE_URL must not end with a slash"; exit 1 ;;
+          esac
+          PUBKEY="$(jq -r '.plugins.updater.pubkey // empty' apps/desktop/src-tauri/tauri.conf.json)"
+          # A real key is base64 of minisign's two-line public key file.
+          if ! printf '%s' "$PUBKEY" | base64 --decode 2>/dev/null | grep -q '^untrusted comment: minisign public key'; then
+            echo "::error::plugins.updater.pubkey in tauri.conf.json is not a minisign public key (still the placeholder?)"
+            exit 1
+          fi
+          echo "FEED_URL=$DOWNLOAD_BASE_URL/$FEED_PATH" >> "$GITHUB_ENV"
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.3.4
+
+      - name: Install minisign
+        # Checks the update signatures against the committed public key.
+        # Installed now, while no secret is on the machine.
+        run: |
+          brew install minisign
+          minisign -v
 
       - name: Install the pinned Rust toolchain (both macOS targets)
         # Version and components come from src-tauri/rust-toolchain.toml.
@@ -95,10 +155,16 @@ jobs:
         run: bun run build --filter='@port-watcher/*'
 
       - name: Build (unsigned, no secrets on the machine)
+        # The update endpoint is injected here, not committed: local and dev
+        # builds have none and never update themselves. `--config` reaches
+        # the compiled config through TAURI_CONFIG (tauri-build reruns when it
+        # changes, so a cached build cannot keep a stale endpoint).
         working-directory: apps/desktop
         run: |
+          UPDATER_CONFIG="$(jq -cn --arg url "$FEED_URL" '{plugins: {updater: {endpoints: [$url]}}}')"
+          echo "Update endpoint: $FEED_URL"
           for target in aarch64-apple-darwin x86_64-apple-darwin; do
-            bun run tauri build --target "$target" --no-bundle
+            bun run tauri build --target "$target" --no-bundle --config "$UPDATER_CONFIG"
           done
 
       - name: Import Developer ID certificate
@@ -146,18 +212,29 @@ jobs:
           fi
           echo "APPLE_API_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
 
-      - name: Sign, notarize & package DMGs
+      - name: Sign, notarize & package DMGs and update archives
         # `tauri bundle` packages the binaries built above; it compiles
-        # nothing and runs no build scripts.
+        # nothing and runs no build scripts. `app` must be listed for the
+        # bundler to write the update archive (`chapay.app.tar.gz` + `.sig`)
+        # from the signed, notarized, stapled app; `createUpdaterArtifacts`
+        # stays off in tauri.conf.json so local bundles need no key.
         working-directory: apps/desktop
         env:
           # Tauri notarizes when these are set; APPLE_SIGNING_IDENTITY and
           # APPLE_API_KEY_PATH come from GITHUB_ENV (steps above).
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          # The updater key, only in this step's environment, never on disk.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
+          : "${TAURI_SIGNING_PRIVATE_KEY:?Set the TAURI_SIGNING_PRIVATE_KEY secret in the production environment}"
           for target in aarch64-apple-darwin x86_64-apple-darwin; do
-            bun run tauri bundle --target "$target" --bundles dmg
+            # The archive name carries no version and the Rust cache may
+            # restore an old bundle folder: start from an empty one.
+            rm -rf "src-tauri/target/$target/release/bundle"
+            bun run tauri bundle --target "$target" --bundles app,dmg \
+              --config '{"bundle":{"createUpdaterArtifacts":true}}'
           done
 
       - name: Remove signing material
@@ -166,9 +243,10 @@ jobs:
           rm -f "$RUNNER_TEMP/apple_api_key.p8" "$RUNNER_TEMP/certificate.p12"
           security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
 
-      - name: Collect DMGs
-        # Tauri names them chapay_<version>_<aarch64|x64>.dmg under each
-        # target's bundle dir; copy them to one folder with stable arch names.
+      - name: Collect DMGs and update archives
+        # Tauri names the DMGs chapay_<version>_<aarch64|x64>.dmg and the
+        # update archive chapay.app.tar.gz (+ .sig) under each target's bundle
+        # dir; copy them to one folder with versioned, stable arch names.
         run: |
           OUT="$RUNNER_TEMP/dist"
           mkdir -p "$OUT"
@@ -180,36 +258,96 @@ jobs:
           # release's DMG next to the new one.
           cp "$BUNDLE/aarch64-apple-darwin/release/bundle/dmg/chapay_${VERSION}_aarch64.dmg" "$OUT/chapay-${VERSION}-arm64.dmg"
           cp "$BUNDLE/x86_64-apple-darwin/release/bundle/dmg/chapay_${VERSION}_x64.dmg" "$OUT/chapay-${VERSION}-x64.dmg"
+          for pair in aarch64-apple-darwin:arm64 x86_64-apple-darwin:x64; do
+            target="${pair%%:*}" arch="${pair##*:}"
+            cp "$BUNDLE/$target/release/bundle/macos/chapay.app.tar.gz" "$OUT/chapay-${VERSION}-${arch}.app.tar.gz"
+            cp "$BUNDLE/$target/release/bundle/macos/chapay.app.tar.gz.sig" "$OUT/chapay-${VERSION}-${arch}.app.tar.gz.sig"
+          done
           ls -la "$OUT"
           echo "DIST=$OUT" >> "$GITHUB_ENV"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Verify signature and notarization
-        # Gatekeeper's own checks, on the app inside each DMG exactly as a
-        # user receives it: valid Developer ID signature, accepted by
+        # Gatekeeper's own checks, on the app inside each DMG and inside each
+        # update archive exactly as a user receives them: valid Developer ID
+        # signature that satisfies chapay's designated requirement (what
+        # installed copies demand before installing an update), accepted by
         # Gatekeeper, notarization ticket stapled.
         run: |
+          check_app() {
+            codesign --verify --deep --strict --verbose=2 "$1"
+            # A requirement argument starting with "=" is literal text.
+            codesign --verify --strict -R "=$CHAPAY_DR" "$1"
+            spctl --assess --type execute --verbose=2 "$1"
+            xcrun stapler validate "$1"
+          }
           for arch in arm64 x64; do
             DMG="$DIST/chapay-${VERSION}-${arch}.dmg"
             MOUNT="$RUNNER_TEMP/mnt-${arch}"
             hdiutil attach "$DMG" -nobrowse -readonly -mountpoint "$MOUNT" >/dev/null
-            APP="$MOUNT/chapay.app"
-            codesign --verify --deep --strict --verbose=2 "$APP"
-            spctl --assess --type execute --verbose=2 "$APP"
-            xcrun stapler validate "$APP"
+            check_app "$MOUNT/chapay.app"
             hdiutil detach "$MOUNT" >/dev/null
+
+            UNPACKED="$RUNNER_TEMP/unpacked-${arch}"
+            mkdir -p "$UNPACKED"
+            tar -xzf "$DIST/chapay-${VERSION}-${arch}.app.tar.gz" -C "$UNPACKED"
+            # Installed copies refuse any archive but one chapay.app tree.
+            test "$(ls -A "$UNPACKED")" = "chapay.app" || {
+              echo "::error::The ${arch} update archive must contain only chapay.app"
+              exit 1
+            }
+            check_app "$UNPACKED/chapay.app"
+            # The build carries the endpoint injected above.
+            grep -aqF "$FEED_URL" "$UNPACKED/chapay.app/Contents/MacOS/"* || {
+              echo "::error::The ${arch} build does not contain the update endpoint $FEED_URL"
+              exit 1
+            }
+          done
+
+      - name: Verify update signatures
+        # The bundler only warns when the private key does not match the
+        # committed public key; installed copies would then reject every
+        # update. Check each archive against the committed key, and that the
+        # signature is bound to this version (requireSignedVersion).
+        run: |
+          WORK="$RUNNER_TEMP/minisign"
+          mkdir -p "$WORK"
+          jq -r '.plugins.updater.pubkey' apps/desktop/src-tauri/tauri.conf.json | base64 --decode > "$WORK/chapay.pub"
+          for arch in arm64 x64; do
+            ARCHIVE="$DIST/chapay-${VERSION}-${arch}.app.tar.gz"
+            base64 --decode < "$ARCHIVE.sig" > "$WORK/${arch}.minisig"
+            OUTPUT="$(minisign -V -p "$WORK/chapay.pub" -m "$ARCHIVE" -x "$WORK/${arch}.minisig")"
+            echo "$OUTPUT"
+            printf '%s\n' "$OUTPUT" | sed -n 's/^Trusted comment: //p' | tr '\t' '\n' | grep -qx "version:${VERSION}" || {
+              echo "::error::The ${arch} update signature is not bound to version ${VERSION}"
+              exit 1
+            }
           done
 
       - name: Write checksums
-        # SHA256SUMS next to the DMGs: one with the GitHub Release asset
-        # names, one with the R2 names (same bytes, same hashes).
+        # SHA256SUMS next to the DMGs and update archives: one with the GitHub
+        # Release asset names, one with the R2 names (same bytes, same
+        # hashes). The .sig files are signatures themselves.
         run: |
           cd "$DIST"
-          shasum -a 256 "chapay-${VERSION}-arm64.dmg" "chapay-${VERSION}-x64.dmg" > SHA256SUMS
+          shasum -a 256 "chapay-${VERSION}-arm64.dmg" "chapay-${VERSION}-x64.dmg" \
+            "chapay-${VERSION}-arm64.app.tar.gz" "chapay-${VERSION}-x64.app.tar.gz" > SHA256SUMS
           sed "s/chapay-${VERSION}-/chapay-/" SHA256SUMS > "$RUNNER_TEMP/SHA256SUMS.r2"
           cat SHA256SUMS "$RUNNER_TEMP/SHA256SUMS.r2"
 
-      - name: Publish installers to R2 (versioned)
+      - name: Write the update feed (local only)
+        # Points at the immutable download/<version>/ archives, never latest/.
+        # Published by a later step, after everything it references answers.
+        run: |
+          FEED="$DIST/latest.json"
+          sh apps/desktop/scripts/updater-feed.sh write "$VERSION" "$DOWNLOAD_BASE_URL" \
+            "chapay ${VERSION}: https://github.com/${GITHUB_REPOSITORY}/releases/tag/desktop-v${VERSION}" \
+            "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            "$DIST/chapay-${VERSION}-arm64.app.tar.gz.sig" "$DIST/chapay-${VERSION}-x64.app.tar.gz.sig" > "$FEED"
+          sh apps/desktop/scripts/updater-feed.sh validate "$FEED" "$VERSION" "$DOWNLOAD_BASE_URL"
+          cat "$FEED"
+
+      - name: Publish installers and update archives to R2 (versioned)
         if: startsWith(github.ref, 'refs/tags/')
         env:
           # R2's S3 API needs its own Access Key + Secret — the Cloudflare API
@@ -228,18 +366,24 @@ jobs:
           for arch in arm64 x64; do
             aws s3 cp "$DIST/chapay-${VERSION}-${arch}.dmg" "s3://${R2_BUCKET}/download/${VERSION}/chapay-${arch}.dmg" \
               --endpoint-url "$ENDPOINT" --content-type "application/x-apple-diskimage" --cache-control "$IMMUTABLE"
+            aws s3 cp "$DIST/chapay-${VERSION}-${arch}.app.tar.gz" "s3://${R2_BUCKET}/download/${VERSION}/chapay-${arch}.app.tar.gz" \
+              --endpoint-url "$ENDPOINT" --content-type "application/gzip" --cache-control "$IMMUTABLE"
+            aws s3 cp "$DIST/chapay-${VERSION}-${arch}.app.tar.gz.sig" "s3://${R2_BUCKET}/download/${VERSION}/chapay-${arch}.app.tar.gz.sig" \
+              --endpoint-url "$ENDPOINT" --content-type "text/plain; charset=utf-8" --cache-control "$IMMUTABLE"
           done
           aws s3 cp "$RUNNER_TEMP/SHA256SUMS.r2" "s3://${R2_BUCKET}/download/${VERSION}/SHA256SUMS" \
             --endpoint-url "$ENDPOINT" --content-type "text/plain; charset=utf-8" --cache-control "$IMMUTABLE"
 
       - name: Verify versioned URLs
-        # Check the new version answers publicly *before* `latest/` points at
-        # it: a bucket without public access or a wrong DOWNLOAD_BASE_URL fails
-        # here, while `latest/` still serves the previous release.
+        # Check the new version answers publicly *before* `latest/` and the
+        # feed point at it: a bucket without public access or a wrong
+        # DOWNLOAD_BASE_URL fails here, while `latest/` and the feed still
+        # serve the previous release.
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          : "${DOWNLOAD_BASE_URL:?Set the DOWNLOAD_BASE_URL variable in the production environment}"
           for path in "download/${VERSION}/chapay-arm64.dmg" "download/${VERSION}/chapay-x64.dmg" \
+                      "download/${VERSION}/chapay-arm64.app.tar.gz" "download/${VERSION}/chapay-x64.app.tar.gz" \
+                      "download/${VERSION}/chapay-arm64.app.tar.gz.sig" "download/${VERSION}/chapay-x64.app.tar.gz.sig" \
                       "download/${VERSION}/SHA256SUMS"; do
             curl -fsSIL "$DOWNLOAD_BASE_URL/$path" >/dev/null || { echo "::error::Missing: $DOWNLOAD_BASE_URL/$path"; exit 1; }
             echo "OK: $DOWNLOAD_BASE_URL/$path"
@@ -257,7 +401,8 @@ jobs:
           : "${R2_ACCOUNT_ID:?Set the CLOUDFLARE_ACCOUNT_ID secret in the production environment}"
           ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
           # `latest/` is the live alias the landing links to, so it must be
-          # revalidated on every request.
+          # revalidated on every request. The update archives need no
+          # `latest/` copy: the feed points at the versioned ones.
           LIVE="public, max-age=0, must-revalidate"
           for arch in arm64 x64; do
             aws s3 cp "$DIST/chapay-${VERSION}-${arch}.dmg" "s3://${R2_BUCKET}/download/latest/chapay-${arch}.dmg" \
@@ -275,10 +420,65 @@ jobs:
             echo "OK: $DOWNLOAD_BASE_URL/$path"
           done
 
+      - name: Publish the update feed (last)
+        # The step that ships the update to every installed copy. It reads
+        # the live feed straight from the bucket (not through a cache) and
+        # refuses to move it to an older version. The same version is
+        # republished: a rerun of the tag re-signed and re-uploaded the
+        # archives above, and the feed must carry their new signatures.
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          : "${R2_BUCKET:?Set the R2_BUCKET variable in the production environment}"
+          : "${R2_ACCOUNT_ID:?Set the CLOUDFLARE_ACCOUNT_ID secret in the production environment}"
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          LIVE_FEED="$RUNNER_TEMP/live-latest.json"
+          ERR="$RUNNER_TEMP/head-object.err"
+          if aws s3api head-object --bucket "$R2_BUCKET" --key "$FEED_PATH" --endpoint-url "$ENDPOINT" >/dev/null 2>"$ERR"; then
+            aws s3 cp "s3://${R2_BUCKET}/${FEED_PATH}" "$LIVE_FEED" --endpoint-url "$ENDPOINT"
+          elif grep -qE '404|Not Found|NoSuchKey' "$ERR"; then
+            echo "No live feed yet: this is the first updater release."
+            : > "$LIVE_FEED"
+          else
+            cat "$ERR"
+            echo "::error::Could not read the live feed; refusing to publish blind"
+            exit 1
+          fi
+          DECISION="$(sh apps/desktop/scripts/updater-feed.sh compare "$LIVE_FEED" "$VERSION")"
+          echo "Feed: $DECISION ${VERSION}"
+          aws s3 cp "$DIST/latest.json" "s3://${R2_BUCKET}/${FEED_PATH}" \
+            --endpoint-url "$ENDPOINT" --content-type "application/json" \
+            --cache-control "public, max-age=0, must-revalidate"
+
+      - name: Verify the update feed
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          LIVE="$RUNNER_TEMP/published-latest.json"
+          for attempt in 1 2 3 4 5; do
+            if curl -fsSL "$FEED_URL" -o "$LIVE" \
+              && sh apps/desktop/scripts/updater-feed.sh validate "$LIVE" "$VERSION" "$DOWNLOAD_BASE_URL"; then
+              break
+            fi
+            if [ "$attempt" = 5 ]; then
+              echo "::error::$FEED_URL does not announce ${VERSION}"
+              exit 1
+            fi
+            sleep 10
+          done
+          for url in $(jq -r '.platforms[].url' "$LIVE"); do
+            curl -fsSIL "$url" >/dev/null || { echo "::error::The feed points at a missing file: $url"; exit 1; }
+            echo "OK: $url"
+          done
+
       - name: Prune old release artifacts (keep last N versions)
         # download/<version>/ accumulates one folder per release forever
         # otherwise (only download/latest/ self-overwrites). Older versions only
-        # enable manual rollback, so a handful is enough.
+        # enable manual rollback, so a handful is enough. The feed always points
+        # at the newest version, which is never pruned.
         if: startsWith(github.ref, 'refs/tags/')
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -310,25 +510,33 @@ jobs:
           fi
 
       - name: Upload build as workflow artifact
-        # Only for manual runs (no tag): a tag release already ships the DMGs to
-        # R2 and the GitHub Release, so this would be a redundant copy.
+        # Only for manual runs (no tag): a tag release already ships the files to
+        # R2 and the GitHub Release, so this would be a redundant copy. This is
+        # the rehearsal output: real signed DMGs, update archives and feed.
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: chapay-macos
           path: |
             ${{ env.DIST }}/*.dmg
+            ${{ env.DIST }}/*.app.tar.gz
+            ${{ env.DIST }}/*.app.tar.gz.sig
+            ${{ env.DIST }}/latest.json
             ${{ env.DIST }}/SHA256SUMS
           if-no-files-found: error
           retention-days: 3
 
-      - name: Attach DMGs to the GitHub Release
+      - name: Attach assets to the GitHub Release
         # release-please owns the GitHub Release (it creates it, with the
         # changelog, before this tag exists). This step only adds assets; it
-        # never changes the release's draft or prerelease state.
+        # never changes the release's draft or prerelease state. The feed and
+        # archives are attached for transparency; installed copies read R2.
         if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --clobber \
-            "$DIST/chapay-${VERSION}-arm64.dmg" "$DIST/chapay-${VERSION}-x64.dmg" "$DIST/SHA256SUMS"
+            "$DIST/chapay-${VERSION}-arm64.dmg" "$DIST/chapay-${VERSION}-x64.dmg" \
+            "$DIST/chapay-${VERSION}-arm64.app.tar.gz" "$DIST/chapay-${VERSION}-x64.app.tar.gz" \
+            "$DIST/chapay-${VERSION}-arm64.app.tar.gz.sig" "$DIST/chapay-${VERSION}-x64.app.tar.gz.sig" \
+            "$DIST/latest.json" "$DIST/SHA256SUMS"

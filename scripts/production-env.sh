@@ -25,6 +25,9 @@ SECRETS=(
   R2_SECRET_ACCESS_KEY
   CLOUDFLARE_ACCOUNT_ID
   CLOUDFLARE_API_TOKEN
+  # In-app updates (ADR 0007): the updater signing key and its password.
+  TAURI_SIGNING_PRIVATE_KEY
+  TAURI_SIGNING_PRIVATE_KEY_PASSWORD
   # Disabled with auth and the database in the web app
   # (apps/fullstack-fn-only/vite.config.ts). Restore with them.
   # DATABASE_URL
