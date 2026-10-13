@@ -93,7 +93,7 @@ export default function About() {
         {check.kind === "error" ? <span>Couldn't check for updates.</span> : null}
       </div>
 
-      <div className={styles.footer}>by csdev · GPL-3.0</div>
+      <div className={styles.footer}>A Niway product · built by csdev · GPL-3.0</div>
     </div>
   );
 }

@@ -29,7 +29,7 @@ describe("About", () => {
   it("shows version, commit and architecture", async () => {
     render(<About />);
     expect(await screen.findByText("v0.3.0 · abc1234 · Apple silicon")).toBeTruthy();
-    expect(screen.getByText(/by csdev · GPL-3.0/)).toBeTruthy();
+    expect(screen.getByText(/A Niway product · built by csdev · GPL-3.0/)).toBeTruthy();
   });
 
   it("reports the latest version", async () => {
