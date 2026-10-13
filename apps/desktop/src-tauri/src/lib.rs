@@ -208,6 +208,7 @@ pub fn run() {
             commands::show_setup_window,
             commands::app_arch,
             commands::check_for_update,
+            commands::open_settings,
             commands::set_shortcut
         ])
         .run(tauri::generate_context!())

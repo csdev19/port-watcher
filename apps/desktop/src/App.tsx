@@ -13,13 +13,14 @@ import {
   filterFavouriteMatches,
   joinFavourites,
 } from "@/lib/favourites";
-import { inTauri, killPort } from "@/lib/ports";
+import { inTauri, killPort, openSettings } from "@/lib/ports";
 import { portKey, type PortEntry } from "@/lib/types";
 import { PortList } from "@/components/PortList";
 import { FavouritesPanel } from "@/components/FavouritesPanel";
 import { SearchInput } from "@/components/SearchInput";
 import { EmptyState, ErrorState, FilteredEmptyState } from "@/components/PanelStates";
 import { Toast, type ToastData } from "@/components/Toast";
+import { Icon } from "@/components/Icon";
 import styles from "@/app.module.css";
 
 type Tab = "listening" | "favourites";
@@ -219,6 +220,13 @@ export default function App() {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.isComposing) return;
+
+      // ⌘, opens Settings, as in every Mac app.
+      if (e.key === "," && e.metaKey) {
+        e.preventDefault();
+        void openSettings();
+        return;
+      }
 
       // F7 Slice 3: the inline watch form is an excluded keyboard scope —
       // arrows/⌘⌫ edit its fields, never navigate or kill a row.
@@ -501,7 +509,18 @@ export default function App() {
         </div>
       )}
 
-      <footer className={styles.footer}>{footerText}</footer>
+      <footer className={styles.footer}>
+        <span>{footerText}</span>
+        <button
+          type="button"
+          className={styles.footerButton}
+          aria-label="Settings"
+          title="Settings (⌘,)"
+          onClick={() => void openSettings()}
+        >
+          <Icon name="settings" />
+        </button>
+      </footer>
       {toast && (
         <Toast
           toast={toast}

@@ -104,3 +104,10 @@ pub fn set_shortcut(app: tauri::AppHandle, shortcut: String) -> Result<(), AppEr
     *current = next;
     Ok(())
 }
+
+/// Opens Settings from the panel's gear button or ⌘, (the tray menu calls
+/// `settings::open_settings` directly).
+#[tauri::command]
+pub fn open_settings(app: tauri::AppHandle) -> Result<(), AppError> {
+    crate::settings::open_settings(&app).map_err(|e| AppError::Internal(e.to_string()))
+}

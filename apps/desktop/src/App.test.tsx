@@ -59,6 +59,18 @@ describe("App", () => {
     resetMemorySettings();
   });
 
+  it("opens Settings from the footer's gear button and from ⌘,", async () => {
+    const openSettings = vi.spyOn(portsModule, "openSettings").mockResolvedValue();
+    renderApp();
+    await screen.findByText("3000");
+
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect(openSettings).toHaveBeenCalledTimes(1);
+
+    fireEvent.keyDown(window, { key: ",", metaKey: true, code: "Comma" });
+    expect(openSettings).toHaveBeenCalledTimes(2);
+  });
+
   it("Confirm before kill off: × kills a dev row on the first click", async () => {
     await setSetting("confirmBeforeKill", false);
     const killSpy = vi.spyOn(portsModule, "killPort");
