@@ -16,6 +16,12 @@ vi.mock("@/lib/ports", () => ({
   killPort: vi.fn(async () => "terminated"),
 }));
 
+// usePorts reads the refresh interval through useSetting, which would
+// otherwise hit the real store and add its own `listen()` calls.
+vi.mock("@/settings/store", () => ({
+  useSetting: () => [2000, vi.fn()],
+}));
+
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({ hide: vi.fn(async () => {}) }),
 }));
