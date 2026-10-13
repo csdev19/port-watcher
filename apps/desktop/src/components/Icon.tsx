@@ -16,6 +16,10 @@ import {
   Star,
   Trash2,
   Pencil,
+  List,
+  Command,
+  Wifi,
+  LoaderCircle,
   type LucideIcon,
 } from "lucide-react";
 
@@ -40,6 +44,10 @@ const ICONS: Record<string, LucideIcon> = {
   star: Star,
   "trash-2": Trash2,
   pencil: Pencil,
+  list: List,
+  command: Command,
+  wifi: Wifi,
+  "loader-circle": LoaderCircle,
 };
 
 export type IconName = keyof typeof ICONS;

@@ -3,5 +3,5 @@
   "identifier": "setup",
   "description": "Capability for the first-run setup window",
   "windows": ["setup"],
-  "permissions": ["core:default", "core:window:allow-close"]
+  "permissions": ["core:default"]
 }
