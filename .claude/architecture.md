@@ -1,8 +1,10 @@
 # Architecture Context
 
-**chapay — port watcher** — a fullstack serverFn project (DDD + Hexagonal Architecture): one TanStack Start
-app whose server functions are the only adapters over the shared packages, plus a documentation site
-and the Tauri 2 desktop app.
+**chapay — port watcher** — the Tauri 2 menu-bar desktop app (Rust core + React renderer, the product),
+a TanStack Start app that serves its landing page, and a documentation site. The shared packages are a
+DDD + Hexagonal template (a Todo example) that the web app was cloned from. The web app's auth and
+database are disabled (ADR 0005) and the desktop app imports none of the packages. They are kept
+deliberately (#27), so describe them as dormant, not as removed.
 
 > The general architecture knowledge (DDD + hexagonal, bounded contexts, repository pattern, Result
 > types, dependency injection, schema-driven validation) lives in the
@@ -14,7 +16,7 @@ and the Tauri 2 desktop app.
 
 - `domain/` — Pure: Zod schemas, types, constants, repository interfaces (leaf, no deps)
 - `application/` — Use cases (depend only on domain interfaces)
-- `infra-db/` — Drizzle schemas, repositories, mappers, Neon client
+- `infra-db/` — Drizzle schemas, repositories, mappers, Neon serverless client (dormant: the DB is disabled)
 - `infra-auth/` — Better Auth base config
 - `infra-env/` — Zod env schemas (one per app)
 - `web-ui/` — Shared React UI (shadcn/ui, Tailwind) — exports built dist/
@@ -30,9 +32,11 @@ let the Tauri app reuse it without dragging in Node or Drizzle.
 
 ## Apps
 
-- `apps/fullstack-fn-only` — TanStack Start (client + server functions), one Cloudflare Worker
+- `apps/desktop` — chapay, Tauri 2: React/Vite renderer + Rust core in `src-tauri/` (crate
+  `port-watcher`). The real domain logic (ports, kill guards, categories) lives here, not in the packages
+- `apps/fullstack-fn-only` — TanStack Start, one Cloudflare Worker; serves only the landing today
+  (server functions, auth and the DB are present but disabled)
 - `apps/documentation` — Astro Starlight
-- `apps/desktop` — Tauri 2: React/Vite renderer + Rust core in `src-tauri/` (crate `port-watcher`)
 
 See the [monorepo structure](https://github.com/csdev19/general-knowledge/blob/main/monorepos/monorepo-structure.md)
 doc in the hub for the workspace / Turbo / catalog layout.

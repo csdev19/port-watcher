@@ -5,7 +5,7 @@ Date: 2026-09-16 · Status: approved for implementation planning · Owner: csdev
 The direction and review refinements are approved. This document describes
 intended work, not implemented behavior.
 Architecture rationale and integration dependencies are recorded in
-[ADR 0002](../../adr/0002-shared-panel-ui-and-stylex.md).
+[ADR 0002](../adr/0002-shared-panel-ui-and-stylex.md).
 
 ## Context
 
@@ -217,7 +217,7 @@ the complete transform/extraction pipeline has been checked.
 ### Execution-document requirements
 
 Write an index plus small dependency-ordered task documents under
-`docs/superpowers/plans/panel-ui-stylex/`. Each task must name
+`docs/plans/panel-ui-stylex/`. Each task must name
 prerequisite documents/commits, exact file scope, concrete contracts, ordered
 edits, verification commands with expected results, stop conditions, and a
 handoff checklist. Split component extraction, desktop integration, and storage

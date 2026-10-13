@@ -1,49 +1,35 @@
-# Starlight Starter Kit: Basics
+# documentation — chapay docs site
 
-[![Built with Starlight](https://astro.badg.es/v2/built-with-starlight/tiny.svg)](https://starlight.astro.build)
+The documentation site for **chapay — port watcher**, built with
+[Astro Starlight](https://starlight.astro.build). It covers using the desktop app, developing it,
+releasing it, and the architecture patterns of the monorepo.
 
-```
-bun create astro@latest -- --template starlight
-```
-
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
-
-## 🚀 Project Structure
-
-Inside of your Astro + Starlight project, you'll see the following folders and files:
+## Layout
 
 ```
-.
-├── public/
-├── src/
-│   ├── assets/
-│   ├── content/
-│   │   └── docs/
-│   └── content.config.ts
-├── astro.config.mjs
-├── package.json
-└── tsconfig.json
+src/content/docs/    pages (.md / .mdx), one route per file
+  desktop/           install, usage, permissions, development and release pages
+  architecture/ …    monorepo and template architecture guides
+  backlog/           planned work
+  changelog/         feature changelog entries
+src/components/      Astro components used by pages
+astro.config.mjs     title, sidebar, integrations (Mermaid)
 ```
 
-Starlight looks for `.md` or `.mdx` files in the `src/content/docs/` directory. Each file is exposed as a route based on its file name.
+Every page needs `title` and `description` frontmatter (the changelog also uses `date` and `tags`,
+see `src/content.config.ts`). A new page must be added to the `sidebar` in `astro.config.mjs`
+unless it lives in an `autogenerate` directory.
 
-Images can be added to `src/assets/` and embedded in Markdown with a relative link.
+## Commands
 
-Static assets, like favicons, can be placed in the `public/` directory.
+Run from the repository root:
 
-## 🧞 Commands
+| Command                                    | Action                                       |
+| :----------------------------------------- | :------------------------------------------- |
+| `bun run dev`                              | Start the docs with the other apps           |
+| `bun run --cwd apps/documentation dev`     | Start only this site (`localhost:4321`)      |
+| `bun run --cwd apps/documentation build`   | Build the site to `apps/documentation/dist/` |
+| `bun run --cwd apps/documentation preview` | Preview the build                            |
 
-All commands are run from the root of the project, from a terminal:
-
-| Command               | Action                                           |
-| :-------------------- | :----------------------------------------------- |
-| `bun install`         | Installs dependencies                            |
-| `bun dev`             | Starts local dev server at `localhost:4321`      |
-| `bun build`           | Build your production site to `./dist/`          |
-| `bun preview`         | Preview your build locally, before deploying     |
-| `bun astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `bun astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Check out [Starlight’s docs](https://starlight.astro.build/), read [the Astro documentation](https://docs.astro.build), or jump into the [Astro Discord server](https://astro.build/chat).
+The pages that explain the shared packages assume `bun run build --filter='@port-watcher/*'` has
+run once on a fresh clone; the docs build itself does not import them.

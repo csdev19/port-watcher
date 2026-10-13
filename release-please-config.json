@@ -7,7 +7,19 @@
     "apps/desktop": {
       "release-type": "node",
       "component": "desktop",
-      "initial-version": "0.1.0"
+      "initial-version": "0.1.0",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "src-tauri/Cargo.toml",
+          "jsonpath": "$.package.version"
+        },
+        {
+          "type": "toml",
+          "path": "src-tauri/Cargo.lock",
+          "jsonpath": "$.package[?(@.name.value=='port-watcher')].version"
+        }
+      ]
     },
     "apps/fullstack-fn-only": {
       "release-type": "node",

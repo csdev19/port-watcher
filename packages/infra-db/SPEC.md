@@ -1,5 +1,9 @@
 # @port-watcher/infra-db — Package Spec
 
+> Status: dormant. The web app's database is disabled (ADR 0005), so nothing in the shipped apps
+> uses this package. The table prefix `monorepo_template` below is the template's, kept as-is
+> because renaming it changes every table name.
+
 ```
 src/
 ├── client/
@@ -24,9 +28,9 @@ src/
 
 ## `config/`
 
-| Item           | Kind  | Description                                           |
-| -------------- | ----- | ----------------------------------------------------- |
-| `TABLE_PREFIX` | const | `"monorepo_template"` — prefix for all DB table names |
+| Item                             | Kind  | Description                                                                                                  |
+| -------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------ |
+| `MONOREPO_TEMPLATE_TABLE_PREFIX` | const | `"monorepo_template"` — prefix for all DB table names (a template leftover; changing it renames every table) |
 
 ---
 

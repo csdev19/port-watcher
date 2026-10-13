@@ -1,0 +1,56 @@
+---
+title: Install chapay
+description: Download the right build, drag it to Applications, and get past the first-launch prompt
+---
+
+chapay is a macOS menu-bar app. It is free and open source, and the installer is a signed and
+notarized `.dmg`.
+
+## 1. Download the right build
+
+There are two builds, one per kind of Mac. Pick the one that matches your chip:
+
+| Your Mac                      | File               | How to check                                           |
+| ----------------------------- | ------------------ | ------------------------------------------------------ |
+| Apple silicon (M1, M2, M3, …) | `chapay-arm64.dmg` | Apple menu → About This Mac shows **Chip: Apple M…**   |
+| Intel                         | `chapay-x64.dmg`   | Apple menu → About This Mac shows **Processor: Intel** |
+
+The **Download for macOS** button on [chapay.cs19.dev](https://chapay.cs19.dev) gives you the Apple
+silicon build, with an **Intel build** link next to it. If the page does not know the download
+location, the button falls back to the
+[GitHub Releases](https://github.com/csdev19/port-watcher/releases) page.
+
+If you install the wrong build, it either refuses to open (an Apple silicon build on an Intel Mac)
+or runs through Rosetta (an Intel build on Apple silicon). Delete it and install the other one.
+
+The landing page states **macOS 13 or later**. The app's bundle configuration does not set a
+minimum system version, so treat that number as the landing page's claim, not an enforced check.
+
+## 2. Install it
+
+1. Open the downloaded `.dmg`.
+2. Drag **chapay** onto the **Applications** folder in the window that opens.
+3. Eject the disk image and open **chapay** from Applications (or Spotlight).
+
+## 3. The first-launch prompt
+
+The build is signed with a Developer ID certificate and notarized by Apple, so macOS lets it run
+without any workaround. Because the file came from the Internet, the first launch still shows the
+standard macOS dialog saying that chapay is an app downloaded from the Internet and asking whether
+you want to open it. Choose **Open**. You only see it once.
+
+If macOS instead says it cannot verify the app, or that it is damaged, do not bypass it: you
+probably have a partial download or a copy that did not come from the official release. Download it
+again from the links above.
+
+## 4. Find it
+
+chapay has **no window and no Dock icon**. After it starts, look for its icon in the menu bar, near
+the clock. Click it, or press `⌥⌘P`, to open the panel. See [Using chapay](/desktop/usage).
+
+To quit, right-click the menu-bar icon and choose **Quit**.
+
+## Updating
+
+There is no auto-updater yet. To update, quit chapay, download the newest DMG and drag the new app
+over the old one in Applications.

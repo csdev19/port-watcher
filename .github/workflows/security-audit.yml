@@ -1,0 +1,70 @@
+name: Security audit
+
+# Checks the dependency trees against the RustSec and npm advisory databases:
+# weekly (new advisories land on unchanged lockfiles) and on any PR that
+# changes a lockfile.
+#
+# cargo audit fails the run on a vulnerability (unmaintained/unsound crates
+# are warnings only). bun audit is report-only for now: the tree carries a
+# backlog of advisories, mostly in dev tooling (vite, vitest, ws). Drop
+# `continue-on-error` once that backlog is cleared.
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "bun.lock"
+      - "apps/desktop/src-tauri/Cargo.lock"
+      - ".github/workflows/security-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cargo-audit:
+    name: cargo audit (desktop)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/desktop/src-tauri
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Install the pinned Rust toolchain
+        run: rustup toolchain install
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked --version 0.22.2
+
+      - name: Audit Cargo.lock
+        run: cargo audit
+
+  bun-audit:
+    name: bun audit (report only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.3.4
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile --ignore-scripts
+
+      - name: Audit bun.lock
+        continue-on-error: true
+        run: bun audit

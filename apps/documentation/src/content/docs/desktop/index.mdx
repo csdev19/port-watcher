@@ -21,7 +21,7 @@ The renderer never touches the OS. Everything it needs — the port list, killin
 to Rust through `invoke()`.
 
 :::note[This app has no backend]
-It is **local-first**: it never calls the web app's Worker and never reads Neon. Its only data
+It is **local-first**: it never calls the web app's Worker and never reads a database. Its only data
 source is the machine it runs on. Desktop-framework jargon calls the privileged half the "backend",
 but in this documentation "backend" means the server — see
 [Tauri vs Electron](/desktop/tauri-vs-electron) for the distinction. Here it is always the
@@ -77,15 +77,18 @@ it is incremental and fast. Build output lands in `src-tauri/target/` (~650 MB, 
 
 | Script        | What it actually does                                      |
 | ------------- | ---------------------------------------------------------- |
-| `dev`         | **Vite only.** Tauri calls it through `beforeDevCommand`   |
+| `vite:dev`    | **Vite only.** Tauri calls it through `beforeDevCommand`   |
 | `build`       | **Vite only.** Tauri calls it through `beforeBuildCommand` |
 | `tauri:dev`   | The actual app                                             |
 | `tauri:build` | The actual bundle                                          |
 | `check-types` | `tsc --noEmit` over the renderer                           |
+| `test`        | `vitest run` over the renderer                             |
 
-Because `dev` is the headless half, the root `dev` script filters this package out
-(`turbo run dev --filter=!desktop`) — a bare `turbo run dev` would otherwise start an orphan Vite on
-port 1420 with no window attached. Renaming either script means editing
+The package deliberately has **no** script named `dev`. Turbo runs a task by exact name in every
+package that defines it, so a `dev` here would start an orphan Vite on port 1420 with no window
+attached whenever the root runs `turbo run dev`. Without it, the root `dev` script can run
+`turbo run dev tauri:dev` as one invocation: `dev` fires for the web app and the docs, `tauri:dev`
+fires for the desktop app, in parallel. Renaming `vite:dev` or `build` means editing
 `src-tauri/tauri.conf.json` in the same commit.
 
 ## Monorepo integration
@@ -97,23 +100,21 @@ The scaffold assumes a standalone project. What was changed after generating it:
   typecheck the same shared packages.
 - **`tsconfig.json`** extends `@port-watcher/config/tsconfig.web.json` instead of its own copy.
 - **Crate identity** — `desktop` → `port-watcher`, lib `port_watcher_lib`, product name
-  "chapay", window 360×480.
+  "chapay", window 340×440.
 - **Turbo tasks** `tauri:dev` (persistent) and `tauri:build`.
 - **Ignores** — `target/` and `src-tauri/gen/` excluded from git, oxlint and oxfmt.
 
 ## Status
 
-The scaffold still contains Tauri's `greet` demo — an input, a button, and an `invoke("greet")`
-round trip to Rust. That demo **is** the full React → Rust → React cycle working; everything else is
-replacing it.
+chapay is shipped: `desktop-v0.1.0` is a signed, notarized release (see
+[Releasing](/desktop/releasing)). What the code on `main` does today:
 
-| #   | Work                                                                                      | Where               |
-| --- | ----------------------------------------------------------------------------------------- | ------------------- |
-| 1   | Remove the `greet` demo                                                                   | renderer + `lib.rs` |
-| 2   | `list_ports` / `kill_port` commands (`listeners`, `sysinfo`, `nix`)                       | Rust                |
-| 3   | Menu bar: `tray-icon` feature, `tauri-plugin-positioner`, `tauri-plugin-global-shortcut`  | plugins             |
-| 4   | No Dock: `ActivationPolicy::Accessory`, undecorated window, `always_on_top`, hide-on-blur | `lib.rs` + config   |
-| 5   | Solid panel palette (no vibrancy), tokens, light/dark theme                               | renderer            |
+| Area      | What exists                                                                                                   | Where                  |
+| --------- | ------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| Rust core | `list_ports` and `kill_port` commands (`listeners`, `sysinfo`, `nix`), with PID-reuse and ownership guards    | `src-tauri/src/ports/` |
+| Menu bar  | Tray icon, `tauri-plugin-positioner`, `tauri-plugin-global-shortcut` (`⌥⌘P`), no Dock icon, hide on blur      | `lib.rs`, `panel.rs`   |
+| Panel     | 340×440 undecorated, transparent, always-on-top window                                                        | `tauri.conf.json`      |
+| Renderer  | Search, keyboard navigation, two-step kill, dev / app / system grouping, favourites, solid light/dark palette | `src/`                 |
 
-Steps 3 and 4 are what turn "a window" into "a menu-bar panel". None of them is more than a few
-dozen lines.
+For how to install and use it, see [Install chapay](/desktop/install),
+[Using chapay](/desktop/usage) and [Permissions](/desktop/permissions).
