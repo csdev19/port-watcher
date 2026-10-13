@@ -19,8 +19,10 @@ This page is the day-to-day flow.
    with the version bump and changelog. Review it.
 3. Merge it. That creates the `desktop-v0.2.0` tag, which runs
    `release-desktop.yml`.
-4. When the run finishes, the DMGs are in R2 and on a **draft** GitHub Release.
-   Publish the draft when you are happy with the notes.
+4. release-please has already published the GitHub Release with the
+   changelog. When the run finishes, the DMGs and `SHA256SUMS` are in R2 and
+   attached to that release. The workflow only uploads assets; it never
+   changes the release's draft or prerelease state.
 
 Web works the same way with `web-v*` tags and `release-web.yml`.
 
@@ -36,17 +38,25 @@ to the `latest/` aliases.
 | ---------------------------------- | --------------------------------------- | ----------------- |
 | `download/latest/chapay-arm64.dmg` | Newest Apple Silicon build              | revalidate always |
 | `download/latest/chapay-x64.dmg`   | Newest Intel build                      | revalidate always |
+| `download/latest/SHA256SUMS`       | SHA-256 of both `latest/` DMGs          | revalidate always |
 | `download/<version>/…`             | The same files per version, last 3 kept | immutable, 1 year |
 
-The release fails on **Verify public URLs** if any of the four does not answer
-at `DOWNLOAD_BASE_URL`: a bucket without public access, or a wrong variable,
-breaks the release and not a user's click.
+The versioned files are uploaded and checked first (**Verify versioned URLs**);
+only then does `latest/` move to the new version (**Verify latest URLs**). A
+bucket without public access, or a wrong variable, breaks the release while
+`latest/` still serves the previous version, not a user's click.
+
+Before anything is uploaded, **Verify signature and notarization** mounts each
+DMG and runs `codesign --verify`, `spctl --assess` and `xcrun stapler validate`
+on the app inside it.
 
 ## Trying the pipeline without releasing
 
-Run **Release Desktop** from the Actions tab (`workflow_dispatch`). It builds,
-signs and notarizes both DMGs and attaches them to the run as an artifact for 3
-days. It uploads nothing to R2 and creates no release.
+Run **Release Desktop** from the Actions tab (`workflow_dispatch`) on `main`;
+a manual run on any other branch is skipped, so the signing secrets only ever
+meet code already on `main`. It builds, signs and notarizes both DMGs and
+attaches them to the run as an artifact for 3 days. It uploads nothing to R2
+and creates no release.
 
 ## Building locally
 
@@ -57,6 +67,12 @@ bun run tauri build --target aarch64-apple-darwin --bundles dmg
 
 The DMG lands in `src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/`.
 It is unsigned unless a Developer ID identity is in your keychain.
+
+CI does the same in two phases, so the signing certificate is never on the
+machine while third-party build code runs: `tauri build --no-bundle` compiles
+first, then the certificate is imported and `tauri bundle --bundles dmg` signs,
+notarizes and packages the already built binary. Locally, set `CI=true` for
+`tauri bundle`, or the DMG script tries to drive Finder.
 
 ## First release (one-time owner setup)
 

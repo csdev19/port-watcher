@@ -42,6 +42,9 @@ Electron; chapay is Tauri.
   notarizes through Tauri with the App Store Connect API key, uploads to
   `chapay-bucket` (originally `port-watcher-bucket`) under `download/<version>/` and `download/latest/`,
   keeps the last 3 versions, and attaches the DMGs to a draft GitHub Release.
+  _Amended (NIW2-345): release-please owns the GitHub Release; the workflow
+  only uploads the DMGs and `SHA256SUMS` to it, and builds before importing
+  the signing certificate._
   Secret names match the other desktop repos so the same values can be reused.
 - **`release-web.yml`** (renamed from `deploy-production.yml`) runs on `web-v*`
   instead of the `production` branch. The deploy steps are unchanged.
