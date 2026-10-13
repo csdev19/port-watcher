@@ -19,11 +19,13 @@ const PROTECTED_HOME_DIRS: [&str; 4] = [
 /// `.git`; prefer the `package.json` "name", else the folder name.
 ///
 /// `home` is injected (the caller passes `$HOME`) so the logic stays testable.
-/// The walk stops before `home` itself, and a cwd under a TCC-protected
-/// folder is named from its last path component without touching the disk.
-pub fn detect_project(cwd: &Path, home: Option<&Path>) -> Option<String> {
+/// The walk stops before `home` itself. Without Full Disk Access
+/// (`protected_access == false`) a cwd under a TCC-protected
+/// folder is named from its last path component without touching the disk;
+/// with it, those folders are probed like any other.
+pub fn detect_project(cwd: &Path, home: Option<&Path>, protected_access: bool) -> Option<String> {
     let home = home.filter(|h| !h.as_os_str().is_empty());
-    if let Some(home) = home {
+    if let Some(home) = home.filter(|_| !protected_access) {
         if PROTECTED_HOME_DIRS
             .iter()
             .any(|d| cwd.starts_with(home.join(d)))
@@ -98,7 +100,10 @@ mod tests {
         let deep = root.join("apps/web/src");
         fs::create_dir_all(&deep).unwrap();
         fs::write(root.join("package.json"), r#"{ "name": "laqi-panel" }"#).unwrap();
-        assert_eq!(detect_project(&deep, None), Some("laqi-panel".into()));
+        assert_eq!(
+            detect_project(&deep, None, false),
+            Some("laqi-panel".into())
+        );
     }
 
     #[test]
@@ -109,7 +114,7 @@ mod tests {
         fs::create_dir_all(&app).unwrap();
         fs::write(root.join("package.json"), r#"{ "name": "mono-root" }"#).unwrap();
         fs::write(app.join("package.json"), r#"{ "name": "web-app" }"#).unwrap();
-        assert_eq!(detect_project(&app, None), Some("web-app".into()));
+        assert_eq!(detect_project(&app, None, false), Some("web-app".into()));
     }
 
     #[test]
@@ -118,7 +123,7 @@ mod tests {
         let root = tmp.path().join("thing");
         fs::create_dir_all(&root).unwrap();
         fs::write(root.join("package.json"), r#"{ "private": true }"#).unwrap();
-        assert_eq!(detect_project(&root, None), Some("thing".into()));
+        assert_eq!(detect_project(&root, None, false), Some("thing".into()));
     }
 
     #[test]
@@ -128,7 +133,7 @@ mod tests {
         let src = root.join("src");
         fs::create_dir_all(&src).unwrap();
         fs::write(root.join("Cargo.toml"), "[package]\nname = \"x\"\n").unwrap();
-        assert_eq!(detect_project(&src, None), Some("rusty".into()));
+        assert_eq!(detect_project(&src, None, false), Some("rusty".into()));
     }
 
     #[test]
@@ -136,13 +141,13 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let root = tmp.path().join("plain");
         fs::create_dir_all(root.join(".git")).unwrap();
-        assert_eq!(detect_project(&root, None), Some("plain".into()));
+        assert_eq!(detect_project(&root, None, false), Some("plain".into()));
     }
 
     #[test]
     fn no_marker_means_none() {
         let tmp = tempfile::tempdir().unwrap();
-        assert_eq!(detect_project(tmp.path(), None), None);
+        assert_eq!(detect_project(tmp.path(), None, false), None);
     }
 
     #[test]
@@ -153,8 +158,8 @@ mod tests {
         fs::create_dir_all(&cwd).unwrap();
         // A marker in $HOME itself must not name the project.
         fs::write(home.join("package.json"), r#"{ "name": "dotfiles" }"#).unwrap();
-        assert_eq!(detect_project(&cwd, Some(&home)), None);
-        assert_eq!(detect_project(&cwd, None), Some("dotfiles".into()));
+        assert_eq!(detect_project(&cwd, Some(&home), false), None);
+        assert_eq!(detect_project(&cwd, None, false), Some("dotfiles".into()));
     }
 
     #[test]
@@ -175,8 +180,42 @@ mod tests {
                 r#"{ "name": "real-name" }"#,
             )
             .unwrap();
-            assert_eq!(detect_project(&cwd, Some(&home)), Some("src".into()));
+            assert_eq!(detect_project(&cwd, Some(&home), false), Some("src".into()));
         }
+    }
+
+    #[test]
+    fn protected_folders_are_probed_when_access_is_granted() {
+        let tmp = tempfile::tempdir().unwrap();
+        let home = tmp.path().join("home");
+        for protected in [
+            "Documents",
+            "Desktop",
+            "Downloads",
+            "Library/Mobile Documents",
+        ] {
+            let cwd = home.join(protected).join("proj/src");
+            fs::create_dir_all(&cwd).unwrap();
+            fs::write(
+                home.join(protected).join("proj/package.json"),
+                r#"{ "name": "real-name" }"#,
+            )
+            .unwrap();
+            assert_eq!(
+                detect_project(&cwd, Some(&home), true),
+                Some("real-name".into())
+            );
+        }
+    }
+
+    #[test]
+    fn granted_access_still_stops_at_home() {
+        let tmp = tempfile::tempdir().unwrap();
+        let home = tmp.path().join("home");
+        let cwd = home.join("Documents/scratch");
+        fs::create_dir_all(&cwd).unwrap();
+        fs::write(home.join("package.json"), r#"{ "name": "dotfiles" }"#).unwrap();
+        assert_eq!(detect_project(&cwd, Some(&home), true), None);
     }
 
     #[test]
@@ -186,7 +225,7 @@ mod tests {
         let cwd = home.join("dev/app/src");
         fs::create_dir_all(&cwd).unwrap();
         fs::write(home.join("dev/app/package.json"), r#"{ "name": "app" }"#).unwrap();
-        assert_eq!(detect_project(&cwd, Some(&home)), Some("app".into()));
+        assert_eq!(detect_project(&cwd, Some(&home), false), Some("app".into()));
     }
 
     #[test]
@@ -200,7 +239,7 @@ mod tests {
             format!(r#"{{ "name": "huge"{padding} }}"#),
         )
         .unwrap();
-        assert_eq!(detect_project(&root, None), Some("big".into()));
+        assert_eq!(detect_project(&root, None, false), Some("big".into()));
     }
 
     #[cfg(unix)]
@@ -212,7 +251,7 @@ mod tests {
         let root = tmp.path().join("proj");
         fs::create_dir_all(&root).unwrap();
         std::os::unix::fs::symlink(&target, root.join("package.json")).unwrap();
-        assert_eq!(detect_project(&root, None), None);
+        assert_eq!(detect_project(&root, None, false), None);
     }
 
     #[test]

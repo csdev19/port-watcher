@@ -58,7 +58,7 @@ fn entry_for(
     let cwd_raw = proc.and_then(|p| p.cwd()).map(|p| p.display().to_string());
     let project = cwd_raw
         .as_deref()
-        .and_then(|c| detect_project(Path::new(c), home.map(Path::new)));
+        .and_then(|c| detect_project(Path::new(c), home.map(Path::new), crate::fda::cached()));
     let cwd = cwd_raw.map(|c| tildify(&c, home));
 
     let uid = proc.and_then(|p| p.user_id());

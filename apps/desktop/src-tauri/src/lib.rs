@@ -1,8 +1,10 @@
 mod commands;
 mod error;
+mod fda;
 mod panel;
 mod ports;
 mod settings;
+mod setup;
 mod shortcut;
 
 use std::sync::Mutex;
@@ -156,12 +158,30 @@ pub fn run() {
                 }
             }
 
+            // First launch only: explain chapay and offer Full Disk Access.
+            // The marker is written now, so the window never reopens by
+            // itself; the tray menu item is the way back.
+            match app.path().app_config_dir() {
+                Ok(dir) if setup::is_first_run(&dir) => {
+                    if let Err(e) = setup::mark_done(&dir) {
+                        log::warn!("could not record first-run setup: {e}");
+                    }
+                    setup::show_setup(app.handle());
+                }
+                Ok(_) => {}
+                Err(e) => log::warn!("no app config dir; skipping first-run setup: {e}"),
+            }
+
             Ok(())
         })
         .on_window_event(|window, event| {
             // A menu-bar panel dismisses itself when focus leaves it.
             // Note for development: opening the inspector steals focus and
             // closes the panel — use the browser dev loop for UI work.
+            // Only the panel does this; the setup window must stay put.
+            if window.label() != "main" {
+                return;
+            }
             if let tauri::WindowEvent::Focused(false) = event {
                 if let Some(state) = window.try_state::<LastBlurHide>() {
                     *state.0.lock().unwrap() = Some(std::time::Instant::now());
@@ -171,7 +191,10 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::list_ports,
-            commands::kill_port
+            commands::kill_port,
+            commands::check_full_disk_access,
+            commands::open_full_disk_access_settings,
+            commands::finish_setup
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
