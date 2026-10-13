@@ -32,6 +32,11 @@ nix = { version = "0.29", features = ["signal", "user"] }
 log = "0.4"
 
 
+[target.'cfg(target_os = "macos")'.dependencies]
+# Already in the tree through tao; named here to set the panel's
+# NSWindow collection behaviour, which Tauri does not fully expose.
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSResponder", "NSWindow"] }
+
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
 [profile.release]
 codegen-units = 1

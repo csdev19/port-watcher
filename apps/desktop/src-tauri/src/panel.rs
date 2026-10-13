@@ -30,11 +30,43 @@ pub fn toggle_panel(app: &AppHandle) {
     }
     // Requires tauri_plugin_positioner::on_tray_event to have been fed
     // tray events — wired in lib.rs — or the tray position is unknown.
-    if let Err(e) = window.move_window(Position::TrayBottomCenter) {
+    // Constrained: a tray icon near the right edge would otherwise push
+    // part of the 340 px panel off screen.
+    if let Err(e) = window.move_window_constrained(Position::TrayBottomCenter) {
         log::debug!("tray position unknown yet ({e}); falling back to top-right");
         let _ = window.move_window(Position::TopRight);
     }
     let _ = window.show();
     let _ = window.set_focus();
     let _ = app.emit("panel-shown", ());
+}
+
+/// Let the panel open on whatever Space is active, including another
+/// app's full-screen Space. A plain NSWindow belongs to the Space it was
+/// created on, so without this the tray click shows the panel on the
+/// desktop Space and the user sees nothing.
+///
+/// `CanJoinAllSpaces` puts the window on every Space; `FullScreenAuxiliary`
+/// lets it appear over a full-screen app. Tauri's
+/// `visible_on_all_workspaces` sets only the first.
+///
+/// AppKit requires the main thread: call this from `setup`.
+#[cfg(target_os = "macos")]
+pub fn join_all_spaces(window: &tauri::WebviewWindow) {
+    use objc2_app_kit::{NSWindow, NSWindowCollectionBehavior};
+
+    let ptr = match window.ns_window() {
+        Ok(ptr) => ptr,
+        Err(e) => {
+            log::warn!("join_all_spaces: no NSWindow ({e}); the panel stays on one Space");
+            return;
+        }
+    };
+    // SAFETY: Tauri returns the window's live NSWindow, and `setup` runs
+    // on the main thread, which AppKit requires for these calls.
+    let ns_window: &NSWindow = unsafe { &*ptr.cast::<NSWindow>() };
+    let behavior = ns_window.collectionBehavior()
+        | NSWindowCollectionBehavior::CanJoinAllSpaces
+        | NSWindowCollectionBehavior::FullScreenAuxiliary;
+    ns_window.setCollectionBehavior(behavior);
 }

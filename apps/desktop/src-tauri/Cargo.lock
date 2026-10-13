@@ -2746,6 +2746,7 @@ dependencies = [
  "listeners",
  "log",
  "nix",
+ "objc2-app-kit",
  "serde",
  "serde_json",
  "sysinfo",

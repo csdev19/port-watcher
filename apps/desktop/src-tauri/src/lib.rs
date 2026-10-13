@@ -13,7 +13,7 @@ use tauri::Manager;
 /// Tracks the last time the panel was hidden by losing focus, so a tray
 /// click landing immediately after (mouse-down blurs the window before
 /// mouse-up reaches the tray handler) is treated as a dismiss, not a
-/// reopen. See docs/superpowers/plans/2026-09-15-chapay-menubar-shell.md.
+/// reopen. See `toggle_panel` in src/panel.rs.
 pub(crate) struct LastBlurHide(pub(crate) Mutex<Option<Instant>>);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -28,6 +28,11 @@ pub fn run() {
         .plugin(tauri_plugin_positioner::init())
         .setup(|app| {
             app.manage(LastBlurHide(Mutex::new(None)));
+
+            #[cfg(target_os = "macos")]
+            if let Some(window) = app.get_webview_window("main") {
+                panel::join_all_spaces(&window);
+            }
 
             // Menu-bar app: no Dock icon, no ⌘Tab entry (spec §4.6).
             #[cfg(target_os = "macos")]
