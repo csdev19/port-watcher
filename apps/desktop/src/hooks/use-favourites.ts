@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   duplicatePortMessage,
   FAVOURITES_STORAGE_KEY,
@@ -64,6 +64,20 @@ export function useFavourites() {
     itemsRef.current = next;
     setItemsState(next);
   }, []);
+
+  // The panel and the Settings window are separate webviews on the same
+  // origin, so they share localStorage. The `storage` event fires in the
+  // *other* window when one writes; re-read so an edit shows up in both.
+  useEffect(() => {
+    function onStorage(event: StorageEvent) {
+      if (event.key !== null && event.key !== FAVOURITES_STORAGE_KEY) return;
+      const { items: next, error: nextError } = readStoredFavourites();
+      setItems(next);
+      setError(nextError);
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [setItems]);
 
   const clearError = useCallback(() => setError(null), []);
 

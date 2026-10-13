@@ -10,6 +10,9 @@ pub enum AppError {
     /// permitted", or the process survived SIGKILL.
     #[error("failed to kill the process: {0}")]
     Kill(String),
+    /// A shortcut that does not parse, or one the system refused.
+    #[error("{0}")]
+    Shortcut(String),
     #[error("internal error: {0}")]
     Internal(String),
 }

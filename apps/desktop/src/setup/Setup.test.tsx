@@ -88,7 +88,7 @@ describe("Setup", () => {
     await flush();
     expect(screen.getByText("You’re set.")).toBeTruthy();
     expect(screen.getByText(/Project names stay hidden/)).toBeTruthy();
-    expect(screen.getByText(/Folder access…/)).toBeTruthy();
+    expect(screen.getByText(/Settings › Permissions/)).toBeTruthy();
     expect(check).not.toHaveBeenCalled();
     expect(setupLib.openFullDiskAccessSettings).not.toHaveBeenCalled();
   });

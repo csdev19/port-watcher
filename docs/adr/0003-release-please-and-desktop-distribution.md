@@ -82,6 +82,9 @@ Electron; chapay is Tauri.
 
 - In-app auto-update. `tauri-plugin-updater` is not installed, so no update
   feed (`updates/`) is published — users download new DMGs by hand.
+  _(Amended by [ADR 0007](0007-desktop-updates-through-tauri-updater.md) on branch
+  `feat/auto-updater`: from 0.2.0, `release-desktop.yml` publishes signed update archives and
+  `updates/latest.json`, and chapay installs updates after a click.)_
 - Windows and Linux builds.
 - A download page on the landing site. _(Superseded in practice: the landing now has a download
   button for the arm64 and x64 DMGs, ADR 0004. A dedicated multi-page download site remains out of
@@ -93,5 +96,5 @@ Electron; chapay is Tauri.
   (e.g. `@port-watcher/panel-ui` from ADR 0002) — the closures then intersect
   and need either one line or a written compatibility contract.
 - The updater plugin is added: publish its feed and signatures from this
-  workflow.
+  workflow. _(Met: ADR 0007.)_
 - A second desktop platform ships.

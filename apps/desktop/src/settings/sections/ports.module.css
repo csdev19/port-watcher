@@ -1,0 +1,98 @@
+/* Watched-ports list of Settings > Ports. Shared pieces live in ../settings.module.css. */
+.watched {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 8px 14px;
+}
+
+.watched + .watched,
+.watched + .add {
+  border-top: 1px solid var(--pw-line-row);
+}
+
+.port {
+  min-width: 52px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.unnamed {
+  color: var(--pw-muted);
+}
+
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--pw-plum);
+  color: var(--pw-fg);
+  cursor: default;
+}
+
+.iconButton:hover {
+  background: var(--pw-plum-hover);
+}
+
+.iconButton:focus-visible {
+  outline: 2px solid var(--pw-accent-ring);
+  outline-offset: 2px;
+}
+
+.add {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 8px 14px;
+}
+
+.addIcon {
+  flex-shrink: 0;
+  color: var(--pw-muted);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  border: 0;
+  background: transparent;
+  color: var(--pw-fg);
+  font: inherit;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.input::placeholder {
+  color: var(--pw-muted-2);
+}
+
+.input:focus-visible {
+  outline: none;
+}
+
+.error {
+  color: var(--pw-muted);
+  font-size: 12px;
+}
+
+.hint {
+  margin: 10px 2px 0;
+  color: var(--pw-muted);
+  font-size: 12.5px;
+}

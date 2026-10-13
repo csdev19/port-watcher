@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { MOCK_PORTS } from "@/lib/mock-ports";
 import * as portsModule from "@/lib/ports";
+import { resetMemorySettings, setSetting } from "@/settings/store";
 
 /** jsdom has no __TAURI_INTERNALS__, so `inTauri` is false and the app
  * renders MOCK_PORTS with zero Tauri mocking — this is the whole point
@@ -55,6 +56,44 @@ describe("App", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     window.localStorage.clear();
+    resetMemorySettings();
+  });
+
+  it("opens Settings from the footer's gear button and from ⌘,", async () => {
+    const openSettings = vi.spyOn(portsModule, "openSettings").mockResolvedValue();
+    renderApp();
+    await screen.findByText("3000");
+
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect(openSettings).toHaveBeenCalledTimes(1);
+
+    fireEvent.keyDown(window, { key: ",", metaKey: true, code: "Comma" });
+    expect(openSettings).toHaveBeenCalledTimes(2);
+  });
+
+  it("Confirm before kill off: × kills a dev row on the first click", async () => {
+    await setSetting("confirmBeforeKill", false);
+    const killSpy = vi.spyOn(portsModule, "killPort");
+    renderApp();
+    await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+    // The setting loads asynchronously; wait for it before clicking.
+    await waitFor(() => {
+      fireEvent.click(screen.getByLabelText("Kill Next.js dev on port 3000"));
+      expect(killSpy).toHaveBeenCalledTimes(1);
+    });
+    expect(killSpy).toHaveBeenCalledWith(expect.objectContaining({ port: 3000 }));
+    expect(screen.queryByText("Kill?")).toBeNull();
+  });
+
+  it("Show apps & system off: the Apps & System group is gone", async () => {
+    await setSetting("showAppsAndSystem", false);
+    renderApp();
+    await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: /apps & system/i })).toBeNull(),
+    );
+    expect(screen.queryByText("7000")).toBeNull();
+    expect(screen.queryByText("631")).toBeNull();
   });
 
   it("renders dev rows, with Apps & System collapsed by default", async () => {

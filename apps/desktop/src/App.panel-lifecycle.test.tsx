@@ -16,6 +16,28 @@ vi.mock("@/lib/ports", () => ({
   killPort: vi.fn(async () => "terminated"),
 }));
 
+// The panel reads its settings (kill confirmation, Apps & System, refresh
+// interval) from tauri-plugin-store, which has no backend here; these
+// tests only need the defaults, and must not add `listen()` calls.
+vi.mock("@/settings/store", () => ({
+  useSetting: (key: string) => [
+    (
+      { confirmBeforeKill: true, showAppsAndSystem: true, refreshIntervalMs: 2000 } as Record<
+        string,
+        unknown
+      >
+    )[key],
+    vi.fn(),
+  ],
+}));
+
+// The update banner subscribes to `update-status` with its own `listen()`;
+// stub its hook so the only listener here is `panel-shown`.
+vi.mock("@/lib/update", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/update")>()),
+  useUpdate: () => [{ state: "disabled" }, { check: vi.fn(), install: vi.fn(), restart: vi.fn() }],
+}));
+
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({ hide: vi.fn(async () => {}) }),
 }));

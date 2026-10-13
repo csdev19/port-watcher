@@ -21,3 +21,9 @@ export async function killPort(entry: PortEntry): Promise<KillResult> {
     startedAt: entry.startedAt,
   });
 }
+
+/** Opens the Settings window (no-op in the browser dev loop). */
+export async function openSettings(): Promise<void> {
+  if (!inTauri) return;
+  await invoke("open_settings");
+}

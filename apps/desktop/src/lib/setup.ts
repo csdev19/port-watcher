@@ -20,3 +20,9 @@ export async function finishSetup(): Promise<void> {
   if (!inTauri) return;
   await invoke("finish_setup");
 }
+
+/** Opens the first-run setup window again (from Settings › Permissions). */
+export async function showSetupWindow(): Promise<void> {
+  if (!inTauri) return;
+  await invoke("show_setup_window");
+}

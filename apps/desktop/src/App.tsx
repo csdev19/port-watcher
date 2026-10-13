@@ -4,6 +4,7 @@ import { usePorts } from "@/hooks/use-ports";
 import { useListNavigation } from "@/hooks/use-list-navigation";
 import { useKillConfirm } from "@/hooks/use-kill-confirm";
 import { useFavourites } from "@/hooks/use-favourites";
+import { useSetting } from "@/settings/store";
 import { filterPorts } from "@/lib/filter";
 import { partitionPorts } from "@/lib/port-groups";
 import {
@@ -12,13 +13,16 @@ import {
   filterFavouriteMatches,
   joinFavourites,
 } from "@/lib/favourites";
-import { inTauri, killPort } from "@/lib/ports";
+import { inTauri, killPort, openSettings } from "@/lib/ports";
 import { portKey, type PortEntry } from "@/lib/types";
 import { PortList } from "@/components/PortList";
 import { FavouritesPanel } from "@/components/FavouritesPanel";
 import { SearchInput } from "@/components/SearchInput";
 import { EmptyState, ErrorState, FilteredEmptyState } from "@/components/PanelStates";
 import { Toast, type ToastData } from "@/components/Toast";
+import { Icon } from "@/components/Icon";
+import { UpdateBanner } from "@/components/UpdateBanner";
+import { pendingVersion, useUpdate } from "@/lib/update";
 import styles from "@/app.module.css";
 
 type Tab = "listening" | "favourites";
@@ -41,7 +45,19 @@ function pendingKeyFor(entry: PortEntry): string {
 
 export default function App() {
   const queryClient = useQueryClient();
-  const { data, error, refetch, dataUpdatedAt } = usePorts();
+  const { data: allPorts, error, refetch, dataUpdatedAt } = usePorts();
+  const [confirmBeforeKill] = useSetting("confirmBeforeKill");
+  const [showAppsAndSystem] = useSetting("showAppsAndSystem");
+  const [update, updateActions] = useUpdate();
+  const [dismissedUpdate, setDismissedUpdate] = useSetting("dismissedUpdateVersion");
+  // Settings > Ports > "Show apps & system": when off, app/system rows are
+  // dropped from the Listening tab (list, counts, search, keyboard). The
+  // Favourites tab keeps the full snapshot: a watched port is watched
+  // whichever process holds it.
+  const data = useMemo(
+    () => (showAppsAndSystem ? allPorts : allPorts?.filter((e) => e.category === "dev")),
+    [allPorts, showAppsAndSystem],
+  );
   const [query, setQuery] = useState("");
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [manuallyExpanded, setManuallyExpanded] = useState(false);
@@ -79,10 +95,10 @@ export default function App() {
   // on screen (search-filtered, saved order) — never the raw, unfiltered
   // `favMatches` used for footer/tab-count totals.
   const favMatches = useMemo(
-    () => joinFavourites(favourites.items, data ?? []),
-    [favourites.items, data],
+    () => joinFavourites(favourites.items, allPorts ?? []),
+    [favourites.items, allPorts],
   );
-  const favHealth = favouritesQueryHealth(data, error);
+  const favHealth = favouritesQueryHealth(allPorts, error);
   const favVisibleMatches = useMemo(
     () => filterFavouriteMatches(favMatches, query),
     [favMatches, query],
@@ -173,14 +189,17 @@ export default function App() {
   // seeing the same armed target, timer and invalidation. F7 Slice 3
   // reuses this same instance for Favourites' listener rows (Slice 4
   // extends it to a Favourites-aware visible-entries array).
-  const confirm = useKillConfirm((entry) => {
-    // Resolve the latest entry from the currently visible list and
-    // re-validate right before executing: never act on a saved snapshot.
-    const latestEntries = latest.current.entries;
-    const current = latestEntries.find((e) => portKey(e) === portKey(entry));
-    if (!current || !current.killable || current.startedAt !== entry.startedAt) return;
-    void handleKill(current);
-  });
+  const confirm = useKillConfirm(
+    (entry) => {
+      // Resolve the latest entry from the currently visible list and
+      // re-validate right before executing: never act on a saved snapshot.
+      const latestEntries = latest.current.entries;
+      const current = latestEntries.find((e) => portKey(e) === portKey(entry));
+      if (!current || !current.killable || current.startedAt !== entry.startedAt) return;
+      void handleKill(current);
+    },
+    { confirmBeforeKill },
+  );
 
   function requestKill(entry: PortEntry, source: "pointer" | "keyboard") {
     confirm.request(entry, source);
@@ -205,6 +224,13 @@ export default function App() {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.isComposing) return;
+
+      // ⌘, opens Settings, as in every Mac app.
+      if (e.key === "," && e.metaKey) {
+        e.preventDefault();
+        void openSettings();
+        return;
+      }
 
       // F7 Slice 3: the inline watch form is an excluded keyboard scope —
       // arrows/⌘⌫ edit its fields, never navigate or kill a row.
@@ -401,6 +427,12 @@ export default function App() {
 
   return (
     <main className={styles.panel}>
+      <UpdateBanner
+        status={update}
+        actions={updateActions}
+        dismissedVersion={dismissedUpdate}
+        onDismiss={setDismissedUpdate}
+      />
       <SearchInput ref={searchRef} value={query} onChange={setQuery} />
       <div className={styles.tablist} role="tablist" aria-label="Ports" onKeyDown={onTabKeyDown}>
         {TABS.map((tab) => (
@@ -471,7 +503,7 @@ export default function App() {
             add={favourites.add}
             remove={favourites.remove}
             rename={favourites.rename}
-            data={data}
+            data={allPorts}
             queryError={error}
             query={query}
             onClearQuery={() => setQuery("")}
@@ -487,7 +519,25 @@ export default function App() {
         </div>
       )}
 
-      <footer className={styles.footer}>{footerText}</footer>
+      <footer className={styles.footer}>
+        <span>{footerText}</span>
+        <button
+          type="button"
+          className={styles.footerButton}
+          aria-label={
+            pendingVersion(update)
+              ? `Settings (chapay ${pendingVersion(update)} is available)`
+              : "Settings"
+          }
+          title="Settings (⌘,)"
+          onClick={() => void openSettings()}
+        >
+          <Icon name="settings" />
+          {pendingVersion(update) ? (
+            <span className={styles.updateDot} data-testid="update-dot" aria-hidden />
+          ) : null}
+        </button>
+      </footer>
       {toast && (
         <Toast
           toast={toast}

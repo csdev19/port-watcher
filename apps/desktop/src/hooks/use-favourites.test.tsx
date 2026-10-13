@@ -177,4 +177,23 @@ describe("useFavourites", () => {
     renderHook(() => useFavourites());
     expect(setItemSpy).not.toHaveBeenCalled();
   });
+
+  it("re-reads when another window writes the key (storage event)", () => {
+    const { result } = renderHook(() => useFavourites());
+    expect(result.current.items).toEqual([]);
+    act(() => {
+      window.localStorage.setItem(FAVOURITES_STORAGE_KEY, JSON.stringify([{ port: 4321 }]));
+      window.dispatchEvent(new StorageEvent("storage", { key: FAVOURITES_STORAGE_KEY }));
+    });
+    expect(result.current.items).toEqual([{ port: 4321 }]);
+  });
+
+  it("ignores storage events for other keys", () => {
+    const { result } = renderHook(() => useFavourites());
+    act(() => {
+      window.localStorage.setItem(FAVOURITES_STORAGE_KEY, JSON.stringify([{ port: 4321 }]));
+      window.dispatchEvent(new StorageEvent("storage", { key: "something-else" }));
+    });
+    expect(result.current.items).toEqual([]);
+  });
 });

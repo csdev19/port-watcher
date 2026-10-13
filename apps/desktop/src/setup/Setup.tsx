@@ -216,7 +216,7 @@ function Finished({ granted, onOpen }: { granted: boolean; onOpen: () => void })
           <span className={granted ? styles.dotTeal : styles.dotGrey} />
           {granted
             ? "Folder access is on. Every row shows the project that started it."
-            : "Project names stay hidden in Documents, Desktop and Downloads. Turn on Full Disk Access later from the menu-bar icon’s menu → Folder access…"}
+            : "Project names stay hidden in Documents, Desktop and Downloads. Turn on Full Disk Access later in Settings › Permissions."}
         </p>
       </div>
       <Footer active={2}>

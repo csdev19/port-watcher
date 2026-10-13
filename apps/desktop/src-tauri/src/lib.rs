@@ -3,8 +3,10 @@ mod error;
 mod fda;
 mod panel;
 mod ports;
+mod settings;
 mod setup;
 mod shortcut;
+mod update;
 
 use std::sync::Mutex;
 use std::time::Instant;
@@ -42,9 +44,18 @@ pub fn run() {
         )
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_positioner::init())
+        .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
+        // No window gets an `updater:*` permission: only the `update_*`
+        // commands in src/update/ drive the updater (ADR 0007).
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             app.manage(LastBlurHide(Mutex::new(None)));
             app.manage(TrayRect(Mutex::new(None)));
+            update::init(app.handle());
 
             #[cfg(target_os = "macos")]
             if let Some(window) = app.get_webview_window("main") {
@@ -57,11 +68,13 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
-            let folder_access_item =
-                MenuItemBuilder::with_id("folder-access", "Folder access…").build(app)?;
+            let settings_item = MenuItemBuilder::with_id("settings", "Settings…")
+                .accelerator("CmdOrCtrl+,")
+                .build(app)?;
             let quit_item = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
             let tray_menu = MenuBuilder::new(app)
-                .item(&folder_access_item)
+                .item(&settings_item)
+                .separator()
                 .item(&quit_item)
                 .build()?;
 
@@ -98,8 +111,12 @@ pub fn run() {
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| {
                     match event.id.as_ref() {
+                        "settings" => {
+                            if let Err(e) = settings::open_settings(app) {
+                                log::error!("settings: could not open the window ({e})");
+                            }
+                        }
                         "quit" => app.exit(0),
-                        "folder-access" => setup::show_setup(app),
                         _ => {}
                     }
                 })
@@ -131,21 +148,26 @@ pub fn run() {
             {
                 use tauri_plugin_global_shortcut::ShortcutState;
 
+                let initial =
+                    shortcut::startup_shortcut(shortcut::stored_shortcut(app.handle()).as_deref());
+                app.manage(shortcut::ToggleShortcut(Mutex::new(initial)));
                 let shortcut_plugin = tauri_plugin_global_shortcut::Builder::new()
-                    .with_shortcuts([shortcut::TOGGLE_PANEL])?
+                    .with_shortcuts([initial])?
                     .with_handler(|app, fired, event| {
                         log::debug!("shortcut: {fired:?} {:?}", event.state);
-                        if event.state == ShortcutState::Pressed
-                            && shortcut::is_toggle_panel(fired)
-                        {
+                        let is_toggle = app
+                            .try_state::<shortcut::ToggleShortcut>()
+                            .is_some_and(|s| {
+                                shortcut::is_toggle_panel(&s.0.lock().unwrap(), fired)
+                            });
+                        if event.state == ShortcutState::Pressed && is_toggle {
                             crate::panel::toggle_panel(app);
                         }
                     })
                     .build();
                 if let Err(e) = app.handle().plugin(shortcut_plugin) {
                     log::error!(
-                        "global shortcut {} unavailable: {e}; use the tray icon instead",
-                        shortcut::TOGGLE_PANEL
+                        "global shortcut {initial:?} unavailable: {e}; use the tray icon instead"
                     );
                 }
             }
@@ -186,7 +208,15 @@ pub fn run() {
             commands::kill_port,
             commands::check_full_disk_access,
             commands::open_full_disk_access_settings,
-            commands::finish_setup
+            commands::finish_setup,
+            commands::show_setup_window,
+            commands::app_arch,
+            commands::update_status,
+            commands::update_check,
+            commands::update_install,
+            commands::update_restart,
+            commands::open_settings,
+            commands::set_shortcut
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

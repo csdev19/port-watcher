@@ -52,6 +52,7 @@ const DOWNLOAD_URLS = DOWNLOAD_BASE_URL
     }
   : null;
 const GITHUB_URL = "https://github.com/csdev19/port-watcher";
+const AUTHOR_URL = "https://cs19.dev";
 const CONTACT_EMAIL = "mailto:cristiansotomayor.dev@gmail.com";
 
 function HomePage() {
@@ -267,7 +268,12 @@ function HowItWorks() {
 function Footer() {
   return (
     <footer className="lp-footer">
-      <span>chapay · by csdev</span>
+      <span>
+        A Niway product · built by{" "}
+        <a href={AUTHOR_URL} target="_blank" rel="noreferrer">
+          csdev
+        </a>
+      </span>
       <span className="lp-footer-links">
         <a href={GITHUB_URL} target="_blank" rel="noreferrer">
           Source
