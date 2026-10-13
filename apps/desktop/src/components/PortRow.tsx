@@ -29,6 +29,19 @@ interface Props {
   onToggleWatch?: () => void;
 }
 
+const META_WIDTH = 34;
+const MIN_PATH_WIDTH = 12;
+
+/** Second line of a dev row: `<project> · <path>`. The project is shown only
+ * when it adds something (it differs from the folder's own name), and it is
+ * never truncated: the path gives up room instead. */
+function projectAndPath(project: string | null, cwd: string): string {
+  const folder = cwd.split("/").filter(Boolean).pop();
+  if (!project || project === folder) return middleTruncate(cwd, META_WIDTH);
+  const room = Math.max(META_WIDTH - project.length - 3, MIN_PATH_WIDTH);
+  return `${project} · ${middleTruncate(cwd, room)}`;
+}
+
 export function PortRow({
   entry,
   selected,
@@ -63,7 +76,7 @@ export function PortRow({
             {protectedCategory
               ? middleTruncate(entry.appBundlePath ?? entry.executablePath ?? entry.processName, 34)
               : entry.cwd
-                ? middleTruncate(entry.cwd, 34)
+                ? projectAndPath(entry.project, entry.cwd)
                 : (entry.project ?? entry.processName)}
           </span>
         </div>

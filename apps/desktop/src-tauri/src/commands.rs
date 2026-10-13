@@ -43,7 +43,7 @@ pub fn open_full_disk_access_settings() -> Result<(), AppError> {
 pub fn finish_setup(app: tauri::AppHandle) {
     use tauri::Manager;
     if let Some(window) = app.get_webview_window(crate::setup::SETUP_LABEL) {
-        let _ = window.close();
+        let _ = window.destroy();
     }
     crate::panel::toggle_panel(&app);
 }

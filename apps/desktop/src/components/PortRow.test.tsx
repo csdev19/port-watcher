@@ -24,6 +24,48 @@ describe("PortRow", () => {
     expect(screen.getByText(/tapuy/)).toBeTruthy();
   });
 
+  function renderRow(entry: (typeof MOCK_PORTS)[number]) {
+    render(
+      <PortRow
+        entry={entry}
+        selected={false}
+        expanded={false}
+        armed={false}
+        onSelect={noop}
+        onToggleExpand={noop}
+        onRequestKill={noop}
+        onDisarm={noop}
+      />,
+    );
+  }
+
+  it("shows the project before the path when a cwd exists", () => {
+    renderRow({ ...MOCK_PORTS[0], cwd: "~/dev/tapuy/apps/web", project: "tapuy-web" });
+    expect(screen.getByText("tapuy-web · ~/dev/tapuy/apps/web")).toBeTruthy();
+  });
+
+  it("shows only the path when the project equals the folder name", () => {
+    renderRow({ ...MOCK_PORTS[0], cwd: "~/dev/tapuy-web", project: "tapuy-web" });
+    expect(screen.getByText("~/dev/tapuy-web")).toBeTruthy();
+  });
+
+  it("shows only the path when no project was detected", () => {
+    renderRow({ ...MOCK_PORTS[0], cwd: "~/dev/tapuy/apps/web", project: null });
+    expect(screen.getByText("~/dev/tapuy/apps/web")).toBeTruthy();
+  });
+
+  it("truncates the path, never the project, when the line is long", () => {
+    renderRow({
+      ...MOCK_PORTS[0],
+      cwd: "~/dev/laqi/panel-with-a-very-long-directory-name/apps/dashboard",
+      project: "laqi-panel",
+    });
+    const text = screen.getByText(/^laqi-panel · /).textContent ?? "";
+    expect(text.startsWith("laqi-panel · ~/dev")).toBe(true);
+    expect(text).toContain("…");
+    expect(text.endsWith("dashboard")).toBe(true);
+  });
+
   it("is a controlled row: clicking kill requests, it does not arm itself", () => {
     const onRequestKill = vi.fn();
     render(

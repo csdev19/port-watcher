@@ -102,8 +102,8 @@ function Welcome({ onAllow, onNotNow }: { onAllow: () => void; onNotNow: () => v
           </div>
           <p className={styles.cardSub}>So each server shows the project that started it.</p>
           <div className={styles.examples}>
-            <ExampleRow kind="with" identity="Vite" detail="chapay-web · ~/Documents/…/apps/web" />
-            <ExampleRow kind="without" identity="Vite" detail="~/Documents/…/apps/web" />
+            <ExampleRow kind="with" identity="Vite" detail="chapay-web · ~/dev/chapay/apps/web" />
+            <ExampleRow kind="without" identity="Vite" detail="~/dev/chapay/apps/web" />
           </div>
           <p className={styles.fine}>
             macOS grants this through <strong>Full Disk Access</strong>. chapay reads the working
