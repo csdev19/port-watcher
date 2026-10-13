@@ -47,3 +47,10 @@ pub fn finish_setup(app: tauri::AppHandle) {
     }
     crate::panel::toggle_panel(&app);
 }
+
+/// "Show the first-run window again" in Settings › Permissions. The setup
+/// window is created if needed and focused, so it lands in front of Settings.
+#[tauri::command]
+pub fn show_setup_window(app: tauri::AppHandle) {
+    crate::setup::show_setup(&app);
+}
