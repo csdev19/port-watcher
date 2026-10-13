@@ -3,5 +3,10 @@
   "identifier": "settings",
   "description": "Capability for the Settings window",
   "windows": ["settings"],
-  "permissions": ["core:default", "core:window:allow-set-title", "store:default"]
+  "permissions": [
+    "core:default",
+    "core:window:allow-set-title",
+    "store:default",
+    "autostart:default"
+  ]
 }

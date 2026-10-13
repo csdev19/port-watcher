@@ -47,3 +47,37 @@ pub fn finish_setup(app: tauri::AppHandle) {
     }
     crate::panel::toggle_panel(&app);
 }
+
+/// Swaps the global shortcut that toggles the panel. The renderer saves
+/// the setting only after this succeeds, so a refused shortcut (another
+/// app holds it) leaves both the old registration and the stored value.
+#[tauri::command]
+pub fn set_shortcut(app: tauri::AppHandle, shortcut: String) -> Result<(), AppError> {
+    use crate::shortcut::{parse_shortcut, swap_shortcut, SwapError, ToggleShortcut};
+    use tauri::Manager;
+    use tauri_plugin_global_shortcut::GlobalShortcutExt;
+
+    let next = parse_shortcut(&shortcut)?;
+    let state = app.state::<ToggleShortcut>();
+    let mut current = state
+        .0
+        .lock()
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+    if *current == next {
+        return Ok(());
+    }
+    let gs = app.global_shortcut();
+    swap_shortcut(&*current, &next, |s| gs.unregister(*s), |s| gs.register(*s)).map_err(
+        |e| match e {
+            SwapError::Unregister(err) | SwapError::Register(err) => {
+                AppError::Shortcut(err.to_string())
+            }
+            SwapError::RollbackFailed { register, restore } => {
+                log::error!("shortcut: could not restore the previous shortcut ({restore})");
+                AppError::Shortcut(register.to_string())
+            }
+        },
+    )?;
+    *current = next;
+    Ok(())
+}
