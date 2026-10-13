@@ -23,8 +23,16 @@ export interface ArmedTarget {
  * `dev` entries keep the pre-F6 behavior per input: a mouse click still
  * arms-then-confirms, but `⌘⌫` on a `dev` row kills immediately.
  * `app`/`system` entries always require two actions within 2s,
- * regardless of source. Unkillable entries never arm. */
-export function useKillConfirm(onConfirm: (entry: PortEntry) => void) {
+ * regardless of source. Unkillable entries never arm.
+ *
+ * `confirmBeforeKill` (the Settings > Ports switch, default on) only
+ * relaxes `dev` rows: when off, a click on × kills them immediately too.
+ * `app` rows keep their two-step guard either way — they are the riskier
+ * ones. */
+export function useKillConfirm(
+  onConfirm: (entry: PortEntry) => void,
+  { confirmBeforeKill = true }: { confirmBeforeKill?: boolean } = {},
+) {
   const [armedTarget, setArmedTargetState] = useState<ArmedTarget | null>(null);
   // Mirrors `armedTarget` synchronously so `request` can read the latest
   // value without depending on (and re-creating on) React state.
@@ -49,7 +57,7 @@ export function useKillConfirm(onConfirm: (entry: PortEntry) => void) {
         return;
       }
 
-      if (source === "keyboard" && entry.category === "dev") {
+      if (entry.category === "dev" && (source === "keyboard" || !confirmBeforeKill)) {
         disarm();
         onConfirm(entry);
         return;
@@ -70,7 +78,7 @@ export function useKillConfirm(onConfirm: (entry: PortEntry) => void) {
       timer.current = setTimeout(disarm, CONFIRM_WINDOW_MS);
       setArmedTarget({ key, startedAt: entry.startedAt, category: entry.category });
     },
-    [disarm, onConfirm, setArmedTarget],
+    [confirmBeforeKill, disarm, onConfirm, setArmedTarget],
   );
 
   useEffect(() => () => clearTimeout(timer.current), []);

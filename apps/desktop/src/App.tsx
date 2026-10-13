@@ -4,6 +4,7 @@ import { usePorts } from "@/hooks/use-ports";
 import { useListNavigation } from "@/hooks/use-list-navigation";
 import { useKillConfirm } from "@/hooks/use-kill-confirm";
 import { useFavourites } from "@/hooks/use-favourites";
+import { useSetting } from "@/settings/store";
 import { filterPorts } from "@/lib/filter";
 import { partitionPorts } from "@/lib/port-groups";
 import {
@@ -41,7 +42,17 @@ function pendingKeyFor(entry: PortEntry): string {
 
 export default function App() {
   const queryClient = useQueryClient();
-  const { data, error, refetch, dataUpdatedAt } = usePorts();
+  const { data: allPorts, error, refetch, dataUpdatedAt } = usePorts();
+  const [confirmBeforeKill] = useSetting("confirmBeforeKill");
+  const [showAppsAndSystem] = useSetting("showAppsAndSystem");
+  // Settings > Ports > "Show apps & system": when off, app/system rows are
+  // dropped from the Listening tab (list, counts, search, keyboard). The
+  // Favourites tab keeps the full snapshot: a watched port is watched
+  // whichever process holds it.
+  const data = useMemo(
+    () => (showAppsAndSystem ? allPorts : allPorts?.filter((e) => e.category === "dev")),
+    [allPorts, showAppsAndSystem],
+  );
   const [query, setQuery] = useState("");
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [manuallyExpanded, setManuallyExpanded] = useState(false);
@@ -79,10 +90,10 @@ export default function App() {
   // on screen (search-filtered, saved order) — never the raw, unfiltered
   // `favMatches` used for footer/tab-count totals.
   const favMatches = useMemo(
-    () => joinFavourites(favourites.items, data ?? []),
-    [favourites.items, data],
+    () => joinFavourites(favourites.items, allPorts ?? []),
+    [favourites.items, allPorts],
   );
-  const favHealth = favouritesQueryHealth(data, error);
+  const favHealth = favouritesQueryHealth(allPorts, error);
   const favVisibleMatches = useMemo(
     () => filterFavouriteMatches(favMatches, query),
     [favMatches, query],
@@ -173,14 +184,17 @@ export default function App() {
   // seeing the same armed target, timer and invalidation. F7 Slice 3
   // reuses this same instance for Favourites' listener rows (Slice 4
   // extends it to a Favourites-aware visible-entries array).
-  const confirm = useKillConfirm((entry) => {
-    // Resolve the latest entry from the currently visible list and
-    // re-validate right before executing: never act on a saved snapshot.
-    const latestEntries = latest.current.entries;
-    const current = latestEntries.find((e) => portKey(e) === portKey(entry));
-    if (!current || !current.killable || current.startedAt !== entry.startedAt) return;
-    void handleKill(current);
-  });
+  const confirm = useKillConfirm(
+    (entry) => {
+      // Resolve the latest entry from the currently visible list and
+      // re-validate right before executing: never act on a saved snapshot.
+      const latestEntries = latest.current.entries;
+      const current = latestEntries.find((e) => portKey(e) === portKey(entry));
+      if (!current || !current.killable || current.startedAt !== entry.startedAt) return;
+      void handleKill(current);
+    },
+    { confirmBeforeKill },
+  );
 
   function requestKill(entry: PortEntry, source: "pointer" | "keyboard") {
     confirm.request(entry, source);
@@ -471,7 +485,7 @@ export default function App() {
             add={favourites.add}
             remove={favourites.remove}
             rename={favourites.rename}
-            data={data}
+            data={allPorts}
             queryError={error}
             query={query}
             onClearQuery={() => setQuery("")}

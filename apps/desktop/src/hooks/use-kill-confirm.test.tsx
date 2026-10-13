@@ -50,6 +50,22 @@ describe("useKillConfirm", () => {
     expect(result.current.armedTarget).toBeNull();
   });
 
+  it("confirmBeforeKill off: pointer request on dev confirms immediately", () => {
+    const onConfirm = vi.fn();
+    const { result } = renderHook(() => useKillConfirm(onConfirm, { confirmBeforeKill: false }));
+    act(() => result.current.request(devEntry, "pointer"));
+    expect(onConfirm).toHaveBeenCalledWith(devEntry);
+    expect(result.current.armedTarget).toBeNull();
+  });
+
+  it("confirmBeforeKill off: app/system rows still arm first", () => {
+    const onConfirm = vi.fn();
+    const { result } = renderHook(() => useKillConfirm(onConfirm, { confirmBeforeKill: false }));
+    act(() => result.current.request(systemEntry, "pointer"));
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(result.current.armedTarget?.key).toBe("88:7000");
+  });
+
   it("keyboard request on dev confirms immediately, no arming", () => {
     const onConfirm = vi.fn();
     const { result } = renderHook(() => useKillConfirm(onConfirm));
