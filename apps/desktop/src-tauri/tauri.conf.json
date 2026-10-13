@@ -50,7 +50,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "CHAPAY_UPDATER_PUBLIC_KEY_NOT_SET",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDk0OTY2QjU4MUJGRUM1NTAKUldSUXhmNGJXR3VXbEhYcks1QWEvNk5QRVE1UXpkUHA4bjY2a2JnanFVVmFNaUlFTFJlMjg3bWoK",
       "endpoints": [],
       "requireSignedVersion": true
     }
