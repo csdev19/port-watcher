@@ -1,6 +1,6 @@
 ---
 name: plan-to-backlog
-description: Use when an approved implementation plan in docs/superpowers/plans/ must become executable backlog documents for parallel runner agents — after writing-plans finishes, or when the user asks to "convert the plan to backlog", "prepare the epic", or "create the runner docs".
+description: Use when an approved implementation plan in docs/plans/ must become executable backlog documents for parallel runner agents — after writing-plans finishes, or when the user asks to "convert the plan to backlog", "prepare the epic", or "create the runner docs".
 ---
 
 # Plan → Backlog Conversion
@@ -21,7 +21,7 @@ Update these values to match your project's documentation setup.
 | Variable  | Value                                                                                                                                                                                                             |
 | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | BACKLOG   | `apps/documentation/src/content/docs/backlog`                                                                                                                                                                     |
-| PLANS     | `docs/superpowers/plans`                                                                                                                                                                                          |
+| PLANS     | `docs/plans`                                                                                                                                                                                                      |
 | EXT       | `.mdx` (Astro Starlight — frontmatter `title` + `description` required)                                                                                                                                           |
 | EXEMPLARS | This repo's first converted epic becomes the exemplar; until then, follow the hub doc linked above (real examples live in the `language-cards` repo: `furigana-tokens` E1–E7, `particle-sound-tap-explain` P1–P9) |
 

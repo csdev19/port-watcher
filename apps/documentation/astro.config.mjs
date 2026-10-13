@@ -19,6 +19,14 @@ export default defineConfig({
           items: [{ slug: "index" }],
         },
         {
+          label: "Using chapay",
+          items: [
+            { slug: "desktop/install" },
+            { slug: "desktop/usage" },
+            { slug: "desktop/permissions" },
+          ],
+        },
+        {
           label: "Briefings",
           autogenerate: { directory: "briefings" },
         },

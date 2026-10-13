@@ -48,12 +48,13 @@ is incremental. `target/` is gitignored.
 
 ## A bare Vite server on 1420 with no window
 
-You ran the package's `dev` script instead of `tauri:dev`. That script is the frontend half, which
+You ran the package's `vite:dev` script instead of `tauri:dev`. That script is the frontend half, which
 Tauri invokes through `beforeDevCommand` — on its own it serves the renderer with no shell around it
 and no `invoke()` available. Use `bun run dev:desktop`.
 
-This is also why the root `dev` script excludes the package:
-`turbo run dev --filter=!desktop`.
+This is also why the package has no script named `dev`: the root `dev` script runs
+`turbo run dev tauri:dev`, so `dev` reaches only the web app and the docs, and `tauri:dev` starts
+the desktop app.
 
 ## An `invoke()` call rejects with a permission error
 
