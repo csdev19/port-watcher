@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { LucideIcon } from "lucide-react";
+import { ChevronDown, type LucideIcon } from "lucide-react";
 import styles from "./settings.module.css";
 
 /*
@@ -134,6 +134,50 @@ export function Keys({ keys }: { keys: string[] }) {
           {key}
         </kbd>
       ))}
+    </span>
+  );
+}
+
+/** A one-line note under a row, e.g. why a value was refused. Sits inside the Group. */
+export function RowNote({ children }: { children: ReactNode }) {
+  return (
+    <p role="alert" className={styles.rowNote}>
+      {children}
+    </p>
+  );
+}
+
+/** A native select styled as a plum button with a chevron. */
+export function Select<T extends string | number>({
+  value,
+  options,
+  onChange,
+  label,
+}: {
+  value: T;
+  options: readonly { value: T; label: string }[];
+  onChange: (value: T) => void;
+  /** Accessible name; the row's visible label usually repeats it. */
+  label: string;
+}) {
+  return (
+    <span className={styles.select}>
+      <select
+        aria-label={label}
+        className={styles.selectInput}
+        value={String(value)}
+        onChange={(event) => {
+          const next = options.find((option) => String(option.value) === event.target.value);
+          if (next) onChange(next.value);
+        }}
+      >
+        {options.map((option) => (
+          <option key={String(option.value)} value={String(option.value)}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown size={14} strokeWidth={1.75} aria-hidden className={styles.selectChevron} />
     </span>
   );
 }

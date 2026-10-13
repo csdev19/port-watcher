@@ -25,3 +25,13 @@ describe("settings store (outside Tauri)", () => {
     unsubscribe();
   });
 });
+
+describe("useSetting warm cache", () => {
+  it("renders the last known value on the first frame", async () => {
+    const { renderHook } = await import("@testing-library/react");
+    const { useSetting } = await import("./store");
+    window.localStorage.setItem("chapay.settings.showAppsAndSystem", "false");
+    const { result } = renderHook(() => useSetting("showAppsAndSystem"));
+    expect(result.current[0]).toBe(false);
+  });
+});

@@ -16,12 +16,18 @@ vi.mock("@/lib/ports", () => ({
   killPort: vi.fn(async () => "terminated"),
 }));
 
-// The panel reads its settings from tauri-plugin-store, which has no
-// backend here; these tests only need the defaults.
+// The panel reads its settings (kill confirmation, Apps & System, refresh
+// interval) from tauri-plugin-store, which has no backend here; these
+// tests only need the defaults, and must not add `listen()` calls.
 vi.mock("@/settings/store", () => ({
   useSetting: (key: string) => [
-    ({ confirmBeforeKill: true, showAppsAndSystem: true } as Record<string, boolean>)[key],
-    () => {},
+    (
+      { confirmBeforeKill: true, showAppsAndSystem: true, refreshIntervalMs: 2000 } as Record<
+        string,
+        unknown
+      >
+    )[key],
+    vi.fn(),
   ],
 }));
 

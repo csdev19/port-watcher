@@ -276,3 +276,57 @@
   color: var(--pw-muted);
   font-size: 12.5px;
 }
+
+/* A refused value, explained under its row. */
+.rowNote {
+  margin: 0;
+  padding: 0 14px 12px;
+  color: var(--pw-watched);
+  font-size: 12.5px;
+}
+
+.rowNote + .row {
+  border-top: 1px solid var(--pw-line-row);
+}
+
+/* Select: a plum button with a chevron over a native <select>. */
+.select {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.selectInput {
+  height: 28px;
+  padding: 0 28px 0 12px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--pw-plum);
+  color: var(--pw-fg);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  appearance: none;
+  cursor: default;
+}
+
+.selectInput:hover {
+  background: var(--pw-plum-hover);
+}
+
+.selectInput:focus-visible {
+  outline: 2px solid var(--pw-accent-ring);
+  outline-offset: 2px;
+}
+
+.selectChevron {
+  position: absolute;
+  right: 9px;
+  color: var(--pw-muted);
+  pointer-events: none;
+}
+
+.recording {
+  color: var(--pw-muted);
+  font-size: 12.5px;
+}

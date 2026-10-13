@@ -86,20 +86,47 @@ export function subscribeSetting<K extends SettingKey>(
   };
 }
 
+/*
+ * A synchronous warm cache of each setting's last known value, so a window
+ * renders with it on the first frame instead of flashing the default while
+ * the store loads (e.g. the Apps & System group appearing for one tick when
+ * the user turned it off). settings.json stays the source of truth: the
+ * cache is overwritten by every value read from or written to the store.
+ */
+const CACHE_PREFIX = "chapay.settings.";
+
+function readCache<K extends SettingKey>(key: K): Settings[K] {
+  try {
+    const raw = window.localStorage.getItem(CACHE_PREFIX + key);
+    if (raw !== null) return JSON.parse(raw) as Settings[K];
+  } catch {
+    // Unreadable cache: fall back to the default.
+  }
+  return SETTINGS_DEFAULTS[key];
+}
+
+function writeCache<K extends SettingKey>(key: K, value: Settings[K]): void {
+  try {
+    window.localStorage.setItem(CACHE_PREFIX + key, JSON.stringify(value));
+  } catch {
+    // A full or blocked localStorage only costs the warm start.
+  }
+}
+
 /** A setting as React state that saves itself when set. */
 export function useSetting<K extends SettingKey>(
   key: K,
 ): [Settings[K], (value: Settings[K]) => void] {
-  const [value, setValue] = useState<Settings[K]>(SETTINGS_DEFAULTS[key]);
+  const [value, setValue] = useState<Settings[K]>(() => readCache(key));
 
   useEffect(() => {
     let alive = true;
-    void getSetting(key).then((stored) => {
-      if (alive) setValue(stored);
-    });
-    const unsubscribe = subscribeSetting(key, (next) => {
+    const apply = (next: Settings[K]) => {
+      writeCache(key, next);
       if (alive) setValue(next);
-    });
+    };
+    void getSetting(key).then(apply);
+    const unsubscribe = subscribeSetting(key, apply);
     return () => {
       alive = false;
       unsubscribe();
@@ -107,6 +134,7 @@ export function useSetting<K extends SettingKey>(
   }, [key]);
 
   const update = (next: Settings[K]) => {
+    writeCache(key, next);
     setValue(next);
     void setSetting(key, next);
   };
@@ -116,4 +144,11 @@ export function useSetting<K extends SettingKey>(
 /** Test helper: forget in-memory settings between tests. */
 export function resetMemorySettings(): void {
   for (const key of Object.keys(memory) as SettingKey[]) delete memory[key];
+  for (const key of Object.keys(SETTINGS_DEFAULTS)) {
+    try {
+      window.localStorage.removeItem(CACHE_PREFIX + key);
+    } catch {
+      // Nothing cached.
+    }
+  }
 }
