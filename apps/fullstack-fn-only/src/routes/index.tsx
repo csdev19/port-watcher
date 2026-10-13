@@ -79,35 +79,31 @@ function Hero() {
         project folder — and stops the one you point at. One click, no terminal.
       </p>
       <div className="lp-hero-cta">
-        <DownloadButton />
+        <DownloadButtons />
         <p className="lp-build lp-mono">
-          macOS 13+ · Apple silicon
-          {DOWNLOAD_URLS ? (
-            <>
-              {" "}
-              &middot;{" "}
-              <a className="lp-build-link" href={DOWNLOAD_URLS.x64}>
-                Intel build
-              </a>
-            </>
-          ) : (
-            <> &amp; Intel</>
-          )}
+          macOS 13+ &middot; Not sure which? Apple menu &gt; About This Mac
         </p>
       </div>
     </section>
   );
 }
 
-/** The Apple-silicon DMG when the public download URL is known, otherwise the
- * releases page. Never claims a non-macOS platform: the label and build line
- * stay macOS-only regardless of visitor OS. */
-function DownloadButton() {
+/** Two explicit buttons, one per architecture. No user-agent sniffing: Apple
+ * silicon Macs report themselves as Intel, so detection would be wrong. When
+ * the public download URL is unknown both fall back to the releases page.
+ * Labels stay macOS-only regardless of visitor OS. */
+function DownloadButtons() {
   return (
-    <a className="lp-cta" href={DOWNLOAD_URLS?.arm64 ?? RELEASES_URL}>
-      <Download size={16} strokeWidth={1.75} aria-hidden />
-      Download for macOS
-    </a>
+    <div className="lp-cta-row">
+      <a className="lp-cta" href={DOWNLOAD_URLS?.arm64 ?? RELEASES_URL}>
+        <Download size={16} strokeWidth={1.75} aria-hidden />
+        Download for Apple silicon
+      </a>
+      <a className="lp-cta lp-cta-secondary" href={DOWNLOAD_URLS?.x64 ?? RELEASES_URL}>
+        <Download size={16} strokeWidth={1.75} aria-hidden />
+        Download for Intel
+      </a>
+    </div>
   );
 }
 
