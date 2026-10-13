@@ -2,6 +2,7 @@ mod commands;
 mod error;
 mod panel;
 mod ports;
+mod settings;
 mod shortcut;
 
 use std::sync::Mutex;
@@ -40,6 +41,7 @@ pub fn run() {
         )
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_positioner::init())
+        .plugin(tauri_plugin_store::Builder::new().build())
         .setup(|app| {
             app.manage(LastBlurHide(Mutex::new(None)));
             app.manage(TrayRect(Mutex::new(None)));
@@ -55,8 +57,15 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
+            let settings_item = MenuItemBuilder::with_id("settings", "Settings…")
+                .accelerator("CmdOrCtrl+,")
+                .build(app)?;
             let quit_item = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
-            let tray_menu = MenuBuilder::new(app).item(&quit_item).build()?;
+            let tray_menu = MenuBuilder::new(app)
+                .item(&settings_item)
+                .separator()
+                .item(&quit_item)
+                .build()?;
 
             let mut tray = TrayIconBuilder::with_id(TRAY_ID);
             // macOS: a template image (black shapes + alpha only) lets the
@@ -90,8 +99,14 @@ pub fn run() {
             tray.menu(&tray_menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| {
-                    if event.id.as_ref() == "quit" {
-                        app.exit(0);
+                    match event.id.as_ref() {
+                        "settings" => {
+                            if let Err(e) = settings::open_settings(app) {
+                                log::error!("settings: could not open the window ({e})");
+                            }
+                        }
+                        "quit" => app.exit(0),
+                        _ => {}
                     }
                 })
                 .on_tray_icon_event(|tray, event| {
