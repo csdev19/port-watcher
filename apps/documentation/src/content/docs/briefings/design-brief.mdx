@@ -9,7 +9,8 @@ description: Self-contained design briefing for the menu-bar desktop app. Paste 
 > (`apps/desktop/src-tauri/tauri.conf.json` for window geometry,
 > `packages/tokens/src/` for token values). Everything marked _not decided_ is
 > genuinely open — design into it, do not assume a default was implied.
-> **Current as of 2026-09-15.**
+> **Current as of 2026-09-15**, except the positioning rules and the Surface
+> role, which were re-verified on 2026-10-13 after the `0.1.0` release.
 
 ## 1. What the app is
 
@@ -60,8 +61,9 @@ admin tool. Out of scope: traffic, outbound connections, UDP, remote machines.
 ### Positioning rules for any copy
 
 - **Allowed:** open source, free, local-first, macOS first.
-- **Never claim:** that it is published, installable, notarized, available on
-  Homebrew, or that Windows and Linux are supported. None of that is true yet.
+- **Never claim:** that it is available on Homebrew, that it updates itself, or
+  that Windows and Linux are supported. None of that is true. (`0.1.0` is
+  published as a signed, notarized macOS DMG, so "downloadable" is accurate.)
 
 ## 2. The aesthetic, in one paragraph
 
@@ -85,7 +87,7 @@ What the palette **must** cover, and what each role means here:
 
 | Role             | Meaning in this app                                       | Carries data? |
 | ---------------- | --------------------------------------------------------- | ------------- |
-| Surface          | The panel itself, over a translucent macOS background     | No            |
+| Surface          | The panel itself: a solid sheet colour, not glass         | No            |
 | Foreground       | Port numbers, labels — the text you read first            | No            |
 | Muted foreground | Folder path, uptime, PID, the row's second line           | No            |
 | Hairline         | Row separators and the panel's inner edges                | No            |
@@ -261,7 +263,7 @@ to use; it does not explain itself.
 
 ### Off-limits
 
-- Anything implying the app is downloadable, released, notarized or on Homebrew.
+- Anything implying the app is on Homebrew or updates itself.
 - Anything implying Windows or Linux support.
 - Marketing register: "effortless", "powerful", "seamless", "supercharge".
 - Claiming it monitors, protects or secures anything. It lists and it kills.

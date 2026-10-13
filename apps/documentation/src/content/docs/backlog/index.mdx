@@ -13,17 +13,20 @@ once it has substance).
 
 ## Map
 
-| Item                                                                                                                                   | Area    | Status      | Effort | Detail                                          |
-| -------------------------------------------------------------------------------------------------------------------------------------- | ------- | ----------- | ------ | ----------------------------------------------- |
-| Install `@dotenvx/dotenvx` so the root `db:*` scripts run                                                                              | Chore   | 🔵 Proposed | Low    | [Environment Variables](/environment-variables) |
-| Narrow the auth cookie to `sameSite: "lax"` (only matters once auth is re-enabled)                                                     | Chore   | 🔵 Proposed | Low    | [Authentication](/authentication)               |
-| Open in browser: a row action that opens `http://localhost:<port>`. Not every listener speaks HTTP, so show it only for web-ish labels | Desktop | ⚪ Idea     | Low    | —                                               |
-| Copy URL / copy port from a row                                                                                                        | Desktop | ⚪ Idea     | Low    | —                                               |
-| Open the project in an editor (Cursor, Zed; not VS Code). Needs editor detection and a setting                                         | Desktop | ⚪ Idea     | Medium | —                                               |
-| Reveal the project folder in Finder                                                                                                    | Desktop | ⚪ Idea     | Low    | —                                               |
+| Item                                                                                                                                   | Area    | Status         | Effort | Detail                                          |
+| -------------------------------------------------------------------------------------------------------------------------------------- | ------- | -------------- | ------ | ----------------------------------------------- |
+| Open the panel over full-screen apps and place it on the right monitor (non-activating panel). Open pull request, not on `main`        | Desktop | 🟡 In progress | Medium | —                                               |
+| First-run window that explains and requests Full Disk Access. On a branch, not on `main`                                               | Desktop | 🟡 In progress | Medium | —                                               |
+| Install `@dotenvx/dotenvx` so the root `db:*` scripts run                                                                              | Chore   | 🔵 Proposed    | Low    | [Environment Variables](/environment-variables) |
+| Narrow the auth cookie to `sameSite: "lax"` (only matters once auth is re-enabled)                                                     | Chore   | 🔵 Proposed    | Low    | [Authentication](/authentication)               |
+| Open in browser: a row action that opens `http://localhost:<port>`. Not every listener speaks HTTP, so show it only for web-ish labels | Desktop | ⚪ Idea        | Low    | —                                               |
+| Copy URL / copy port from a row                                                                                                        | Desktop | ⚪ Idea        | Low    | —                                               |
+| Open the project in an editor (Cursor, Zed; not VS Code). Needs editor detection and a setting                                         | Desktop | ⚪ Idea        | Medium | —                                               |
+| Reveal the project folder in Finder                                                                                                    | Desktop | ⚪ Idea        | Low    | —                                               |
 
 Shipped and removed from the map: the Tauri 2 menu-bar behaviour (tray icon, positioner,
-hide-on-blur, `⌥⌘P`) and the `list_ports` / `kill_port` Rust commands. See
+hide-on-blur, `⌥⌘P`), the `list_ports` / `kill_port` Rust commands, favourites, and the kill-policy
+hardening of the post-0.1.0 audit (merged, ships with the next desktop release). See
 [Desktop App](/desktop) for what exists.
 
 ## How to use this section
