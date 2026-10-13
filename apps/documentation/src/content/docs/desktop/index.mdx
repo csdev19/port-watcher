@@ -96,8 +96,8 @@ fires for the desktop app, in parallel. Renaming `vite:dev` or `build` means edi
 The scaffold assumes a standalone project. What was changed after generating it:
 
 - **Catalog alignment** — the template shipped `vite ^8` and `typescript ~6`; both now point at the
-  root catalog (`vite 7.3.0`, `typescript 5.9.3`, `react 19.2.3`), so two TypeScript versions never
-  typecheck the same shared packages.
+  root catalog (`vite 7.3.0`, `typescript 5.9.3`), and `react` is pinned to `19.2.3`, so two TypeScript
+  versions never typecheck the same shared packages.
 - **`tsconfig.json`** extends `@port-watcher/config/tsconfig.web.json` instead of its own copy.
 - **Crate identity** — `desktop` → `port-watcher`, lib `port_watcher_lib`, product name
   "chapay", window 340×440.
@@ -107,14 +107,16 @@ The scaffold assumes a standalone project. What was changed after generating it:
 ## Status
 
 chapay is shipped: `desktop-v0.1.0` is a signed, notarized release (see
-[Releasing](/desktop/releasing)). What the code on `main` does today:
+[Releasing](/desktop/releasing)). `main` already contains fixes made after that tag (the kill policy
+in Rust, `⌘⌫` in the search box, project detection that skips macOS-protected folders, a macOS 13
+minimum, a real CSP) that ship with the next release. What the code on `main` does today:
 
-| Area      | What exists                                                                                                   | Where                  |
-| --------- | ------------------------------------------------------------------------------------------------------------- | ---------------------- |
-| Rust core | `list_ports` and `kill_port` commands (`listeners`, `sysinfo`, `nix`), with PID-reuse and ownership guards    | `src-tauri/src/ports/` |
-| Menu bar  | Tray icon, `tauri-plugin-positioner`, `tauri-plugin-global-shortcut` (`⌥⌘P`), no Dock icon, hide on blur      | `lib.rs`, `panel.rs`   |
-| Panel     | 340×440 undecorated, transparent, always-on-top window                                                        | `tauri.conf.json`      |
-| Renderer  | Search, keyboard navigation, two-step kill, dev / app / system grouping, favourites, solid light/dark palette | `src/`                 |
+| Area      | What exists                                                                                                                                                                    | Where                  |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------- |
+| Rust core | `list_ports` and `kill_port` commands (`listeners`, `sysinfo`, `nix`); the kill policy (PID-reuse, ownership, refusing System processes) is enforced here, not in the renderer | `src-tauri/src/ports/` |
+| Menu bar  | Tray icon, `tauri-plugin-positioner`, `tauri-plugin-global-shortcut` (`⌥⌘P`), no Dock icon, hide on blur                                                                       | `lib.rs`, `panel.rs`   |
+| Panel     | 340×440 undecorated, transparent, always-on-top window                                                                                                                         | `tauri.conf.json`      |
+| Renderer  | Search, keyboard navigation, two-step kill, dev / app / system grouping, favourites, solid light/dark palette                                                                  | `src/`                 |
 
 For how to install and use it, see [Install chapay](/desktop/install),
 [Using chapay](/desktop/usage) and [Permissions](/desktop/permissions).

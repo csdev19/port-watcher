@@ -13,7 +13,7 @@ use tauri::Manager;
 /// Tracks the last time the panel was hidden by losing focus, so a tray
 /// click landing immediately after (mouse-down blurs the window before
 /// mouse-up reaches the tray handler) is treated as a dismiss, not a
-/// reopen. See docs/superpowers/plans/2026-09-15-chapay-menubar-shell.md.
+/// reopen. (The menu-bar shell plan was deleted after it shipped; see git history.)
 pub(crate) struct LastBlurHide(pub(crate) Mutex<Option<Instant>>);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

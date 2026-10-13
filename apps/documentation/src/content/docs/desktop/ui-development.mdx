@@ -71,8 +71,9 @@ are kept deliberately, see the repository README). Until then, change panel colo
 - **CSS Modules, no component library.** The app is a handful of components (`PortList`,
   `PortRow`, `SearchInput`, `FavouritesPanel`, `WatchPortForm`, `Toast`). A library would weigh more
   than it helps.
-- **Bundle the fonts.** Geist and Geist Mono ship as local files. A signed, offline-capable app
-  cannot depend on Google Fonts — with no network it would render in a fallback.
+- **Fonts must be local.** The stylesheet names Geist and Geist Mono, but no font files are bundled
+  yet, so the panel falls back to system fonts. A signed, offline-capable app cannot depend on Google
+  Fonts, so the files have to be added to the app, not linked.
 - **The panel is solid, not translucent.** The window is transparent only so its rounded corners
   show through; the CSS paints an opaque sheet palette (light and dark). There is no vibrancy: the
   `window-vibrancy` crate is not a dependency.
