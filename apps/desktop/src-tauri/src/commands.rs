@@ -21,3 +21,29 @@ pub async fn kill_port(pid: u32, port: u16, started_at: u64) -> Result<KillResul
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
 }
+
+/// Probes Full Disk Access right now (no prompt is ever triggered) and
+/// refreshes the cache that port enrichment reads.
+#[tauri::command]
+pub async fn check_full_disk_access() -> Result<bool, AppError> {
+    tauri::async_runtime::spawn_blocking(crate::fda::check_now)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))
+}
+
+/// Opens System Settings at Privacy & Security > Full Disk Access.
+#[tauri::command]
+pub fn open_full_disk_access_settings() -> Result<(), AppError> {
+    crate::setup::open_fda_settings().map_err(|e| AppError::Internal(e.to_string()))
+}
+
+/// "Open chapay" on the final setup screen: close the setup window, then
+/// open the panel through the same toggle the tray and shortcut use.
+#[tauri::command]
+pub fn finish_setup(app: tauri::AppHandle) {
+    use tauri::Manager;
+    if let Some(window) = app.get_webview_window(crate::setup::SETUP_LABEL) {
+        let _ = window.destroy();
+    }
+    crate::panel::toggle_panel(&app);
+}
