@@ -19,21 +19,35 @@ Requires the Rust toolchain (`rustup`) and Xcode Command Line Tools. See
 
 | Script        | What it does                                                        |
 | ------------- | ------------------------------------------------------------------- |
-| `dev`         | Vite only. Tauri calls it via `beforeDevCommand` — not useful alone |
+| `vite:dev`    | Vite only. Tauri calls it via `beforeDevCommand` — not useful alone |
 | `build`       | Vite only. Tauri calls it via `beforeBuildCommand`                  |
 | `tauri:dev`   | The actual app                                                      |
 | `tauri:build` | The actual bundle                                                   |
 | `check-types` | `tsc --noEmit` over the renderer                                    |
+| `test`        | `vitest run` over the renderer                                      |
 
-Because `dev` is the headless half, the root `dev` script filters this package out. Renaming either
-script means editing `src-tauri/tauri.conf.json` in the same commit.
+There is deliberately no script named `dev`: Turbo runs a task by name in every package that
+defines it, so a `dev` here would start a second, windowless Vite on port 1420 next to the one Tauri
+starts. That is what lets the root `dev` script run `turbo run dev tauri:dev`. Renaming `vite:dev`
+or `build` means editing `src-tauri/tauri.conf.json` in the same commit.
+
+## What it is today
+
+The app is shipped (`desktop-v0.1.0`, signed and notarized DMGs). The Rust core exposes
+`list_ports` and `kill_port`; the tray icon toggles a 340×440 undecorated, always-on-top panel
+(also on `⌥⌘P`); the panel hides when it loses focus. Releases: see
+`apps/documentation/src/content/docs/desktop/releasing.mdx`. Using it: see the install and usage
+pages on the docs site.
 
 ## Layout
 
 ```
 src/                  React renderer — never touches Node
 src-tauri/
-  src/lib.rs          Tauri builder, plugins, invoke_handler
+  src/lib.rs          Tauri builder, tray, global shortcut, invoke_handler
+  src/panel.rs        toggle_panel: position under the tray icon, show/hide
+  src/commands.rs     list_ports and kill_port (async, off the main thread)
+  src/ports/          listener scan, labels, project detection, classification, kill guards
   src/main.rs         Binary entry — calls port_watcher_lib::run()
   tauri.conf.json     Window, bundle, identifier (dev.csdev19.portwatcher)
   capabilities/       Per-window permission grants

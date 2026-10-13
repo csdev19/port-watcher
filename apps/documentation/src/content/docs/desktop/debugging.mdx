@@ -16,13 +16,13 @@ charges you on macOS. Four techniques, ordered by how much work they save.
 ## 1. The browser loop — covers most of it
 
 ```bash
-bun run --cwd apps/desktop dev   # Vite alone -> localhost:1420
+bun run --cwd apps/desktop vite:dev   # Vite alone -> localhost:1420
 ```
 
 Open that in Chrome and you have full Chromium DevTools, the React DevTools extension, the profiler.
 Layout, component state, CSS, lists, forms — none of it needs the Tauri window.
 
-The window is only required for real `invoke()` calls and for window behaviour: vibrancy, blur, the
+The window is only required for real `invoke()` calls and for window behaviour: blur, the
 tray, positioning. The more disciplined the `inTauri` guard is (see
 [Building the UI](/desktop/ui-development)), the more work stays in the comfortable environment.
 

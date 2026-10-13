@@ -1,23 +1,29 @@
 ---
 title: chapay Documentation
-description: Fullstack TanStack Start monorepo — DDD + Hexagonal Architecture, Better Auth, Drizzle
+description: chapay — port watcher. A macOS menu-bar app that lists listening ports and kills the process behind one; how the monorepo is organized
 ---
 
 ## Welcome
 
-**chapay — port watcher** is a monorepo built on DDD + Hexagonal Architecture. A single TanStack Start
-application (`apps/fullstack-fn-only`) is the only server: server functions call the same use cases
-a dedicated API worker would, so there is no separate backend and no auth proxy.
+**chapay — port watcher** is a macOS menu-bar app that lists the TCP ports in `LISTEN`, explains
+what each process is, and kills the one you point at. This repository holds the app, its landing
+page and this documentation site.
+
+New here as a user? Start with [Install chapay](/desktop/install) and
+[Using chapay](/desktop/usage).
 
 ### Topology
 
-| Piece         | Path                     | Role                                                      |
-| ------------- | ------------------------ | --------------------------------------------------------- |
-| Web + server  | `apps/fullstack-fn-only` | TanStack Start app; server functions and the auth handler |
-| Documentation | `apps/documentation`     | This site (Astro Starlight)                               |
+| Piece         | Path                     | Role                                                                      |
+| ------------- | ------------------------ | ------------------------------------------------------------------------- |
+| Desktop app   | `apps/desktop`           | **chapay**: Tauri 2, Rust core plus a React renderer. The product         |
+| Landing       | `apps/fullstack-fn-only` | TanStack Start app on one Cloudflare Worker; serves the landing page only |
+| Documentation | `apps/documentation`     | This site (Astro Starlight)                                               |
+| Packages      | `packages/*`             | DDD + Hexagonal template (Todo example); dormant, kept on purpose         |
 
-The app deploys as one Cloudflare Worker. Cookies are same-origin because the client and the server
-functions share it.
+The desktop app is local-first: it never calls the Worker and has no backend. In the web app, auth
+(Better Auth), the todos demo and the database are **disabled** until it needs accounts; the code
+stays in the tree (see [ADR 0005](https://github.com/csdev19/port-watcher/blob/main/docs/adr/0005-disable-web-auth-and-database.md)).
 
 ---
 
@@ -25,27 +31,24 @@ functions share it.
 
 ### Prerequisites
 
+- **macOS** with Xcode Command Line Tools
 - **Bun** — package manager and runtime
-- **PostgreSQL** — database (Neon in production)
+- **Rust** (rustup) — for the desktop app
+
+`bun run setup` checks all of that, installs dependencies and builds the shared packages.
 
 ### Installation
 
 ```bash
-bun install
+bun run setup
 
-# The web-ui package publishes built files; build the workspace packages first
-bun run build --filter='@port-watcher/*'
-
-# Environment
-cp apps/fullstack-fn-only/.env.example apps/fullstack-fn-only/.env
-
-# Push the Drizzle schema
-bun run db:push
-
-# Start
-bun run dev                 # everything
-bun run dev:fullstack-fn    # just the app
+bun run dev                 # landing + docs + the Tauri desktop app
+bun run dev:desktop         # just the desktop app
+bun run dev:fullstack-fn    # just the landing
 ```
+
+No `.env` is needed to run the landing: it reads no required variables while auth and the
+database are disabled.
 
 ---
 
@@ -57,16 +60,21 @@ bun run dev:fullstack-fn    # just the app
 - **Build orchestration**: Turborepo
 - **Lint / format**: oxlint + oxfmt
 
-### Application
+### Desktop app
+
+- **Shell**: Tauri 2 (Rust core: `listeners`, `sysinfo`, `nix`)
+- **Renderer**: React 19, Vite, TanStack Query, CSS Modules
+
+### Landing (web)
 
 - **Framework**: React 19 with TanStack Start
 - **Routing**: TanStack Router (file-based)
 - **Server calls**: TanStack Start server functions (`createServerFn`)
 - **Data**: TanStack Query
 - **UI**: `@port-watcher/web-ui` (shadcn/ui) + Tailwind v4
-- **Forms**: TanStack Form with Zod validation
-- **Auth**: Better Auth (email + password)
-- **Database**: PostgreSQL with Drizzle ORM
+- **Forms**: TanStack Form with Zod validation (template, dormant)
+- **Auth**: Better Auth (email + password) — disabled
+- **Database**: PostgreSQL with Drizzle ORM — disabled
 - **Validation**: Zod v4
 
 ### Documentation
@@ -80,7 +88,8 @@ bun run dev:fullstack-fn    # just the app
 ```
 port-watcher/
 ├── apps/
-│   ├── fullstack-fn-only/     # TanStack Start app (client + server functions)
+│   ├── desktop/               # chapay: Tauri 2 menu-bar app (Rust core + React renderer)
+│   ├── fullstack-fn-only/     # TanStack Start landing (auth/DB code present but disabled)
 │   └── documentation/         # This site
 │
 ├── packages/
@@ -97,11 +106,16 @@ port-watcher/
 └── turbo.json
 ```
 
-**Dependency rule:** `domain <- application <- infra-*`. Only apps wire them together.
+**Dependency rule:** `domain <- application <- infra-*`. Only apps wire them together. The desktop
+app imports none of these runtime packages; they are the template the web app was cloned from and
+are kept deliberately.
 
 ---
 
-## Key Concepts
+## Key Concepts (the dormant template stack)
+
+The sections below describe how the web app's template layers work. They are **not live** in the
+shipped landing, which uses none of them; they apply once auth and the database are re-enabled.
 
 ### Schema-first
 
@@ -143,7 +157,7 @@ Types flow end to end without a generated client: the function's return type _is
 
 ---
 
-## Security
+## Security (when auth is re-enabled)
 
 - **HttpOnly cookies** — session tokens are never exposed to JavaScript
 - **Server-side validation** — every server function re-checks the session
@@ -164,6 +178,7 @@ bun run test:web    # web-ui components
 
 ## Additional Resources
 
+- [Tauri](https://tauri.app)
 - [Better Auth](https://better-auth.com)
 - [TanStack Start](https://tanstack.com/start)
 - [TanStack Router](https://tanstack.com/router)

@@ -25,15 +25,15 @@ frontmatter and must be registered in `apps/documentation/astro.config.mjs`.
 
 | For                 | Read                                                                                        |
 | ------------------- | ------------------------------------------------------------------------------------------- |
-| shipped / in flight | `git log --oneline` — single-commit history, no PRs, no tags yet                            |
+| shipped / in flight | the commit log, the tags `desktop-v*` / `web-v*`, and each app's `CHANGELOG.md`             |
 | desktop app surface | `apps/desktop/src-tauri/tauri.conf.json`, `src-tauri/src/lib.rs`, `src-tauri/capabilities/` |
 | web app surface     | `apps/fullstack-fn-only/src/server-functions/`, `src/routes/`                               |
 | schemas             | `packages/domain/src/schemas/`                                                              |
 | stack               | every `package.json` + `apps/desktop/src-tauri/Cargo.toml` + `docs/adr/`                    |
 | design values       | `packages/tokens/src/base.ts`, `src/themes/{light,dark}.ts`, `src/types.ts`                 |
-| brand assets        | `apps/desktop/src-tauri/icons/` (Tauri defaults — not yet branded)                          |
-| positioning copy    | `README.md`; no landing page yet                                                            |
-| published version   | nothing published yet — no npm package, no release, no cask                                 |
+| brand assets        | `apps/desktop/src-tauri/icons/` (bundle and tray icons), `apps/fullstack-fn-only/public/`   |
+| positioning copy    | the landing, `apps/fullstack-fn-only/src/routes/index.tsx`, and `README.md`                 |
+| published version   | tags `desktop-v0.1.0` and `web-v0.1.0` (2026-10-12); no npm package, no cask                |
 
 ## Repo rules
 
@@ -44,13 +44,13 @@ frontmatter and must be registered in `apps/documentation/astro.config.mjs`.
   the reader has no context; `chapay` alone once context is established. Never
   "Chapay". Trademark, domain and package-registry checks are still pending.
 - Safe positioning: open source, free, local-first, macOS first.
-- Never claim: that it is published, installable, notarized, on Homebrew, or that
-  Windows and Linux are supported. None of that is true yet.
-- **The palette is deliberately not specified.** The colour direction is being
-  decided in Claude Design, not in this repo. `packages/tokens` currently holds
-  the monorepo template's neutral shadcn set, which is NOT the product palette.
-  A future refresh may only write colour values once they actually land in
-  `packages/tokens/src/themes/`.
+- Never claim: that it is on Homebrew, that it auto-updates, or that Windows and Linux are
+  supported. None of that is true. Releases are signed and notarized by `release-desktop.yml`,
+  but confirm the latest tag and the download URL work before writing "available" in a briefing.
+- **The palette is deliberately not specified in briefings.** The desktop panel's solid palette
+  lives in `apps/desktop/src/app.module.css` (`--pw-*`), not in `packages/tokens`, which still holds
+  the monorepo template's neutral shadcn set and is NOT the product palette. A briefing may only
+  write colour values that exist in `app.module.css` or land in `packages/tokens/src/themes/`.
 
 ## Validation
 

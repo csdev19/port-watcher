@@ -1,7 +1,16 @@
 ---
 title: Authentication
-description: Better Auth inside TanStack Start — one origin, no proxy
+description: Better Auth inside TanStack Start — one origin, no proxy. Currently disabled in the shipped web app
 ---
+
+:::caution[Auth is disabled in the web app today]
+The landing page is the only route that ships. The auth routes, the session lookup and the database
+are unregistered or commented out (`apps/fullstack-fn-only/vite.config.ts`, `tsconfig.json`), and
+production sets none of the variables below. This page describes the design as it exists in the
+tree, for when accounts return. Why it is off and how to turn it back on:
+[ADR 0005](https://github.com/csdev19/port-watcher/blob/main/docs/adr/0005-disable-web-auth-and-database.md)
+and `apps/fullstack-fn-only/README.md`.
+:::
 
 ## Overview
 
@@ -105,6 +114,8 @@ Session state lives in the router context, populated in the root `beforeLoad`. A
 reflects the new session.
 
 ## Environment
+
+Needed only when auth is enabled.
 
 | Variable             | Purpose                                           |
 | -------------------- | ------------------------------------------------- |
