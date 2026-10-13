@@ -1,5 +1,6 @@
-/** Mirror of Rust `PortCategory`. UX grouping heuristic, not a backend
- * permission boundary — kill guards live entirely in Rust. */
+/** Mirror of Rust `PortCategory`. UX grouping and confirmation friction;
+ * the Rust kill path also refuses `system` on its own, re-deriving the
+ * category from the live process. */
 export type PortCategory = "dev" | "app" | "system";
 
 /** Mirror of Rust `PortEntry` (serde camelCase). Do not add fields here

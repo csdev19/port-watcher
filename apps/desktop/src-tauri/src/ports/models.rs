@@ -19,7 +19,7 @@ pub struct PortEntry {
     pub started_at: u64,
     pub memory_bytes: u64,
     pub killable: bool,
-    /// UX grouping heuristic, not a backend permission boundary.
+    /// UX grouping; `System` is also refused by the backend kill path.
     pub category: PortCategory,
     /// Full executable path when sysinfo can resolve it.
     pub executable_path: Option<String>,

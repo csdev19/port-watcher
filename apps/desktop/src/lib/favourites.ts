@@ -37,8 +37,8 @@ export function parsePortInput(raw: string): number | null {
 }
 
 /** Trims the name, omitting it entirely when empty. Returns `null` when the
- * trimmed name exceeds the 80-character limit (caller should treat this as
- * a validation failure, not silent truncation). */
+ * trimmed name exceeds MAX_NAME_LENGTH (30 characters); the caller should
+ * treat this as a validation failure, not silent truncation. */
 export function normalizeName(raw: string | undefined): string | undefined | null {
   if (raw === undefined) return undefined;
   const trimmed = raw.trim();

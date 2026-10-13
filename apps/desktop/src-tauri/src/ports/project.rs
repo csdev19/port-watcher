@@ -71,10 +71,17 @@ fn dir_name(dir: &Path) -> Option<String> {
 }
 
 /// `/Users/x/dev/app` → `~/dev/app`. Pure so it's testable; the caller
-/// passes `std::env::var("HOME").ok()`.
+/// passes `std::env::var("HOME").ok()`. Only a whole-component match
+/// counts: with HOME `/Users/c`, `/Users/cx` is left alone.
 pub fn tildify(path: &str, home: Option<&str>) -> String {
-    match home {
-        Some(h) if !h.is_empty() && path.starts_with(h) => format!("~{}", &path[h.len()..]),
+    let Some(h) = home
+        .map(|h| h.trim_end_matches('/'))
+        .filter(|h| !h.is_empty())
+    else {
+        return path.to_string();
+    };
+    match path.strip_prefix(h) {
+        Some(rest) if rest.is_empty() || rest.starts_with('/') => format!("~{rest}"),
         _ => path.to_string(),
     }
 }
@@ -214,5 +221,14 @@ mod tests {
         assert_eq!(tildify("/opt/homebrew", Some("/Users/c")), "/opt/homebrew");
         assert_eq!(tildify("/Users/c/dev", None), "/Users/c/dev");
         assert_eq!(tildify("/Users/c/dev", Some("")), "/Users/c/dev");
+    }
+
+    #[test]
+    fn tildify_respects_the_path_boundary() {
+        assert_eq!(tildify("/Users/cx", Some("/Users/c")), "/Users/cx");
+        assert_eq!(tildify("/Users/cx/dev", Some("/Users/c")), "/Users/cx/dev");
+        assert_eq!(tildify("/Users/c", Some("/Users/c")), "~");
+        assert_eq!(tildify("/Users/c/dev", Some("/Users/c/")), "~/dev");
+        assert_eq!(tildify("/Users/c/dev", Some("/")), "/Users/c/dev");
     }
 }
