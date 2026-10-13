@@ -3,7 +3,7 @@ use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_positioner::{Position, WindowExt};
 
-use crate::{LastBlurHide, TrayRect};
+use crate::{LastBlurHide, TrayRect, TRAY_ID};
 
 /// One toggle for every entry point (tray click, global shortcut).
 /// Hide if visible; otherwise anchor under the tray icon, show, focus,
@@ -29,7 +29,8 @@ pub fn toggle_panel(app: &AppHandle) {
         }
     }
     if !place_under_tray(app, &window) {
-        // No tray rect yet (⌥⌘P before the pointer ever touched the icon).
+        // The tray icon's rect is unknown: no tray on this platform, or
+        // AppKit has not laid the icon out yet.
         let _ = window.move_window(Position::TopRight);
     }
     show_and_focus(app, &window);
@@ -160,13 +161,23 @@ pub(crate) fn panel_origin(
     ))
 }
 
+/// The tray icon's rect in physical pixels.
+///
+/// Asked from the icon itself, so ⌥⌘P places the panel correctly even
+/// before the pointer has ever touched the icon; tray events only fill
+/// the cached copy, which is the fallback.
+fn tray_rect(app: &AppHandle) -> Option<(tauri::PhysicalPosition<f64>, tauri::PhysicalSize<f64>)> {
+    let live = app
+        .tray_by_id(TRAY_ID)
+        .and_then(|tray| tray.rect().ok().flatten())
+        .map(|rect| (rect.position.to_physical(1.0), rect.size.to_physical(1.0)));
+    live.or_else(|| *app.try_state::<TrayRect>()?.0.lock().unwrap())
+}
+
 /// Move the panel under the tray icon. Returns false when the tray rect or
 /// the screens are unknown, so the caller can fall back.
 fn place_under_tray(app: &AppHandle, window: &tauri::WebviewWindow) -> bool {
-    let Some(state) = app.try_state::<TrayRect>() else {
-        return false;
-    };
-    let Some((position, size)) = *state.0.lock().unwrap() else {
+    let Some((position, size)) = tray_rect(app) else {
         return false;
     };
     let Ok(monitors) = window.available_monitors() else {

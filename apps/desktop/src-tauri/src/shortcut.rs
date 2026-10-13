@@ -1,15 +1,21 @@
-use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut};
+use tauri_plugin_global_shortcut::Shortcut;
 
 /// The global shortcut that toggles the panel, in the plugin's string form.
+/// "cmd" is the macOS Command key; other platforms use Control instead.
+#[cfg(target_os = "macos")]
 pub const TOGGLE_PANEL: &str = "alt+cmd+p";
+#[cfg(not(target_os = "macos"))]
+pub const TOGGLE_PANEL: &str = "alt+ctrl+p";
 
 /// Whether a fired shortcut is the panel toggle.
 ///
-/// "cmd" parses to `Modifiers::SUPER`, not `META`: `matches` drops `META`
-/// before comparing, so a `META` check never matches and the shortcut
-/// silently did nothing.
+/// Compares against the parsed `TOGGLE_PANEL` rather than spelling the
+/// modifiers out again: the hand-written check used `Modifiers::META`
+/// while "cmd" parses to `SUPER`, so it never matched.
 pub fn is_toggle_panel(shortcut: &Shortcut) -> bool {
-    shortcut.matches(Modifiers::ALT | Modifiers::SUPER, Code::KeyP)
+    TOGGLE_PANEL
+        .parse::<Shortcut>()
+        .is_ok_and(|toggle| *shortcut == toggle)
 }
 
 #[cfg(test)]

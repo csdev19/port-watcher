@@ -17,6 +17,9 @@ use tauri::Manager;
 /// reopen. See `toggle_panel` in src/panel.rs.
 pub(crate) struct LastBlurHide(pub(crate) Mutex<Option<Instant>>);
 
+/// The tray icon's id, used to look it up again from `toggle_panel`.
+pub(crate) const TRAY_ID: &str = "chapay-tray";
+
 /// The tray icon's last known rect in physical pixels, top-left origin.
 /// `toggle_panel` hangs the panel from its bottom edge.
 pub(crate) struct TrayRect(
@@ -55,7 +58,7 @@ pub fn run() {
             let quit_item = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
             let tray_menu = MenuBuilder::new(app).item(&quit_item).build()?;
 
-            let mut tray = TrayIconBuilder::with_id("chapay-tray");
+            let mut tray = TrayIconBuilder::with_id(TRAY_ID);
             // macOS: a template image (black shapes + alpha only) lets the
             // OS recolor the tray icon for light/dark menu bars and the
             // selected/highlighted state. This is not a general-purpose
