@@ -7,17 +7,34 @@ import "@fontsource/geist-mono/400.css";
 import "@fontsource/geist-mono/500.css";
 import "./landing.css";
 
+/** Public origin of the landing: the Worker's custom domain (ADR 0004,
+ * wrangler.jsonc). Social crawlers need absolute URLs. */
+const SITE_URL = "https://chapay.cs19.dev";
+const TITLE = "chapay — see what's on your ports";
+const DESCRIPTION =
+  "A macOS menu-bar panel that lists every listening port and kills the one you point at. Free, open source.";
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "chapay — see what's on your ports" },
-      {
-        name: "description",
-        content:
-          "A macOS menu-bar panel that lists every listening port and kills the one you point at. Free, open source.",
-      },
+      { title: TITLE },
+      { name: "description", content: DESCRIPTION },
       { name: "theme-color", content: "#FFFFFF" },
+      { property: "og:type", content: "website" },
+      { property: "og:site_name", content: "chapay" },
+      { property: "og:title", content: TITLE },
+      { property: "og:description", content: DESCRIPTION },
+      { property: "og:url", content: `${SITE_URL}/` },
+      { property: "og:image", content: `${SITE_URL}/apple-touch-icon.png` },
+      { property: "og:image:width", content: "180" },
+      { property: "og:image:height", content: "180" },
+      { property: "og:image:alt", content: "The chapay app icon." },
+      { name: "twitter:card", content: "summary" },
+      { name: "twitter:title", content: TITLE },
+      { name: "twitter:description", content: DESCRIPTION },
+      { name: "twitter:image", content: `${SITE_URL}/apple-touch-icon.png` },
     ],
+    links: [{ rel: "canonical", href: `${SITE_URL}/` }],
   }),
   component: HomePage,
 });
