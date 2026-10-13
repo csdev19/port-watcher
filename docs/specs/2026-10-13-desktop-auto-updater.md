@@ -380,11 +380,12 @@ bunx tauri signer generate -w ~/.tauri/chapay-updater.key   # password from the 
 - In the repository: the public key in `tauri.conf.json`.
 - Then delete `~/.tauri/chapay-updater.key`, so the key lives in exactly two places.
 
-**Before the first signed release.** Restrict the `production` environment to `main` plus the
-`desktop-v*` and `web-v*` tags, and turn off administrator bypass (hub,
-[public-repo-production-protection](https://github.com/csdev19/general-knowledge/blob/main/monorepos/public-repo-production-protection.md)).
-Today `production` has no protection rules (`release-please.yml` comment), and after this change
-it holds a key that can reach every user.
+**Before the first signed release.** The `production` environment is already restricted to
+`main` plus the `desktop-v*` and `web-v*` tags (set on 2026-10-13; the `release-please.yml`
+comment saying it has no protection rules predates that and should be updated). What remains is
+turning off administrator bypass (hub,
+[public-repo-production-protection](https://github.com/csdev19/general-knowledge/blob/main/monorepos/public-repo-production-protection.md)),
+because after this change the environment holds a key that can reach every user.
 
 **Planned rotation (key suspected leaked, or routine).** Tauri cannot hold two public keys. A
 rotation is a **bridge release** plus a **new feed path**:
