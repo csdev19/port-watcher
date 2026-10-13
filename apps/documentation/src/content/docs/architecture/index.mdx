@@ -118,12 +118,15 @@ Summary of the repository pattern refactoring work completed.
 ### 1. **Separation of Concerns**
 
 ```
-Domain Layer (Business Logic)
+infra-* (data access, auth, env)
   ↓ depends on
-Infrastructure Layer (Data Access)
+application (use cases)
+  ↓ depends on
+domain (business logic, leaf)
 ```
 
-Each layer has clear responsibilities and dependencies flow inward.
+Each layer has clear responsibilities and dependencies flow inward: `domain <- application <- infra-*`,
+and only apps wire the layers together.
 
 ---
 
@@ -153,33 +156,30 @@ Each context has its own domain model but shares common primitives.
 
 ## 📦 Current Package Structure
 
+This is the **dormant template** the web app was cloned from. The shipped desktop app imports none
+of it (its logic lives in the Rust core and `apps/desktop/src/lib`), and the shipped landing uses
+none of it either while auth and the database are disabled
+([ADR 0005](https://github.com/csdev19/port-watcher/blob/main/docs/adr/0005-disable-web-auth-and-database.md)).
+
 ```bash
 packages/
-  domain/                           # Domain (will become your-context/)
-    constants/                      # Context-specific constants
-    repositories/                   # Repository interfaces
-    schemas/                        # Zod validation schemas
-    types/                          # Domain types
-
-  database/                         # Infrastructure layer
-    schema/                         # Drizzle table definitions
-    repositories/                   # Repository implementations
-    mappers/                        # DB ↔ Domain mappers
-
-  shared-kernel/                    # (Future) Generic primitives
-    api.ts                          # ApiResponse, Pagination
-    currency.ts                     # Currency constants
-    result.ts                       # Result<T, E> pattern
-    utils.ts                        # TypeScript utilities
+  domain/          # leaf: Zod schemas, types, constants, repository interfaces
+    constants/  repositories/  schemas/  testing/  types/
+  application/     # use cases (depend on domain interfaces only); the Todo example
+  infra-db/        # Drizzle schema, repositories, mappers, client
+  infra-auth/      # Better Auth base config
+  infra-env/       # Zod env schemas
+  web-ui/          # shared React components (built dist/)
+  tokens/          # design tokens -> CSS custom properties
+  i18n/            # use-intl catalogs (en/es), provider, core
+  config/          # shared tsconfig
 ```
 
-See [Bounded Contexts Complete Guide](/architecture/bounded-contexts-complete-guide) for the full future architecture.
+There is no `shared-kernel` package today. The guides below describe where one would go.
 
----
+## 🚀 Possible future architecture (illustrative)
 
-## 🚀 Future Architecture
-
-As the application grows to multiple bounded contexts:
+Nothing below exists in the repository. If the application grew to multiple bounded contexts:
 
 ```bash
 packages/
@@ -219,7 +219,7 @@ Each bounded context is independent, sharing only primitives from the shared ker
 
 ### Related Documentation
 
-- [Authentication Architecture](/authentication/overview)
+- [Authentication](/authentication) (dormant)
 - [Domain Architecture Patterns](/domain-architecture-patterns)
 - [Backend Response Helpers](/backend/response-helpers)
 
@@ -235,14 +235,14 @@ Each bounded context is independent, sharing only primitives from the shared ker
 
 ### Where Does Code Go?
 
-| Code Type                      | Location                                       | Example                        |
-| ------------------------------ | ---------------------------------------------- | ------------------------------ |
-| **Generic primitives**         | `shared-kernel/`                               | Currency, Result, ApiResponse  |
-| **Business logic**             | `[context]/domain/`                            | YourEntityStatus, calculations |
-| **Repository contracts**       | `[context]/domain/repositories/`               | YourEntityRepositoryContract   |
-| **Repository implementations** | `database/repositories/` or `db/repositories/` | YourEntityRepository (Drizzle) |
-| **DB schemas**                 | `database/schema/`                             | Drizzle table definitions      |
-| **Mappers**                    | `database/mappers/`                            | DB ↔ Domain conversion         |
+| Code Type                      | Location                                          | Example                        |
+| ------------------------------ | ------------------------------------------------- | ------------------------------ |
+| **Generic primitives**         | `domain/types/` (a `shared-kernel/` if extracted) | Currency, Result, ApiResponse  |
+| **Business logic**             | `[context]/domain/`                               | YourEntityStatus, calculations |
+| **Repository contracts**       | `[context]/domain/repositories/`                  | YourEntityRepositoryContract   |
+| **Repository implementations** | `infra-db/src/repositories/`                      | YourEntityRepository (Drizzle) |
+| **DB schemas**                 | `infra-db/src/schema/`                            | Drizzle table definitions      |
+| **Mappers**                    | `infra-db/src/mappers/`                           | DB ↔ Domain conversion         |
 
 ---
 

@@ -1,15 +1,22 @@
 ---
 title: Environment Variables
-description: How environment variables are loaded, and a proposal for encrypted env management with dotenvx
+description: Which environment variables the web app reads (today only one, optional), how they load, and a proposal for encrypted env management with dotenvx
 ---
 
 # Environment Variables
 
-## How Env Vars Are Loaded
+## What the shipped app reads
+
+Today the web app (the landing) reads exactly one variable, and it is optional:
+`VITE_PUBLIC_DOWNLOAD_URL`, inlined at build time (production sets it from the `DOWNLOAD_BASE_URL`
+GitHub variable; when empty both download buttons point at GitHub Releases). Everything else below
+belongs to the server code that is currently disabled.
+
+## How Env Vars Are Loaded (when the server code is enabled)
 
 | App/Package                       | Method                                                                    | Source File                                                  | When                       |
 | --------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------ | -------------------------- |
-| **fullstack-fn-only**             | Zod-validated `process.env` (`src/env/server.ts`)                         | `apps/fullstack-fn-only/.env` (dev), wrangler secrets (prod) | Runtime (server functions) |
+| **fullstack-fn-only**             | Zod-validated `process.env` (`src/env/server.ts`, disabled)               | `apps/fullstack-fn-only/.env` (dev), wrangler secrets (prod) | Runtime (server functions) |
 | **fullstack-fn-only** (client)    | Vite `import.meta.env`                                                    | `apps/fullstack-fn-only/.env`                                | Build-time                 |
 | **infra-db** (drizzle migrations) | `dotenvx run -f apps/fullstack-fn-only/.env` from the root `db:*` scripts | `apps/fullstack-fn-only/.env`                                | Migration-time             |
 
@@ -28,20 +35,22 @@ drift from that single source of truth.
 | `VITE_PUBLIC_DOWNLOAD_URL` | -                | Yes (inlined at build) | -        | No         |
 
 Auth and the database are currently **disabled** in the web app (see
-`apps/fullstack-fn-only/vite.config.ts`): no shipped code reads `DATABASE_URL`
-or `BETTER_AUTH_*`, and production does not set them. The rows above describe
-the app once they are turned back on.
+`apps/fullstack-fn-only/vite.config.ts` and
+[ADR 0005](https://github.com/csdev19/port-watcher/blob/main/docs/adr/0005-disable-web-auth-and-database.md)):
+no shipped code reads `DATABASE_URL` or `BETTER_AUTH_*`, and production does not set them. The
+rows for those variables describe the app once they are turned back on.
 
 The schema that enforces this is `fullstackServerEnvSchema` in
 `packages/infra-env/src/fullstack-server.ts`. Adding a variable means adding it there first —
-the app fails fast at boot if it is missing.
+the app fails fast at boot if it is missing. That check only runs when `src/env/server.ts` is
+compiled, which it is not while the server code is disabled.
 
 ---
 
 ## Open item: encrypted secrets with dotenvx
 
-`DATABASE_URL` and `BETTER_AUTH_SECRET` live in plaintext in `apps/fullstack-fn-only/.env`, which is
-gitignored and therefore shared out of band. [dotenvx](https://dotenvx.com) (AES-256 + secp256k1)
+Once re-enabled, `DATABASE_URL` and `BETTER_AUTH_SECRET` would live in plaintext in
+`apps/fullstack-fn-only/.env`, which is gitignored and therefore shared out of band. [dotenvx](https://dotenvx.com) (AES-256 + secp256k1)
 encrypts values inline so the `.env` file itself can be committed:
 
 ```bash
@@ -55,7 +64,8 @@ DATABASE_URL="encrypted:BCV9qZmblsUm77..."
 
 The private key lives in `.env.keys`, which is never committed.
 
-**Status:** the root `db:*` scripts already invoke `dotenvx run -f apps/fullstack-fn-only/.env`, but
+**Status:** this is a proposal for when the database returns; nothing here is needed to run the
+landing. The root `db:*` scripts already invoke `dotenvx run -f apps/fullstack-fn-only/.env`, but
 `@dotenvx/dotenvx` is not yet a dependency of this repo and no file is encrypted. Adopting it means:
 
 1. Add `@dotenvx/dotenvx` as a root devDependency.

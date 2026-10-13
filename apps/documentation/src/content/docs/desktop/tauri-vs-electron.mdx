@@ -6,7 +6,7 @@ description: Why this repo ships a Tauri app, and what that trades away
 ## First, a word that means two things here
 
 "Backend" in this documentation means the **server** — TanStack Start server functions running in a
-Cloudflare Worker and talking to Neon PostgreSQL through Drizzle. That is what the
+Cloudflare Worker and (when enabled) talking to Neon PostgreSQL through Drizzle. That is what the
 [Backend](/backend/result-types) section is about.
 
 Desktop-framework jargon uses the same word for something unrelated: the **privileged process** that
@@ -15,7 +15,7 @@ process (Node); in Tauri it is the Rust core in `src-tauri/`. No HTTP, no server
 
 These pages say **Rust core** or **native side** for the second meaning, and reserve "backend" for
 the first. Worth keeping in mind, because the desktop app has no backend in the server sense at all:
-it is local-first, it never calls the Worker and never touches Neon. It reads the machine it runs on.
+it is local-first, it never calls the Worker and never touches a database. It reads the machine it runs on.
 
 ## The part that does not change
 
@@ -66,7 +66,7 @@ which is exactly the shell-function workflow the app exists to replace. In Rust 
 (`listeners`, `sysinfo`) plus `nix` for the signals, with typed results instead of scraped stdout.
 
 The secondary reason is deliberate: this is a real, distributed Rust project — IPC, process signals,
-packaging, signing, auto-update.
+packaging and signing (an auto-updater is not built yet).
 
 ## Both use Vite — but for a different amount of work
 

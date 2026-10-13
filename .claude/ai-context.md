@@ -4,6 +4,10 @@ Working notes for this repo. Reusable patterns (auth, data loading, caching) liv
 [general-knowledge hub](https://github.com/csdev19/general-knowledge) — link out, don't
 re-document.
 
+> **Status:** the Auth section and the Conventions about sessions, server functions and
+> `_authenticated` describe the web app's template stack, which is currently **disabled**
+> (ADR 0005). The shipped web app is only the landing. They apply once auth is re-enabled.
+
 ## Auth
 
 Better Auth runs **inside** the TanStack Start server: `src/lib/auth/auth-server.ts` composes

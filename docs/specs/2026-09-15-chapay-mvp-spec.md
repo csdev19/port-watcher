@@ -1,5 +1,12 @@
 # chapay — port watcher · MVP Spec (v0.1)
 
+> **Status (2026-10-13): historical design spec; `desktop-v0.1.0` shipped from it.** Where it
+> differs from the code, the code wins. Known differences: the panel is 340 × 440 (not 360 × 480);
+> the surface is a solid colour and `window-vibrancy` is not used; `⌘⌫` kills a dev row without
+> confirmation except inside the search box; the Rust core also refuses system processes
+> ([ADR 0006](../adr/0006-kill-policy-enforced-in-rust.md)); `killable` means "same user, not
+> system"; there is no auto-updater, autostart or store plugin. Favourites and categories are in [ADR 0001](../adr/0001-desktop-categories-and-watched-ports.md).
+
 Local-first macOS menu-bar app (Tauri 2) that lists the TCP ports in `LISTEN`,
 explains what each process is and which project it came from, and kills the one
 you point at. Name: **chapay** (Quechua _chapay_, to watch/guard), lowercase;

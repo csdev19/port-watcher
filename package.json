@@ -2,8 +2,8 @@
   "name": "port-watcher",
   "version": "1.0.0",
   "private": true,
-  "description": "A monorepo template with DDD + Hexagonal Architecture, auth, deployment configs, and a Todo CRUD example",
-  "license": "MIT",
+  "description": "chapay — port watcher: a macOS menu-bar app that lists listening TCP ports and kills the process behind one, with its landing page and docs",
+  "license": "GPL-3.0-or-later",
   "workspaces": {
     "packages": [
       "apps/*",

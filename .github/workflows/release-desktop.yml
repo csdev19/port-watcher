@@ -6,8 +6,16 @@ name: Release Desktop
 # docs/adr/0003-release-please-and-desktop-distribution.md.
 #
 # Trigger: a `desktop-v*` tag, created by release-please when the desktop
-# release PR is merged — or run manually from the Actions tab while tuning the
-# pipeline (manual runs build, sign and notarize but publish nothing).
+# release PR is merged — or run manually from the Actions tab on `main` while
+# tuning the pipeline (manual runs build, sign and notarize but publish
+# nothing). A manual run on any other branch is skipped: the signing job must
+# only ever run code that is already on `main`.
+#
+# Order matters for the signing secrets. Everything that executes third-party
+# code (bun install, the Vite build, crate build scripts) runs first, with no
+# certificate and no API key on the machine. Only then is the certificate
+# imported and the .p8 written, and `tauri bundle` (no compilation) signs and
+# notarizes. Both are removed right after.
 #
 # Secrets and variables live in the `production` GitHub Environment (hence
 # `environment:`). Names match my-pets and the other desktop repos so the same
@@ -33,7 +41,9 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Never cancel a release halfway: a cancelled run can stop between
+  # notarization and upload, or between the versioned and `latest/` uploads.
+  cancel-in-progress: false
 
 permissions:
   contents: write # upload assets to the GitHub Release
@@ -41,6 +51,8 @@ permissions:
 jobs:
   release-mac:
     name: Build, sign & notarize (macOS)
+    # Tag pushes always run; manual runs only from `main`.
+    if: github.event_name == 'push' || github.ref == 'refs/heads/main'
     runs-on: macos-latest
     timeout-minutes: 60
     environment: production
@@ -54,20 +66,25 @@ jobs:
       DOWNLOAD_BASE_URL: ${{ vars.DOWNLOAD_BASE_URL }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.3.4
 
-      - name: Setup Rust (both macOS targets)
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - name: Install the pinned Rust toolchain (both macOS targets)
+        # Version and components come from src-tauri/rust-toolchain.toml.
+        working-directory: apps/desktop/src-tauri
+        run: |
+          rustup toolchain install
+          rustup target add aarch64-apple-darwin x86_64-apple-darwin
+          rustc --version
 
       - name: Cache Rust build
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: apps/desktop/src-tauri -> target
 
@@ -76,6 +93,13 @@ jobs:
 
       - name: Build shared packages
         run: bun run build --filter='@port-watcher/*'
+
+      - name: Build (unsigned, no secrets on the machine)
+        working-directory: apps/desktop
+        run: |
+          for target in aarch64-apple-darwin x86_64-apple-darwin; do
+            bun run tauri build --target "$target" --no-bundle
+          done
 
       - name: Import Developer ID certificate
         # Import the .p12 into a throwaway keychain ourselves and hand Tauri the
@@ -89,7 +113,9 @@ jobs:
           CERT="$RUNNER_TEMP/certificate.p12"
           printf '%s' "$CSC_LINK" | base64 --decode > "$CERT"
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          # Locks again after 30 min idle; signing happens within minutes of
+          # the import, and the keychain is deleted right after bundling.
+          security set-keychain-settings -lut 1800 "$KEYCHAIN"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
           security import "$CERT" -k "$KEYCHAIN" -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
@@ -112,6 +138,7 @@ jobs:
           APPLE_API_KEY_SECRET: ${{ secrets.APPLE_API_KEY }}
         run: |
           KEY_PATH="$RUNNER_TEMP/apple_api_key.p8"
+          umask 077
           if printf '%s' "$APPLE_API_KEY_SECRET" | grep -q "BEGIN PRIVATE KEY"; then
             printf '%s' "$APPLE_API_KEY_SECRET" > "$KEY_PATH"
           else
@@ -119,7 +146,9 @@ jobs:
           fi
           echo "APPLE_API_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
 
-      - name: Build, sign & notarize
+      - name: Sign, notarize & package DMGs
+        # `tauri bundle` packages the binaries built above; it compiles
+        # nothing and runs no build scripts.
         working-directory: apps/desktop
         env:
           # Tauri notarizes when these are set; APPLE_SIGNING_IDENTITY and
@@ -128,8 +157,14 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: |
           for target in aarch64-apple-darwin x86_64-apple-darwin; do
-            bun run tauri build --target "$target" --bundles dmg
+            bun run tauri bundle --target "$target" --bundles dmg
           done
+
+      - name: Remove signing material
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/apple_api_key.p8" "$RUNNER_TEMP/certificate.p12"
+          security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
 
       - name: Collect DMGs
         # Tauri names them chapay_<version>_<aarch64|x64>.dmg under each
@@ -149,7 +184,32 @@ jobs:
           echo "DIST=$OUT" >> "$GITHUB_ENV"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
-      - name: Publish installers to R2
+      - name: Verify signature and notarization
+        # Gatekeeper's own checks, on the app inside each DMG exactly as a
+        # user receives it: valid Developer ID signature, accepted by
+        # Gatekeeper, notarization ticket stapled.
+        run: |
+          for arch in arm64 x64; do
+            DMG="$DIST/chapay-${VERSION}-${arch}.dmg"
+            MOUNT="$RUNNER_TEMP/mnt-${arch}"
+            hdiutil attach "$DMG" -nobrowse -readonly -mountpoint "$MOUNT" >/dev/null
+            APP="$MOUNT/chapay.app"
+            codesign --verify --deep --strict --verbose=2 "$APP"
+            spctl --assess --type execute --verbose=2 "$APP"
+            xcrun stapler validate "$APP"
+            hdiutil detach "$MOUNT" >/dev/null
+          done
+
+      - name: Write checksums
+        # SHA256SUMS next to the DMGs: one with the GitHub Release asset
+        # names, one with the R2 names (same bytes, same hashes).
+        run: |
+          cd "$DIST"
+          shasum -a 256 "chapay-${VERSION}-arm64.dmg" "chapay-${VERSION}-x64.dmg" > SHA256SUMS
+          sed "s/chapay-${VERSION}-/chapay-/" SHA256SUMS > "$RUNNER_TEMP/SHA256SUMS.r2"
+          cat SHA256SUMS "$RUNNER_TEMP/SHA256SUMS.r2"
+
+      - name: Publish installers to R2 (versioned)
         if: startsWith(github.ref, 'refs/tags/')
         env:
           # R2's S3 API needs its own Access Key + Secret — the Cloudflare API
@@ -160,34 +220,57 @@ jobs:
           R2_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           : "${R2_BUCKET:?Set the R2_BUCKET variable in the production environment}"
+          : "${R2_ACCOUNT_ID:?Set the CLOUDFLARE_ACCOUNT_ID secret in the production environment}"
           ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
           # Versioned objects never change, so browsers and Cloudflare's cache
-          # may keep them for a year; `latest/` is the live alias the landing
-          # links to, so it must be revalidated on every request.
+          # may keep them for a year.
           IMMUTABLE="public, max-age=31536000, immutable"
-          LIVE="public, max-age=0, must-revalidate"
-          CT="application/x-apple-diskimage"
-          # Installers -> download/<version>/ first, then download/latest/.
           for arch in arm64 x64; do
-            SRC="$DIST/chapay-${VERSION}-${arch}.dmg"
-            aws s3 cp "$SRC" "s3://${R2_BUCKET}/download/${VERSION}/chapay-${arch}.dmg" \
-              --endpoint-url "$ENDPOINT" --content-type "$CT" --cache-control "$IMMUTABLE"
+            aws s3 cp "$DIST/chapay-${VERSION}-${arch}.dmg" "s3://${R2_BUCKET}/download/${VERSION}/chapay-${arch}.dmg" \
+              --endpoint-url "$ENDPOINT" --content-type "application/x-apple-diskimage" --cache-control "$IMMUTABLE"
           done
-          for arch in arm64 x64; do
-            SRC="$DIST/chapay-${VERSION}-${arch}.dmg"
-            aws s3 cp "$SRC" "s3://${R2_BUCKET}/download/latest/chapay-${arch}.dmg" \
-              --endpoint-url "$ENDPOINT" --content-type "$CT" --cache-control "$LIVE"
-          done
+          aws s3 cp "$RUNNER_TEMP/SHA256SUMS.r2" "s3://${R2_BUCKET}/download/${VERSION}/SHA256SUMS" \
+            --endpoint-url "$ENDPOINT" --content-type "text/plain; charset=utf-8" --cache-control "$IMMUTABLE"
 
-      - name: Verify public URLs
-        # The URLs the landing links to must answer right after publishing;
-        # a bucket without public access or a wrong DOWNLOAD_BASE_URL fails
-        # here, in the release, instead of on a user's click.
+      - name: Verify versioned URLs
+        # Check the new version answers publicly *before* `latest/` points at
+        # it: a bucket without public access or a wrong DOWNLOAD_BASE_URL fails
+        # here, while `latest/` still serves the previous release.
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           : "${DOWNLOAD_BASE_URL:?Set the DOWNLOAD_BASE_URL variable in the production environment}"
           for path in "download/${VERSION}/chapay-arm64.dmg" "download/${VERSION}/chapay-x64.dmg" \
-                      "download/latest/chapay-arm64.dmg" "download/latest/chapay-x64.dmg"; do
+                      "download/${VERSION}/SHA256SUMS"; do
+            curl -fsSIL "$DOWNLOAD_BASE_URL/$path" >/dev/null || { echo "::error::Missing: $DOWNLOAD_BASE_URL/$path"; exit 1; }
+            echo "OK: $DOWNLOAD_BASE_URL/$path"
+          done
+
+      - name: Publish installers to R2 (latest)
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          : "${R2_BUCKET:?Set the R2_BUCKET variable in the production environment}"
+          : "${R2_ACCOUNT_ID:?Set the CLOUDFLARE_ACCOUNT_ID secret in the production environment}"
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          # `latest/` is the live alias the landing links to, so it must be
+          # revalidated on every request.
+          LIVE="public, max-age=0, must-revalidate"
+          for arch in arm64 x64; do
+            aws s3 cp "$DIST/chapay-${VERSION}-${arch}.dmg" "s3://${R2_BUCKET}/download/latest/chapay-${arch}.dmg" \
+              --endpoint-url "$ENDPOINT" --content-type "application/x-apple-diskimage" --cache-control "$LIVE"
+          done
+          aws s3 cp "$RUNNER_TEMP/SHA256SUMS.r2" "s3://${R2_BUCKET}/download/latest/SHA256SUMS" \
+            --endpoint-url "$ENDPOINT" --content-type "text/plain; charset=utf-8" --cache-control "$LIVE"
+
+      - name: Verify latest URLs
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          for path in "download/latest/chapay-arm64.dmg" "download/latest/chapay-x64.dmg" \
+                      "download/latest/SHA256SUMS"; do
             curl -fsSIL "$DOWNLOAD_BASE_URL/$path" >/dev/null || { echo "::error::Missing: $DOWNLOAD_BASE_URL/$path"; exit 1; }
             echo "OK: $DOWNLOAD_BASE_URL/$path"
           done
@@ -204,6 +287,10 @@ jobs:
           R2_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           KEEP_VERSIONS: 3
         run: |
+          # An empty bucket name would turn every path below into a bucket
+          # root; refuse to run rather than prune the wrong place.
+          : "${R2_BUCKET:?Set the R2_BUCKET variable in the production environment}"
+          : "${R2_ACCOUNT_ID:?Set the CLOUDFLARE_ACCOUNT_ID secret in the production environment}"
           ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
           VERSIONS=$(aws s3 ls "s3://${R2_BUCKET}/download/" --endpoint-url "$ENDPOINT" \
             | awk '{print $2}' | sed 's#/$##' | grep -v '^latest$' | grep -v '^$' | sort -V || true)
@@ -226,24 +313,22 @@ jobs:
         # Only for manual runs (no tag): a tag release already ships the DMGs to
         # R2 and the GitHub Release, so this would be a redundant copy.
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: chapay-macos
-          path: ${{ env.DIST }}/*.dmg
+          path: |
+            ${{ env.DIST }}/*.dmg
+            ${{ env.DIST }}/SHA256SUMS
           if-no-files-found: error
           retention-days: 3
 
-      - name: Upload artifacts to GitHub Release
+      - name: Attach DMGs to the GitHub Release
+        # release-please owns the GitHub Release (it creates it, with the
+        # changelog, before this tag exists). This step only adds assets; it
+        # never changes the release's draft or prerelease state.
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          # Draft so a human reviews the notes before it reaches testers.
-          # Flip to `draft: false` once the pipeline is trusted.
-          draft: true
-          prerelease: true
-          fail_on_unmatched_files: true
-          files: ${{ env.DIST }}/*.dmg
-
-      - name: Remove signing keychain
-        if: always()
-        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --clobber \
+            "$DIST/chapay-${VERSION}-arm64.dmg" "$DIST/chapay-${VERSION}-x64.dmg" "$DIST/SHA256SUMS"

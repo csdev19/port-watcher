@@ -14,11 +14,24 @@ build
 target
 apps/desktop/src-tauri/gen/schemas
 
-# Environment variables
+# Environment variables: every .env variant (.env.signing, .env.production,
+# .env.local, .env.keys, ...) in any folder; only the examples are tracked.
 .env
-.env*.local
-.env.keys
+.env.*
+.dev.vars
+.dev.vars.*
 !.env.example
+!*.env.example
+!.dev.vars.example
+
+# Signing material and private keys (Developer ID .p12, App Store Connect
+# .p8, PEM keys). These live in GitHub secrets, never in the repo.
+*.p12
+*.p8
+*.pem
+*.key
+*.keychain
+*.keychain-db
 
 # IDEs and editors
 .vscode/*

@@ -1,0 +1,155 @@
+---
+title: Product Brief — chapay
+description: Self-contained product briefing of what chapay does today, written as a prompt for brainstorming what to build next. Paste it whole into a model.
+---
+
+> **How to use this document.** Copy everything below the line and paste it
+> whole into a model; it stands alone. It describes the product as shipped,
+> what is in flight, and asks for feature ideas. Where it disagrees with the
+> repository, the repository wins. **Current as of 2026-10-13**, checked
+> against `main`. Refresh it after each release: the "In progress" section
+> goes stale first.
+
+---
+
+You are a product strategist for a small developer tool. Read the product
+description below, then help me decide what to build next. Be concrete and
+opinionated. Argue against ideas that do not fit the product.
+
+## The product
+
+**chapay — port watcher** is a macOS menu-bar app for developers. It shows
+which processes are listening on TCP ports, explains what each one is, and
+kills the one you point at. The name is Quechua for "to watch, to guard". It
+is written lowercase.
+
+**The problem.** A developer runs several local projects at once: Vite, Next,
+Wrangler, Bun, Docker, Postgres. Ports end up held by orphaned processes. The
+usual fix is `lsof -i tcp:3000`, reading the output, copying the PID, then
+`kill -9`. That is slow, and it never says what the process is or which
+project started it.
+
+**The job.** One click: see every listening port, what it is, which project it
+belongs to, and kill the right one without guessing.
+
+**Who it is for.** Developers on macOS who run several local servers and
+already know what a port and a PID are. It is not a network monitor, a
+firewall or an admin tool.
+
+## What exists today (version 0.1.0, released 2026-10-12)
+
+**Distribution**
+
+- A signed macOS DMG for Apple silicon and one for Intel, downloaded from a
+  landing page at chapay.cs19.dev.
+- The source code is public on GitHub, under GPL-3.0-or-later. It is free.
+  (`0.1.0` itself was published under MIT; the relicense landed after it.)
+- There is no auto-updater, no Homebrew cask, and no Windows or Linux build.
+
+**The panel**
+
+- A menu-bar icon. A left click opens a 340×440 panel under the icon. A right
+  click shows Quit. `⌥⌘P` toggles the panel from anywhere.
+- No Dock icon. The panel closes when it loses focus or on `Esc`.
+- The list refreshes every 2 seconds while the panel is open, and stops while
+  it is hidden.
+
+**Each row shows**
+
+- the port, a readable label, the project, the uptime;
+- on expand: the PID, memory, the full command, the user, the executable
+  path, and the `.app` bundle when there is one.
+
+**Labels.** Ordered rules over the command line, stored in a JSON file:
+Next.js, Vite, Wrangler, Astro, Expo/Metro, NestJS, TanStack Start, Convex,
+PostgreSQL, Redis, Docker, and a fallback to the runtime plus the script name
+(`bun · server.ts`) or the process name.
+
+**Project detection.** chapay takes the process's working directory and walks
+up to the nearest `package.json`, `Cargo.toml` or `.git`, and uses the
+`package.json` name or the folder name.
+
+**Grouping.** Each process is classified as Dev (your own processes), App
+(inside an `.app` bundle) or System (system paths or another user). Dev is
+listed first. Apps & System start collapsed.
+
+**Search.** Filters by port, label or folder, and covers every group.
+
+**Kill.**
+
+- Two steps: click ×, then confirm within 2 seconds.
+- SIGTERM first, SIGKILL after 2 seconds if the process is still alive.
+- The Rust core refuses PIDs below 100, its own PID and other users'
+  processes. It re-checks that the process still listens and that its start
+  time matches, so a reused PID is never killed. In `0.1.0` it still allowed
+  killing same-user System processes; see the next section.
+
+**Keyboard.** Arrow keys move the selection, Enter expands, `⌘⌫` kills.
+
+**Favourites.** Star a port, or add one by number with an optional name. The
+Favourites tab shows each watched port and whatever listens on it now, or
+"nothing listening". They are stored locally on the Mac.
+
+**Stack.** Tauri 2 with a Rust core and a React + TypeScript renderer. The
+landing page is TanStack Start on Cloudflare Workers.
+
+## On `main`, not yet released
+
+These are merged. The desktop items ship with the next desktop release, the
+landing items with the next web release:
+
+- `⌘⌫` no longer kills while the cursor is in the search box.
+- Project detection no longer touches `~/Documents`, `~/Desktop`, `~/Downloads`
+  or iCloud Drive, which avoids the macOS permission prompt that reading files
+  there triggers.
+- Separate Apple silicon and Intel download buttons on the landing page, social
+  metadata, and a macOS 13 minimum enforced by the app bundle.
+- Kill hardening: the Rust core refuses System processes (another user's, or
+  under `/System`, `/usr/libexec`, `/usr/sbin`) and reports an error when a
+  process survives SIGKILL. The panel shows a lock instead of a kill control
+  on those rows. A left click on the menu-bar icon opens the panel instead of
+  the Quit menu.
+- CI that runs the Rust checks on macOS, a content security policy for the
+  panel, SHA-pinned actions, a `SHA256SUMS` file next to the DMGs, and
+  security headers on the landing page.
+- The licence changed from MIT to GPL-3.0-or-later.
+
+## In progress (not on `main`)
+
+- A fix so the panel opens over full-screen apps (today it opens on the
+  desktop Space instead) and appears on the right monitor in a multi-monitor
+  setup. Open pull request.
+- A first-run window that explains and requests Full Disk Access. On a branch.
+
+## Ideas the owner already has
+
+1. **A first-run setup screen** (in progress, see above). Explain why chapay
+   would want access to folders such as Documents: to read the project name, so
+   the user knows where a process comes from and does not kill blindly. Let the
+   user grant access or skip it and get path-only names.
+2. **Make it a proper public open-source project**, with contributors and
+   community label rules.
+3. **More features** — this is what I want your help with.
+
+## Constraints
+
+- macOS first. Local only: nothing leaves the machine and there is no
+  account.
+- It stays a fast, quiet utility: one question answered in one glance. Do
+  not turn it into a dashboard.
+- Out of scope so far: network traffic, outbound connections, UDP, remote
+  machines, firewall rules.
+- One developer builds it, so effort matters.
+
+## What I want from you
+
+1. **Ideas grouped by theme.** For example: understanding a process,
+   preventing port conflicts, workflow integrations (terminal, editor, CLI,
+   Docker), trust and safety, distribution and growth, open-source community.
+2. For each idea: the user problem in one sentence, what the user sees, a
+   rough effort (S/M/L), and the strongest argument against building it.
+3. **Your top five for 0.2**, ranked, with why.
+4. Ideas that look attractive but you would **not** build, and why.
+5. Questions I should answer before deciding.
+
+Do not suggest anything the product already does (listed above).

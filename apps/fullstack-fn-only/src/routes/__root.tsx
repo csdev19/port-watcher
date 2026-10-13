@@ -16,6 +16,7 @@ import { Toaster } from "@port-watcher/web-ui";
 // context fields and `beforeLoad` below together with the auth routes.
 // import Header from "../components/header";
 import appCss from "../index.css?url";
+import { SECURITY_HEADERS } from "@/lib/security-headers";
 // import { getAuthSession } from "@/lib/auth/get-auth-session";
 // import type { AuthSession } from "@/lib/auth/types";
 
@@ -51,6 +52,7 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
     ],
   }),
   component: RootDocument,
+  headers: () => SECURITY_HEADERS,
   // staleTime: 10 * 60 * 1000, // 10 minutes
   // beforeLoad: async () => {
   //   const session = await getAuthSession();

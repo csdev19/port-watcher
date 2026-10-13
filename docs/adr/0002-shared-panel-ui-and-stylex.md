@@ -1,7 +1,10 @@
 # ADR 0002: shared panel presentation with a gated StyleX integration
 
-**Status:** accepted for implementation planning; not implemented.
+**Status:** accepted for implementation planning; **still not implemented** on `main` as of
+2026-10-13 (there is no `packages/panel-ui`, and neither app uses StyleX).
 **Date:** 2026-09-16.
+**Note (2026-10-13):** the operational spec moved from `docs/superpowers/specs/` to
+`docs/specs/`, and the execution plans it calls for belong in `docs/plans/`.
 **Integration dependencies:** Phase 0 must verify the pinned StyleX compiler,
 workspace token path, both Vite consumers, desktop test tooling, and fullstack
 SSR/workerd output before the styling engine is accepted for implementation.
@@ -67,6 +70,6 @@ and review the relevant boundary; use CSS modules if the StyleX gate fails.
 ## Operational specification
 
 Phase gates, ownership, migration failure handling and planning requirements
-live in the [panel-ui spec](../superpowers/specs/2026-09-16-panel-ui-stylex-design.md).
+live in the [panel-ui spec](../specs/2026-09-16-panel-ui-stylex-design.md).
 Detailed execution documents must incorporate Phase 0 findings before downstream
 tasks are treated as executable.

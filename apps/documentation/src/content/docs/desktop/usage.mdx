@@ -1,0 +1,88 @@
+---
+title: Using chapay
+description: Open the panel, find a port, kill the right process, and keep favourites
+---
+
+## Open and close the panel
+
+- **Click the menu-bar icon** to open the panel under it. Click again to close it.
+- **Press `⌥⌘P`** from anywhere to toggle it.
+- The panel closes by itself when you click outside it, and with `Esc`.
+
+The list refreshes every two seconds while the panel is open.
+
+## Read the list
+
+**Listening** shows one row per listening port: the port, a plain label for what the process is,
+the project folder it runs from, and its uptime. Press `Enter` or click a row to expand it and see
+more detail, including the full command.
+
+Rows are grouped:
+
+- **Dev**: processes you started yourself, such as dev servers and databases. Listed first.
+- **Apps & System**: processes inside an `.app` bundle, system services, and anything owned by
+  another user. This section starts collapsed each time the panel opens. App rows can be killed;
+  system and other-user rows are listed for information only.
+
+## Search
+
+Type to filter by port, app or folder. Search covers every row, including the collapsed
+**Apps & System** section.
+
+## Kill a process
+
+Killing takes two steps, so a stray click cannot end the wrong thing.
+
+1. Click the **×** on the row. It changes to a confirmation: **Kill?** for a dev row, **Kill app?**
+   for an app row.
+2. Click it again **within two seconds**. If you do not, it disarms.
+
+chapay asks the process to stop first and forces it only if it has not exited after about two
+seconds. A toast reports a failure. A row with a lock icon cannot be killed: it belongs to another
+user or is a macOS system service. The Rust core refuses those kills even if the panel asked for
+one (see [Permissions](/desktop/permissions)).
+
+### Keyboard
+
+| Key                      | Action                                     |
+| ------------------------ | ------------------------------------------ |
+| `↑` / `↓`                | Move the selection                         |
+| `Enter`                  | Expand or collapse the selected row        |
+| `⌘⌫`                     | Kill the selected row (see the note below) |
+| `Esc`                    | Close the panel                            |
+| `←` / `→` on the tab bar | Switch between Listening and Favourites    |
+
+:::note[`⌘⌫` kills a dev row immediately]
+For a **dev** row the keyboard shortcut skips the two-step confirmation. For **app** rows, press
+`⌘⌫` twice within two seconds. While the cursor is in the search box, `⌘⌫` only clears your text
+(the usual macOS "delete to line start") and never kills the selected row. Holding the keys down
+does not repeat the kill.
+:::
+
+:::caution[Differences in the released `0.1.0` build]
+`0.1.0` was released before three fixes that are now on `main` and ship with the next desktop
+release:
+
+- A left click on the menu-bar icon showed the Quit menu instead of the panel (the panel opened with
+  `⌥⌘P`); the menu now appears on right click only.
+- `⌘⌫` in the search box could kill the selected dev process. Until you update, clear the box with
+  `⌘A` then `⌫`.
+- System services could be killed from the panel (**Kill system?**); the core now refuses them.
+  :::
+
+## Favourites
+
+Favourites are ports you want to keep an eye on, even when nothing is running on them.
+
+- Click the **star** on a row to watch that port, or open the **Favourites** tab and add a port
+  number (with an optional name) using the watch form.
+- The tab lists each watched port with whatever is listening on it right now, or **nothing
+  listening** when the port is free. You can kill from there with the same two-step flow, rename a
+  favourite, or remove it.
+- A favourite remembers the port number, not the process, so it survives restarts of the process
+  and of chapay. It is stored on your Mac only.
+- Opening the panel always starts on the Listening tab.
+
+## Quit
+
+Right-click the menu-bar icon and choose **Quit**. Closing the panel does not quit the app.

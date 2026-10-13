@@ -6,6 +6,10 @@ use serde::{Serialize, Serializer};
 pub enum AppError {
     #[error("failed to read listening ports: {0}")]
     PortSource(String),
+    /// A signal failed for a reason other than "no such process" or "not
+    /// permitted", or the process survived SIGKILL.
+    #[error("failed to kill the process: {0}")]
+    Kill(String),
     #[error("internal error: {0}")]
     Internal(String),
 }

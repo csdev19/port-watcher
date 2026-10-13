@@ -1,0 +1,58 @@
+---
+title: Permissions and safety
+description: What chapay can see, what it can kill, and how it avoids macOS folder prompts
+---
+
+## What it can see
+
+chapay lists every TCP port in the `LISTEN` state on your Mac, including ports held by other users'
+processes and by the system. For each one it reads, locally:
+
+- the process name, its full command line and its executable path;
+- the PID, owner, start time (shown as uptime) and memory use;
+- the working directory, which it uses to name the project (the nearest `package.json` name, or the
+  folder name when it finds a `Cargo.toml` or `.git`).
+
+The Rust core has no network dependency and the panel code makes no network requests. Favourites
+are stored in the panel's local storage on your Mac.
+
+## What it can kill
+
+Only **your own processes that are not macOS system services**. Before it sends any signal, the Rust
+core checks that:
+
+1. the PID is not below 100 and is not chapay itself;
+2. the process is still listening on that port and is the same process that was on screen
+   (matching start time), so a reused PID is never hit;
+3. the process belongs to your user. A row owned by another user shows a lock instead of a kill
+   button, and the core refuses it even if asked;
+4. the process is not a **system** process. The core works this out again from the live process
+   (an owner other than you, or an executable under `/System`, `/usr/libexec` or `/usr/sbin`)
+   and does not trust the category the panel sends, so a compromised panel cannot bypass it.
+
+chapay never asks for an administrator password and never uses `sudo`. To stop a process it sends
+`SIGTERM`, waits up to about two seconds, and only then sends `SIGKILL`.
+
+The panel groups rows as **dev**, **apps** and **system** (see [Using chapay](/desktop/usage)).
+Dev and app rows are killable with a two-step confirmation; system rows show a lock. The checks above
+run in Rust, and the panel's lock only mirrors them.
+
+## Folders macOS protects
+
+To name the project behind a listening process, chapay walks up from that process's working
+directory looking for `package.json`, `Cargo.toml` or `.git`. Touching `~/Documents`, `~/Desktop`,
+`~/Downloads` or iCloud Drive (`~/Library/Mobile Documents`) makes macOS ask whether chapay may
+access files there, so chapay does not look inside them. For a process running from one of those
+folders, the project is simply named after its working directory's folder, without reading anything
+on disk. The walk also stops before your home folder.
+
+chapay does not need access to those folders to list or kill ports. The released `0.1.0` build still
+probes them, so a dev server running from `~/Documents` can trigger the prompt there; denying it
+leaves the list working, but project names for those processes may be missing. The change that stops
+the probing is merged on `main` and ships with the next desktop release.
+
+## Other things you may notice
+
+- `⌥⌘P` is registered system-wide. If another app already owns it, chapay logs that the shortcut is
+  unavailable and keeps working through the menu-bar icon.
+- chapay is a menu-bar accessory: it has no Dock icon and does not appear in `⌘Tab`.

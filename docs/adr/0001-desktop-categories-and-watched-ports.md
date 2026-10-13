@@ -1,7 +1,18 @@
 # ADR 0001: desktop classification and watched-port boundaries
 
-**Status:** proposed for implementation; not implemented on this branch.
+**Status:** accepted and implemented on `main` (desktop `0.1.0`). Was "proposed for
+implementation; not implemented" when written.
 **Date:** 2026-09-16.
+**Amendment (2026-10-13):** the decision below that classification does "not [change] backend
+authorization" is superseded for the `system` category by
+[ADR 0006](0006-kill-policy-enforced-in-rust.md): the Rust kill path now re-derives the category
+and refuses `system` listeners. Grouping and confirmation friction for `dev` and `app` still live in
+the renderer, as decided here.
+**Implementation evidence (2026-10-13):** classification is `classify_port` in
+`apps/desktop/src-tauri/src/ports/classify.rs` (category, `executablePath` and `appBundlePath` are
+serialized by `ports/models.rs`); watched ports are `apps/desktop/src/lib/favourites.ts`
+(`chapay.favourites`, port-only records) with `use-favourites.ts`; the shared confirmation is
+`use-kill-confirm.ts`.
 **Integration dependencies:** F6 introduces classification and shared confirmation;
 F7 consumes those contracts. Product scope comes from the original audit; the detailed
 defaults below were developed during the implementation-plan review.
@@ -17,7 +28,8 @@ PID, port and start time. Several PIDs can share one port.
 
 - Classify in a pure Rust function using UID and executable path, then serialize category,
   executable path and outermost app bundle path alongside the existing fields.
-- Classification changes grouping and confirmation UX, not backend authorization.
+- Classification changes grouping and confirmation UX, not backend authorization
+  _(superseded for `system` by ADR 0006)_.
   Unknown ownership groups as system and remains unkillable through existing ownership rules.
 - Keep one confirmation owner in the renderer for pointer and keyboard entry points.
   Confirmation identity includes `pid`, `port`, `startedAt`; navigation may retain `pid:port`.
@@ -59,6 +71,9 @@ interfaces/protocols rather than a machine-local TCP port number.
 
 ## Operational contract
 
-Field definitions, state transitions, tests and usage live separately in the
-[F6](../superpowers/plans/native-overlay/f6-port-categories.md) and
-[F7](../superpowers/plans/native-overlay/f7-favourites.md) implementation plans.
+Field definitions, state transitions, tests and usage lived in the F6 and F7 implementation plans
+(`docs/superpowers/plans/native-overlay/f6-port-categories.md` and `f7-favourites.md`). Both shipped
+and the plans were deleted from the tree, as plans are working documents; they remain in git
+history, for example at commit `bff87b9`
+(`git show bff87b9:docs/superpowers/plans/native-overlay/f6-port-categories.md`). The code and its
+tests are now the contract.

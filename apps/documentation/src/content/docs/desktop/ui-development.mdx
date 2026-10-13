@@ -13,13 +13,13 @@ lay out exactly the way you lay out anything else.
 Use the lighter one for most of the work:
 
 ```bash
-bun run --cwd apps/desktop dev   # Vite alone -> localhost:1420 in your browser
+bun run --cwd apps/desktop vite:dev   # Vite alone -> localhost:1420 in your browser
 bun run dev:desktop              # the real Tauri window
 ```
 
 The browser loop reloads instantly and gives you full DevTools. It covers roughly everything visual.
-The Tauri window is what you need when the work touches `invoke()` or window behaviour — vibrancy,
-blur, tray, positioning.
+The Tauri window is what you need when the work touches `invoke()` or window behaviour — blur,
+tray, positioning.
 
 The condition for the browser loop to work is that every `invoke()` sits behind a guard with mock
 data, so the page does not explode outside Tauri:
@@ -54,31 +54,30 @@ moment a component calls Rust, only the window is telling the truth.
 
 ## Design tokens
 
-`@port-watcher/tokens` is kept in this monorepo specifically for this app. Import the **unprefixed**
-variant — the one generated for consumers with no shadcn in the page:
+Today the renderer does **not** import `@port-watcher/tokens`: the panel palette (`--pw-*`
+variables, light and dark) is declared directly in `apps/desktop/src/app.module.css`. The tokens
+package is kept for this app on purpose, and it generates an unprefixed stylesheet meant for it:
 
 ```css
 @import "@port-watcher/tokens/css/desktop";
 ```
 
-It declares `--background`, `--foreground`, `--muted`, `--border`, `--destructive` and friends on
-`:root` for light, re-declared under `.dark`.
-
-App-specific tokens (the translucent panel background, the kill-red) belong in
-`packages/tokens/src/` and get regenerated with `bun run --cwd packages/tokens generate` — not
-hardcoded in a component. The generator writes both stylesheets from one typed source, which is the
-point of the package.
+Wiring that import in, or dropping the claim, is still an open decision (the template packages
+are kept deliberately, see the repository README). Until then, change panel colors in
+`app.module.css`. The tokens generator is `bun run --cwd packages/tokens generate`.
 
 ## Conventions for this app
 
-- **CSS Modules, no component library.** The whole app is four components — `PortList`, `Row`,
-  `Search`, `Toast`. A library would weigh more than it helps.
-- **Bundle the fonts.** Geist and Geist Mono ship as local files. A signed, offline-capable app
-  cannot depend on Google Fonts — with no network it would render in a fallback.
-- **Vibrancy is half Rust, half CSS.** The `window-vibrancy` crate makes the window translucent;
-  the CSS then has to paint a semi-transparent layer on top (`rgba(15, 15, 17, 0.72)`). An opaque
-  background cancels the effect entirely.
-- **Layout is fixed at 360×480.** It is a panel anchored to a tray icon, not a resizable window.
+- **CSS Modules, no component library.** The app is a handful of components (`PortList`,
+  `PortRow`, `SearchInput`, `FavouritesPanel`, `WatchPortForm`, `Toast`). A library would weigh more
+  than it helps.
+- **Fonts must be local.** The stylesheet names Geist and Geist Mono, but no font files are bundled
+  yet, so the panel falls back to system fonts. A signed, offline-capable app cannot depend on Google
+  Fonts, so the files have to be added to the app, not linked.
+- **The panel is solid, not translucent.** The window is transparent only so its rounded corners
+  show through; the CSS paints an opaque sheet palette (light and dark). There is no vibrancy: the
+  `window-vibrancy` crate is not a dependency.
+- **Layout is fixed at 340×440** (`tauri.conf.json`). It is a panel anchored to a tray icon, not a resizable window.
   The list scrolls inside; the body never does.
 - **Lay out against WKWebView.** macOS renders through Safari's engine, not Chromium. Verify
   anything recent in CSS in the real window, not only in the browser loop.
