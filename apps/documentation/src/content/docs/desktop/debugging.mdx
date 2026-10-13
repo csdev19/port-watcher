@@ -66,8 +66,8 @@ tauri build --debug       # a real bundle, with the console enabled
 ```
 
 And for production builds there is the `devtools` Cargo feature — with a warning worth repeating:
-**it uses private Apple APIs and violates App Store policy.** chapay ships as a DMG and a
-Homebrew cask, so the Store rule does not bind it, but leaving the feature on is a deliberate choice,
+**it uses private Apple APIs and violates App Store policy.** chapay ships as a DMG outside the
+App Store, so the Store rule does not bind it, but leaving the feature on is a deliberate choice,
 not a default.
 
 ## Optional: CrabNebula DevTools
@@ -82,13 +82,14 @@ The Rust surface here is two commands. Most bugs will be of the form _"what does
 return when the process belongs to another user?"_ — better answered by a unit test than by a step
 debugger.
 
-The recommendation is to wire `tauri-plugin-log` and a CodeLLDB `launch.json` **before** writing the
-first command rather than after. Ten minutes now, and no blind debugging exactly when the
-interesting part starts.
+`tauri-plugin-log` is already wired in `lib.rs` (level `Info`); the kill path logs every refusal and
+escalation step through it. The repository does not commit a CodeLLDB `launch.json`, so attaching a
+debugger is a local setup.
 
 ## Verified versions
 
-Read from crates.io on 2026-09-15:
+Read from crates.io on 2026-09-15. Except `tauri-plugin-devtools`, which is not a dependency, each
+one matches the version resolved in `src-tauri/Cargo.lock` on 2026-10-13:
 
 | Crate                          | Latest stable |
 | ------------------------------ | ------------- |

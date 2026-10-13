@@ -20,13 +20,13 @@ whose `dist/` is not committed). No `.env` is required.
 ## The one variable: `VITE_PUBLIC_DOWNLOAD_URL`
 
 Optional, read at build time (`import.meta.env`). It is the public base URL of the R2 bucket that
-holds the desktop installers, with no trailing slash. When set, the landing's download button
-points at `<url>/download/latest/chapay-arm64.dmg` and the "Intel build" link at
-`<url>/download/latest/chapay-x64.dmg`. When empty, the button falls back to the GitHub Releases
-page, which is what PR validation builds and local dev use.
+holds the desktop installers, with no trailing slash. When set, the landing's two download buttons point at
+`<url>/download/latest/chapay-arm64.dmg` (Apple silicon) and `<url>/download/latest/chapay-x64.dmg`
+(Intel). When empty, both fall back to the GitHub Releases page, which is what PR validation builds
+and local dev use.
 
 Production does not set it by hand: `release-web.yml` bakes it in from the `DOWNLOAD_BASE_URL`
-GitHub variable, so the button and the bucket cannot disagree (ADR 0004). To try it locally, put it
+GitHub variable, so the buttons and the bucket cannot disagree (ADR 0004). To try it locally, put it
 in `apps/fullstack-fn-only/.env` (see `.env.example`).
 
 ## What is disabled, and how to turn it back on
@@ -65,6 +65,7 @@ src/router.tsx              router and query client
 src/routes/{auth,api,_authenticated}*   disabled, unregistered
 src/components/{header,user-menu,sign-in-form,sign-up-form}.tsx, src/{hooks,lib/auth,server-functions,env}
                             disabled, excluded from tsc
+src/lib/security-headers.ts security headers for SSR pages (keep in sync with public/_headers)
 wrangler.jsonc              Worker config: custom domain and static assets
 ```
 

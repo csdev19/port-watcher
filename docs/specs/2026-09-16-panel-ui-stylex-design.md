@@ -3,7 +3,10 @@
 Date: 2026-09-16 · Status: approved for implementation planning · Owner: csdev19
 
 The direction and review refinements are approved. This document describes
-intended work, not implemented behavior.
+intended work, not implemented behavior. Status check (2026-10-13): still not
+implemented on `main`; there is no `packages/panel-ui` and neither app uses StyleX.
+Where it says "glass", the shipped desktop panel is a solid colour with no blur
+(`app.module.css` has no `backdrop-filter`).
 Architecture rationale and integration dependencies are recorded in
 [ADR 0002](../adr/0002-shared-panel-ui-and-stylex.md).
 

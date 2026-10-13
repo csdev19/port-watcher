@@ -15,16 +15,26 @@ There are two builds, one per kind of Mac. Pick the one that matches your chip:
 | Apple silicon (M1, M2, M3, …) | `chapay-arm64.dmg` | Apple menu → About This Mac shows **Chip: Apple M…**   |
 | Intel                         | `chapay-x64.dmg`   | Apple menu → About This Mac shows **Processor: Intel** |
 
-The **Download for macOS** button on [chapay.cs19.dev](https://chapay.cs19.dev) gives you the Apple
-silicon build, with an **Intel build** link next to it. If the page does not know the download
-location, the button falls back to the
-[GitHub Releases](https://github.com/csdev19/port-watcher/releases) page.
+[chapay.cs19.dev](https://chapay.cs19.dev) has two buttons side by side, **Download for Apple
+silicon** and **Download for Intel**. The page does not guess your chip, because Apple silicon Macs
+report themselves as Intel to a browser. If the page does not know the download location, both
+buttons fall back to the [GitHub Releases](https://github.com/csdev19/port-watcher/releases) page,
+where the files are named `chapay-<version>-arm64.dmg` and `chapay-<version>-x64.dmg`.
 
 If you install the wrong build, it either refuses to open (an Apple silicon build on an Intel Mac)
 or runs through Rosetta (an Intel build on Apple silicon). Delete it and install the other one.
 
-The landing page states **macOS 13 or later**. The app's bundle configuration does not set a
-minimum system version, so treat that number as the landing page's claim, not an enforced check.
+chapay needs **macOS 13 (Ventura) or later**. The bundle sets `minimumSystemVersion` to `13.0`, so
+macOS refuses to open it on an older system. That setting was added after `0.1.0`, so it applies from
+the next desktop release; the landing page already states macOS 13+.
+
+### Verify the download (optional)
+
+Each release also publishes a `SHA256SUMS` file next to the DMGs, both in the download folder and on
+the GitHub Release. Each copy lists the file names used in its own place (`chapay-arm64.dmg` for
+the download folder, `chapay-<version>-arm64.dmg` on GitHub), so use the copy that matches your
+file. Put it in the same folder as the DMG and run
+`shasum -a 256 -c SHA256SUMS --ignore-missing`.
 
 ## 2. Install it
 

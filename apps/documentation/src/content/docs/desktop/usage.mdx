@@ -21,7 +21,8 @@ Rows are grouped:
 
 - **Dev**: processes you started yourself, such as dev servers and databases. Listed first.
 - **Apps & System**: processes inside an `.app` bundle, system services, and anything owned by
-  another user. This section starts collapsed each time the panel opens.
+  another user. This section starts collapsed each time the panel opens. App rows can be killed;
+  system and other-user rows are listed for information only.
 
 ## Search
 
@@ -33,30 +34,41 @@ Type to filter by port, app or folder. Search covers every row, including the co
 Killing takes two steps, so a stray click cannot end the wrong thing.
 
 1. Click the **×** on the row. It changes to a confirmation: **Kill?** for a dev row, **Kill app?**
-   or **Kill system?** for the other groups.
+   for an app row.
 2. Click it again **within two seconds**. If you do not, it disarms.
 
 chapay asks the process to stop first and forces it only if it has not exited after about two
-seconds. A toast reports a failure. A row with a lock icon belongs to another user and cannot be
-killed.
+seconds. A toast reports a failure. A row with a lock icon cannot be killed: it belongs to another
+user or is a macOS system service. The Rust core refuses those kills even if the panel asked for
+one (see [Permissions](/desktop/permissions)).
 
 ### Keyboard
 
-| Key                      | Action                                        |
-| ------------------------ | --------------------------------------------- |
-| `↑` / `↓`                | Move the selection                            |
-| `Enter`                  | Expand or collapse the selected row           |
-| `⌘⌫`                     | Kill the selected row (see the warning below) |
-| `Esc`                    | Close the panel                               |
-| `←` / `→` on the tab bar | Switch between Listening and Favourites       |
+| Key                      | Action                                     |
+| ------------------------ | ------------------------------------------ |
+| `↑` / `↓`                | Move the selection                         |
+| `Enter`                  | Expand or collapse the selected row        |
+| `⌘⌫`                     | Kill the selected row (see the note below) |
+| `Esc`                    | Close the panel                            |
+| `←` / `→` on the tab bar | Switch between Listening and Favourites    |
 
-:::caution[`⌘⌫` kills a dev row immediately]
-For a **dev** row the keyboard shortcut skips the two-step confirmation. For **apps** and
-**system** rows, press `⌘⌫` twice within two seconds. The shortcut also works while the cursor is in
-the search box, so pressing `⌘⌫` there to clear your text can kill the selected dev process. This is
-a known issue in `0.1.0` and a fix is planned. Until then, clear the search box by selecting its
-text with `⌘A` and pressing `⌫`.
+:::note[`⌘⌫` kills a dev row immediately]
+For a **dev** row the keyboard shortcut skips the two-step confirmation. For **app** rows, press
+`⌘⌫` twice within two seconds. While the cursor is in the search box, `⌘⌫` only clears your text
+(the usual macOS "delete to line start") and never kills the selected row. Holding the keys down
+does not repeat the kill.
 :::
+
+:::caution[Differences in the released `0.1.0` build]
+`0.1.0` was released before three fixes that are now on `main` and ship with the next desktop
+release:
+
+- A left click on the menu-bar icon showed the Quit menu instead of the panel (the panel opened with
+  `⌥⌘P`); the menu now appears on right click only.
+- `⌘⌫` in the search box could kill the selected dev process. Until you update, clear the box with
+  `⌘A` then `⌫`.
+- System services could be killed from the panel (**Kill system?**); the core now refuses them.
+  :::
 
 ## Favourites
 

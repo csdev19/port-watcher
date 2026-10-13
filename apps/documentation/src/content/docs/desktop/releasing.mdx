@@ -29,10 +29,24 @@ Web works the same way with `web-v*` tags and `release-web.yml`.
 Never bump `apps/desktop/package.json` or tag by hand — `tauri.conf.json` reads
 its version from that `package.json`, and release-please owns both.
 
+## Checks that run before a release
+
+These workflows gate and audit `main`; they do not publish anything.
+
+| Workflow             | Runs                                                                                                                |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `pr-validation.yml`  | Lint, `oxfmt --check`, package build, `check-types`, `test` and an app build (the TypeScript side)                  |
+| `desktop-ci.yml`     | On macOS, for changes under `apps/desktop/`: `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test --locked` |
+| `security-audit.yml` | `cargo audit` (fails on a vulnerability) and `bun audit` (report-only) weekly and on lockfile changes               |
+
+Every action in the workflows is pinned to a commit SHA, and Dependabot opens one weekly PR to bump
+them. The Rust version is pinned once in `apps/desktop/src-tauri/rust-toolchain.toml` and used by
+local builds, CI and releases.
+
 ## Where the files land
 
-Public URL = `DOWNLOAD_BASE_URL` + path. The landing's download button links
-to the `latest/` aliases.
+Public URL = `DOWNLOAD_BASE_URL` + path. The landing's two download buttons (Apple silicon
+and Intel) link to the `latest/` aliases.
 
 | Path in the `R2_BUCKET` bucket     | Contents                                | Cache             |
 | ---------------------------------- | --------------------------------------- | ----------------- |

@@ -3,6 +3,11 @@
 **Status:** accepted and implemented on `main` (desktop `0.1.0`). Was "proposed for
 implementation; not implemented" when written.
 **Date:** 2026-09-16.
+**Amendment (2026-10-13):** the decision below that classification does "not [change] backend
+authorization" is superseded for the `system` category by
+[ADR 0006](0006-kill-policy-enforced-in-rust.md): the Rust kill path now re-derives the category
+and refuses `system` listeners. Grouping and confirmation friction for `dev` and `app` still live in
+the renderer, as decided here.
 **Implementation evidence (2026-10-13):** classification is `classify_port` in
 `apps/desktop/src-tauri/src/ports/classify.rs` (category, `executablePath` and `appBundlePath` are
 serialized by `ports/models.rs`); watched ports are `apps/desktop/src/lib/favourites.ts`
@@ -23,7 +28,8 @@ PID, port and start time. Several PIDs can share one port.
 
 - Classify in a pure Rust function using UID and executable path, then serialize category,
   executable path and outermost app bundle path alongside the existing fields.
-- Classification changes grouping and confirmation UX, not backend authorization.
+- Classification changes grouping and confirmation UX, not backend authorization
+  _(superseded for `system` by ADR 0006)_.
   Unknown ownership groups as system and remains unkillable through existing ownership rules.
 - Keep one confirmation owner in the renderer for pointer and keyboard entry points.
   Confirmation identity includes `pid`, `port`, `startedAt`; navigation may retain `pid:port`.
