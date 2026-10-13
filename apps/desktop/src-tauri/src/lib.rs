@@ -2,6 +2,7 @@ mod commands;
 mod error;
 mod panel;
 mod ports;
+mod shortcut;
 
 use std::sync::Mutex;
 use std::time::Instant;
@@ -116,14 +117,14 @@ pub fn run() {
                 .build(app)?;
 
             {
-                use tauri_plugin_global_shortcut::{Code, Modifiers, ShortcutState};
+                use tauri_plugin_global_shortcut::ShortcutState;
 
                 let shortcut_plugin = tauri_plugin_global_shortcut::Builder::new()
-                    .with_shortcuts(["alt+cmd+p"])?
-                    .with_handler(|app, shortcut, event| {
-                        log::debug!("shortcut: {shortcut:?} {:?}", event.state);
+                    .with_shortcuts([shortcut::TOGGLE_PANEL])?
+                    .with_handler(|app, fired, event| {
+                        log::debug!("shortcut: {fired:?} {:?}", event.state);
                         if event.state == ShortcutState::Pressed
-                            && shortcut.matches(Modifiers::ALT | Modifiers::META, Code::KeyP)
+                            && shortcut::is_toggle_panel(fired)
                         {
                             crate::panel::toggle_panel(app);
                         }
@@ -131,7 +132,8 @@ pub fn run() {
                     .build();
                 if let Err(e) = app.handle().plugin(shortcut_plugin) {
                     log::error!(
-                        "global shortcut alt+cmd+p unavailable: {e}; use the tray icon instead"
+                        "global shortcut {} unavailable: {e}; use the tray icon instead",
+                        shortcut::TOGGLE_PANEL
                     );
                 }
             }
