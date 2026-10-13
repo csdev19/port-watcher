@@ -34,9 +34,9 @@ log = "0.4"
 
 
 [target.'cfg(target_os = "macos")'.dependencies]
-# Already in the tree through tao; named here to set the panel's
-# NSWindow collection behaviour, which Tauri does not fully expose.
-objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSResponder", "NSWindow"] }
+# Turns the panel window into a non-activating NSPanel: the only kind of
+# window macOS lets another app show over a full-screen Space.
+tauri-nspanel = "2.1"
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
 [profile.release]

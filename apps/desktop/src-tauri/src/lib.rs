@@ -16,9 +16,19 @@ use tauri::Manager;
 /// reopen. See `toggle_panel` in src/panel.rs.
 pub(crate) struct LastBlurHide(pub(crate) Mutex<Option<Instant>>);
 
+/// The tray icon's last known rect in physical pixels, top-left origin.
+/// `toggle_panel` hangs the panel from its bottom edge.
+pub(crate) struct TrayRect(
+    pub(crate) Mutex<Option<(tauri::PhysicalPosition<f64>, tauri::PhysicalSize<f64>)>>,
+);
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // Must be registered before `setup` converts the panel window.
+    #[cfg(target_os = "macos")]
+    let builder = builder.plugin(tauri_nspanel::init());
+    builder
         .plugin(
             tauri_plugin_log::Builder::new()
                 .level(log::LevelFilter::Info)
@@ -28,10 +38,13 @@ pub fn run() {
         .plugin(tauri_plugin_positioner::init())
         .setup(|app| {
             app.manage(LastBlurHide(Mutex::new(None)));
+            app.manage(TrayRect(Mutex::new(None)));
 
             #[cfg(target_os = "macos")]
             if let Some(window) = app.get_webview_window("main") {
-                panel::join_all_spaces(&window);
+                if let Err(e) = panel::convert_to_panel(&window) {
+                    log::error!("panel: NSPanel conversion failed ({e}); it will not open over full-screen apps");
+                }
             }
 
             // Menu-bar app: no Dock icon, no ⌘Tab entry (spec §4.6).
@@ -81,6 +94,16 @@ pub fn run() {
                     // Feed the positioner first — TrayBottomCenter is
                     // undefined without this.
                     tauri_plugin_positioner::on_tray_event(tray.app_handle(), &event);
+                    if let TrayIconEvent::Click { rect, .. }
+                    | TrayIconEvent::Enter { rect, .. }
+                    | TrayIconEvent::Move { rect, .. }
+                    | TrayIconEvent::Leave { rect, .. } = &event
+                    {
+                        if let Some(state) = tray.app_handle().try_state::<TrayRect>() {
+                            *state.0.lock().unwrap() =
+                                Some((rect.position.to_physical(1.0), rect.size.to_physical(1.0)));
+                        }
+                    }
                     if let TrayIconEvent::Click {
                         button: MouseButton::Left,
                         button_state: MouseButtonState::Up,
@@ -98,6 +121,7 @@ pub fn run() {
                 let shortcut_plugin = tauri_plugin_global_shortcut::Builder::new()
                     .with_shortcuts(["alt+cmd+p"])?
                     .with_handler(|app, shortcut, event| {
+                        log::debug!("shortcut: {shortcut:?} {:?}", event.state);
                         if event.state == ShortcutState::Pressed
                             && shortcut.matches(Modifiers::ALT | Modifiers::META, Code::KeyP)
                         {
