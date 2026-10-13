@@ -1,0 +1,8 @@
+# Cloudflare Workers static assets: these apply to files served from
+# dist/client only. SSR pages get the same headers from
+# src/lib/security-headers.ts; keep the two in sync.
+/*
+  Content-Security-Policy: frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
