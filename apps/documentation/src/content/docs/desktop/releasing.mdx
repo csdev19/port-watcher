@@ -20,9 +20,11 @@ This page is the day-to-day flow.
 3. Merge it. That creates the `desktop-v0.2.0` tag, which runs
    `release-desktop.yml`.
 4. release-please has already published the GitHub Release with the
-   changelog. When the run finishes, the DMGs and `SHA256SUMS` are in R2 and
-   attached to that release. The workflow only uploads assets; it never
-   changes the release's draft or prerelease state.
+   changelog. When the run finishes, the DMGs, the update archives and
+   `SHA256SUMS` are in R2 and attached to that release, and the update feed
+   (`updates/latest.json`) announces the new version to every installed copy.
+   The workflow only uploads assets; it never changes the release's draft or
+   prerelease state.
 
 Web works the same way with `web-v*` tags and `release-web.yml`.
 
@@ -48,29 +50,103 @@ local builds, CI and releases.
 Public URL = `DOWNLOAD_BASE_URL` + path. The landing's two download buttons (Apple silicon
 and Intel) link to the `latest/` aliases.
 
-| Path in the `R2_BUCKET` bucket     | Contents                                | Cache             |
-| ---------------------------------- | --------------------------------------- | ----------------- |
-| `download/latest/chapay-arm64.dmg` | Newest Apple Silicon build              | revalidate always |
-| `download/latest/chapay-x64.dmg`   | Newest Intel build                      | revalidate always |
-| `download/latest/SHA256SUMS`       | SHA-256 of both `latest/` DMGs          | revalidate always |
-| `download/<version>/…`             | The same files per version, last 3 kept | immutable, 1 year |
+| Path in the `R2_BUCKET` bucket                          | Contents                                        | Cache             |
+| ------------------------------------------------------- | ----------------------------------------------- | ----------------- |
+| `download/latest/chapay-arm64.dmg`                      | Newest Apple Silicon build                      | revalidate always |
+| `download/latest/chapay-x64.dmg`                        | Newest Intel build                              | revalidate always |
+| `download/latest/SHA256SUMS`                            | SHA-256 of the newest DMGs and update archives  | revalidate always |
+| `download/<version>/chapay-<arch>.dmg`                  | The DMGs per version, last 3 versions kept      | immutable, 1 year |
+| `download/<version>/chapay-<arch>.app.tar.gz` (+`.sig`) | In-app update archive and its updater signature | immutable, 1 year |
+| `download/<version>/SHA256SUMS`                         | SHA-256 of that version's DMGs and archives     | immutable, 1 year |
+| `updates/latest.json`                                   | The update feed every installed copy reads      | revalidate always |
 
 The versioned files are uploaded and checked first (**Verify versioned URLs**);
-only then does `latest/` move to the new version (**Verify latest URLs**). A
-bucket without public access, or a wrong variable, breaks the release while
-`latest/` still serves the previous version, not a user's click.
+only then does `latest/` move to the new version (**Verify latest URLs**), and
+only after that does the feed move (**Publish the update feed (last)**,
+**Verify the update feed**). A bucket without public access, or a wrong
+variable, breaks the release while `latest/` and the feed still serve the
+previous version, not a user's click.
 
-Before anything is uploaded, **Verify signature and notarization** mounts each
-DMG and runs `codesign --verify`, `spctl --assess` and `xcrun stapler validate`
-on the app inside it.
+Before anything is uploaded, **Verify signature and notarization** runs
+`codesign --verify`, a `codesign` check against chapay's designated
+requirement (bundle id, Developer ID, Team ID `K9TKC5GG76`), `spctl --assess`
+and `xcrun stapler validate` on the app inside each DMG and inside each update
+archive. **Verify update signatures** checks each archive's `.sig` with
+`minisign` against the public key committed in `tauri.conf.json`, and that the
+signature is bound to this version.
+
+## In-app updates
+
+chapay checks `$DOWNLOAD_BASE_URL/updates/latest.json` once after launch and
+then daily (users can turn this off in Settings › General), and installs only
+when the user clicks **Update** (decision:
+[ADR 0007](https://github.com/csdev19/port-watcher/blob/main/docs/adr/0007-desktop-updates-through-tauri-updater.md)).
+
+- **The endpoint is injected at build time** from `DOWNLOAD_BASE_URL`
+  (`tauri build --config`). The committed `tauri.conf.json` has no endpoint, so
+  local and `tauri dev` builds show "Updates are off in this build" and never
+  contact the feed.
+- **The feed is written last** by `apps/desktop/scripts/updater-feed.sh`. Its
+  URLs point at the immutable `download/<version>/` archives. The workflow reads
+  the live feed from the bucket first and fails rather than move it to an
+  older version; the same version is republished (a rerun re-signs the
+  archives, so the feed must carry the new signatures). Avoid rerunning a
+  published tag anyway: the archives are served with a one-year cache, so a
+  re-signed archive can disagree with a cached copy. Cut a patch release
+  instead.
+- **The feed URL is permanent.** Every installed copy keeps requesting the URL
+  it was built with. Changing `DOWNLOAD_BASE_URL` (for example to a custom
+  domain) needs a bridge release: build one release with the new value, and
+  keep the old feed published and frozen on that release until users have
+  moved.
+- **Before installing**, the app checks the downloaded `chapay.app` against
+  chapay's designated requirement with `codesign`, on top of the updater
+  signature, so a leaked updater key alone cannot ship code.
 
 ## Trying the pipeline without releasing
 
 Run **Release Desktop** from the Actions tab (`workflow_dispatch`) on `main`;
 a manual run on any other branch is skipped, so the signing secrets only ever
 meet code already on `main`. It builds, signs and notarizes both DMGs and
-attaches them to the run as an artifact for 3 days. It uploads nothing to R2
-and creates no release.
+update archives, signs the archives with the updater key, writes
+`latest.json`, and attaches all of it to the run as an artifact for 3 days. It
+uploads nothing to R2, moves no feed and creates no release.
+
+## Testing an update before users get it
+
+The first updater release is the one release that cannot be fixed by an
+update, so rehearse it end to end:
+
+1. Run **Release Desktop** manually on `main` and download the `chapay-macos`
+   artifact. In the log, check: the endpoint printed by **Build** is
+   `$DOWNLOAD_BASE_URL/updates/latest.json`; **Verify signature and
+   notarization** passes for the four apps (two DMGs, two archives); **Verify
+   update signatures** prints `Signature and comment signature verified` and a
+   trusted comment ending in `version:<VERSION>` for both archives;
+   `latest.json` lists both platforms.
+2. Install that build's DMG in `/Applications` and grant Full Disk Access.
+   About shows "Check for updates", not "Updates are off in this build".
+3. Release it for real (merge the release PR). After the run, About and the
+   banner say you are on the latest version.
+4. Merge any small `fix:` to cut the next patch release. Within a day, or at
+   once with Settings › About › Check for updates, the panel banner offers it.
+   Click **Update**, then **Restart to update**. Check that the version in
+   About changed and that Settings › Permissions still shows Full Disk Access
+   granted (spec section 3.7).
+
+To try the Developer ID gate on real files without a release:
+
+```sh
+mkdir -p /tmp/gate && hdiutil attach chapay-arm64.dmg -nobrowse -readonly -mountpoint /tmp/gate/mnt
+(cd /tmp/gate/mnt && COPYFILE_DISABLE=1 tar -czf /tmp/gate/chapay.app.tar.gz chapay.app)
+hdiutil detach /tmp/gate/mnt
+cd apps/desktop/src-tauri
+CHAPAY_SIGNED_ARCHIVE=/tmp/gate/chapay.app.tar.gz cargo test real_archives -- --ignored --nocapture
+```
+
+Set `CHAPAY_FOREIGN_ARCHIVE` as well (an archive of the same app re-signed ad
+hoc with `codesign --force --deep -s -`, or with one file changed) to see it
+refused.
 
 ## Building locally
 
@@ -84,9 +160,11 @@ It is unsigned unless a Developer ID identity is in your keychain.
 
 CI does the same in two phases, so the signing certificate is never on the
 machine while third-party build code runs: `tauri build --no-bundle` compiles
-first, then the certificate is imported and `tauri bundle --bundles dmg` signs,
-notarizes and packages the already built binary. Locally, set `CI=true` for
-`tauri bundle`, or the DMG script tries to drive Finder.
+first (with the update endpoint injected), then the certificate is imported
+and `tauri bundle --bundles app,dmg` signs, notarizes and packages the already
+built binary, and signs the update archives. Locally, set `CI=true` for
+`tauri bundle`, or the DMG script tries to drive Finder. A local build has no
+update endpoint, so it never updates itself.
 
 ## First release (one-time owner setup)
 
@@ -114,7 +192,8 @@ same as in my-pets, so the Apple and Cloudflare values can be copied from there.
    It pushes each known name with `gh`, fills `R2_BUCKET` with its default
    (`chapay-bucket`) and ends with the audit below. Rerun it any time;
    `bash scripts/production-env.sh check` lists which names are still missing.
-7. **Rehearse**: run **Release Desktop** from the Actions tab. It builds, signs
+7. **Updater key**: generate it and commit the public key (runbook below).
+8. **Rehearse**: run **Release Desktop** from the Actions tab. It builds, signs
    and notarizes but publishes nothing. Then merge the release PRs.
 
 ## Secrets (`production` environment)
@@ -127,6 +206,62 @@ same as in my-pets, so the Apple and Cloudflare values can be copied from there.
 | `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`              | R2 upload (S3 API keys)                            |
 | `CLOUDFLARE_ACCOUNT_ID`                                 | R2 endpoint and Worker deploy                      |
 | `CLOUDFLARE_API_TOKEN`                                  | Worker deploy + custom-domain DNS record           |
+| `TAURI_SIGNING_PRIVATE_KEY`                             | updater private key (the key file's contents)      |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`                    | its password                                       |
+
+## Updater signing key (runbook)
+
+Every update archive is signed with one minisign key. The private key can push
+code to every installed copy (together with control of the feed), and losing
+it strands every installed copy. Treat it like the Developer ID certificate.
+
+**Generate once, on the owner's Mac:**
+
+```sh
+cd apps/desktop
+bunx tauri signer generate -w ~/.tauri/chapay-updater.key   # use a password from the password manager
+```
+
+It writes `~/.tauri/chapay-updater.key` (private) and
+`~/.tauri/chapay-updater.key.pub` (public); both files are single base64 lines.
+
+**Store:**
+
+1. **Public key → the repository.** Replace `CHAPAY_UPDATER_PUBLIC_KEY_NOT_SET`
+   in `apps/desktop/src-tauri/tauri.conf.json` (`plugins.updater.pubkey`) with
+   the full contents of `chapay-updater.key.pub`, and commit it. The release
+   workflow refuses to build while the placeholder is there, and verifies every
+   signature against this value.
+2. **Private key and password → GitHub.** `production` environment secrets
+   `TAURI_SIGNING_PRIVATE_KEY` (contents of `chapay-updater.key`) and
+   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, through `bash scripts/production-env.sh load`.
+3. **Everything → the password manager**, one item "chapay updater signing key":
+   private key contents, password, public key, creation date, and the key id
+   from the public key's comment line. A second offline copy (for example an
+   encrypted USB drive) is recommended: losing every copy cannot be undone.
+4. Delete `~/.tauri/chapay-updater.key` so the key lives only in those places.
+
+Before the first signed release, turn off administrator bypass on the
+`production` environment: it now holds a key that reaches every user.
+
+**Rotate** (suspected leak, or routine). Tauri accepts one public key at a
+time, so a rotation is a bridge release plus a new feed path:
+
+1. Generate a new key and store it as above, under a new password-manager item.
+2. Release N is still signed with the old key, and ships the new public key in
+   `tauri.conf.json` and the new feed path `updates/v2/latest.json`
+   (`FEED_PATH` in `release-desktop.yml`).
+3. Release N also updates the old `updates/latest.json` one last time. From
+   then on the workflow signs with the new key and writes only the v2 feed.
+4. Never delete the old feed: older copies still read it and find release N.
+
+**Leaked key.** On its own it cannot reach users: installed copies also demand
+chapay's Developer ID signature before installing. Rotate anyway, and review R2
+tokens and Cloudflare access.
+
+**Lost key.** No bridge is possible; installed copies are stranded on their
+version. Ship a release with a new key and feed path and ask users to install
+it by hand from the landing.
 
 ## Variables (`production` environment)
 
@@ -135,8 +270,9 @@ same as in my-pets, so the Apple and Cloudflare values can be copied from there.
 | `R2_BUCKET`         | bucket name                                                            |
 | `DOWNLOAD_BASE_URL` | the bucket's public URL, no trailing slash (`https://pub-<id>.r2.dev`) |
 
-`DOWNLOAD_BASE_URL` is baked into the landing at web release time, so changing
-it needs a web release.
+`DOWNLOAD_BASE_URL` is baked into the landing at web release time, and into
+every desktop build as the update endpoint (`/updates/latest.json`). Changing
+it needs a web release _and_ a desktop bridge release (see "In-app updates").
 
 `DATABASE_URL`, `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` are not read while
 auth and the database are disabled in the web app; their workflow lines are

@@ -1,50 +1,55 @@
 # Desktop auto-updater — in-app updates for chapay
 
-Date: 2026-10-13 · Status: draft for owner review · Owner: csdev19
+Date: 2026-10-13 · Status: approved with owner decisions; implemented on `feat/auto-updater` ·
+Owner: csdev19
 
-This document proposes work that does not exist yet. On `main` the desktop app has no updater
-and no update check; the on-click "Check for updates" lives only on the open branch
-`feat/settings` (PR #45). Nothing below is implemented. The decision is drafted as
-[ADR 0007](../adr/0007-desktop-updates-through-tauri-updater.md) (Status: Proposed).
+Implementation status: the updater is implemented on branch `feat/auto-updater` (built on
+`feat/settings`, PR #45); neither branch is on `main`. No release has run the new workflow steps
+yet, and the updater public key in `tauri.conf.json` is a placeholder until the owner commits the
+real one. The decision is [ADR 0007](../adr/0007-desktop-updates-through-tauri-updater.md)
+(Status: Accepted). Where the owner's decisions below differ from the original recommendations,
+the sections that follow were updated to match; section 5 lists what the implementation does
+differently from the draft.
 
 ## One-minute summary
 
-chapay should update itself with **`tauri-plugin-updater`**, fed by a static `latest.json` on the
-same Cloudflare R2 bucket that already serves the DMGs. The release workflow adds one signed
-`.app.tar.gz` per architecture and writes the feed **last**, after every file it points at has
-been uploaded and checked. The user starts every update: the fuchsia "Check for updates" button in
-Settings › About becomes "Update to X.Y.Z" and then "Restart chapay". An automatic daily check is
-an opt-in setting, off by default, to keep the app's only network traffic user-initiated. Before
-installing, the app also checks that the downloaded app carries chapay's own Developer ID
-signature. With that check, a leaked updater key alone cannot push code to users. Everyone on
-`0.1.0` has to download the DMG by hand once; after that, updates happen inside the app.
+chapay updates itself with **`tauri-plugin-updater`**, fed by a static `updates/latest.json` on
+the same Cloudflare R2 bucket and public URL (`DOWNLOAD_BASE_URL`, today `r2.dev`) that already
+serves the DMGs. The release workflow injects that endpoint into the build, adds one signed
+`.app.tar.gz` per architecture, and writes the feed **last**, after every file it points at has
+been uploaded and checked. chapay checks the feed once at launch and then daily (a setting, on by
+default). When a newer version exists, a slim banner at the top of the panel offers **Update**,
+and the panel's gear gets a fuchsia dot; Settings › About runs the same flow. Nothing downloads or
+installs without a click, and the restart is a click too. Before installing, the app checks that
+the downloaded app carries chapay's own Developer ID signature, so a leaked updater key alone
+cannot push code to users. Everyone on `0.1.0` downloads the `0.2.0` DMG by hand once; after
+that, updates happen inside the app.
 
 | Decision                                                                                            | Why                                                                                                                                                                                   | ADR                                                                                                                                        |
 | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | Use `tauri-plugin-updater` (not Sparkle, not notify-only)                                           | First-party for Tauri 2, Rust-only, fits the existing release job; Sparkle's extra features (deltas, Developer ID key recovery) do not pay for an Objective-C framework in a 2 MB app | creates [0007](../adr/0007-desktop-updates-through-tauri-updater.md)                                                                       |
 | Host a static `updates/latest.json` on R2, not GitHub Releases                                      | The repo's GitHub "Latest" release is `web-v0.1.0`, so `releases/latest/download/…` cannot serve the desktop line                                                                     | 0007; reuses [0003](../adr/0003-release-please-and-desktop-distribution.md), [0004](../adr/0004-public-hostnames-and-release-variables.md) |
-| Put the feed on a custom domain before the first updater build                                      | Every installed copy keeps the feed URL it was built with; `r2.dev` is rate-limited and meant for development                                                                         | 0007; meets ADR 0004's reopen condition                                                                                                    |
+| Serve the feed from the existing `r2.dev` URL; inject the endpoint at release build time            | Owner decision: no custom domain now. Moving later needs a bridge release (ADR 0007's reopen condition). Injection keeps dev builds off the feed                                      | 0007; meets ADR 0004's reopen condition                                                                                                    |
 | Write the feed last, and refuse to move it to an older version                                      | The live feed is the release boundary (hub rule)                                                                                                                                      | none (hub rule applied)                                                                                                                    |
 | Turn on `requireSignedVersion` from the first release                                               | Stops a crafted feed from pairing a new version number with an old signed artifact; costs nothing because no older signatures exist                                                   | 0007                                                                                                                                       |
 | Check the update's Developer ID requirement before installing                                       | The plugin checks only its own minisign signature; this adds Apple's signature as a second key the attacker must also hold                                                            | 0007                                                                                                                                       |
-| Make every update user-initiated; offer an opt-in daily check                                       | Keeps the owner's local-first, minimal-network default                                                                                                                                | 0007                                                                                                                                       |
+| Check automatically at launch and daily (on by default); install only on a click                    | Owner decision: releases should reach users who never open About. The request carries no version or identifier                                                                        | 0007                                                                                                                                       |
+| Show updates in a panel banner and a dot on the gear, and in About                                  | Owner decision: non-invasive, no dialogs, no forced restart                                                                                                                           | 0007                                                                                                                                       |
 | Store the updater key in the `production` environment, with an offline copy in the password manager | Same place as the Apple secrets; losing the key strands every installed copy                                                                                                          | none                                                                                                                                       |
 | Restrict `production` to `main` and release tags first                                              | The updater key can run code on every installed copy                                                                                                                                  | none (hub rule applied)                                                                                                                    |
 
-**Open questions for the owner**
+**Owner decisions (2026-10-13)** — answers to the draft's open questions
 
-1. **Feed hostname.** Which custom domain goes on the bucket? I recommend one first-level name
-   such as `chapay-releases.cs19.dev` (Universal SSL covers `*.cs19.dev` but not
-   `*.chapay.cs19.dev`). It becomes permanent for every installed copy.
-2. **Automatic check default.** Off (recommended, matches "local-first") or on? With it off, most
-   users will update only when they open About.
-3. **Offline key backup.** Is the password manager the only backup, or do you also want a second
-   offline copy (an encrypted USB drive, for example)? Losing every copy cannot be undone.
-4. **Release order with PR #45.** Should the updater ship in the same release as Settings, or
-   right after it? Either way, every current user downloads one DMG by hand. Shipping the two
-   together avoids a release that has only the notify-only check.
-5. **Panel hint.** When the opt-in check finds an update, should the panel show a small dot on
-   its Settings entry? The alternative is to show the update only in About.
+1. **Feed hostname:** the existing R2 public URL (`DOWNLOAD_BASE_URL`), no custom domain. The
+   cost is recorded in ADR 0007: `r2.dev` is rate-limited and not meant for production, and the
+   URL is baked into installed copies, so moving needs a bridge release.
+2. **Automatic check:** on by default, at launch and at most every 24 hours, with a General
+   setting to turn it off. Only the check is automatic.
+3. **Offline key backup:** still open; the runbook in `releasing.mdx` asks for a password-manager
+   copy and recommends a second offline one.
+4. **Release order:** the updater ships in the same release as Settings (`0.2.0`).
+5. **Panel hint:** yes — a fuchsia dot on the panel footer's gear, plus a banner at the top of
+   the panel.
 
 **Out of scope:** delta updates; beta or staged channels; Windows and Linux; a dynamic update
 server; update analytics or telemetry; the implementation plan (`docs/plans/` comes after this
@@ -264,27 +269,32 @@ the **fallback**: if the in-app install fails, About still offers "Download".
 ### 3.1 Architecture
 
 ```text
-Settings › About (React)
-   │ invoke("update_check") / ("update_install") / ("update_restart")
+Panel banner + gear dot (App.tsx)     Settings › About (React)
+   │ invoke("update_status" | "update_check" | "update_install" | "update_restart")
+   │ listen("update-status")  ← every state change, to every window
    ▼
-src-tauri/src/update.rs  (owns the updater; the webview gets no updater:* permission)
-   ├─ check:    UpdaterExt::updater() → GET https://<feed-host>/updates/latest.json
+src-tauri/src/update/  (owns the updater and its state; no updater:* permission anywhere)
+   ├─ check:    UpdaterExt::updater_builder() → GET $DOWNLOAD_BASE_URL/updates/latest.json
+   │            (at launch + daily when autoCheckUpdates is on, or on a click)
    ├─ install:  Update::download() → verify minisign + signed version (plugin)
-   │            → extract to temp → codesign --verify -R=<chapay DR> (ours)
+   │            → unpack to temp → codesign --verify --strict --deep -R <chapay DR> (ours)
    │            → Update::install(bytes)  (atomic bundle swap)
    └─ restart:  AppHandle::restart()
 ```
 
 - **Rust owns the updater**, like the kill policy in
-  [ADR 0006](../adr/0006-kill-policy-enforced-in-rust.md). The webview calls three app commands.
-  Capabilities do not gain `updater:default`, so a webview bug cannot install anything.
+  [ADR 0006](../adr/0006-kill-policy-enforced-in-rust.md). The webview calls four app commands
+  and listens to one event. Capabilities do not gain `updater:default`, so a webview bug cannot
+  install anything.
 - **One network destination.** The feed replaces the GitHub API call in PR #45's `update.rs`. The
-  "Release notes" button still opens GitHub in the browser, which is the user's choice. The CSP
-  stays as it is.
-- **Config** in `tauri.conf.json` under `plugins.updater`: `pubkey` (the public key's contents),
-  `endpoints: ["https://<feed-host>/updates/latest.json"]` with no URL variables, so the request
-  carries no version, and `requireSignedVersion: true`. `bundle.createUpdaterArtifacts` stays
-  unset in the file.
+  "Release notes" and fallback "Download" buttons still open GitHub in the browser, which is the
+  user's choice. The CSP stays as it is.
+- **Config** in `tauri.conf.json` under `plugins.updater`: `pubkey` (the public key's contents;
+  a placeholder until the owner commits it), `endpoints: []` and `requireSignedVersion: true`.
+  The release workflow injects the endpoint (`$DOWNLOAD_BASE_URL/updates/latest.json`, no URL
+  variables, so the request carries no version) with `tauri build --config`. Local and dev
+  builds have no endpoint, show "Updates are off in this build" and never contact the feed.
+  `bundle.createUpdaterArtifacts` stays unset in the file.
 - **Versions:** `tauri-plugin-updater` ≥ 2.13.2 (safe macOS install), `@tauri-apps/cli` ≥ 2.12.0
   (signed version).
 
@@ -317,19 +327,22 @@ Each step names the existing step it extends. Publishing steps keep their
 6. **Write the feed (local only).** Use `jq` to build `latest.json` with `version`, `notes` (one
    line plus the GitHub Release URL), `pub_date` (UTC, RFC 3339) and `platforms.darwin-aarch64`
    and `darwin-x86_64`. Each `url` points at `$DOWNLOAD_BASE_URL/download/${VERSION}/chapay-<arch>.app.tar.gz`,
-   the immutable copy, never `latest/`. Each `signature` is the `.sig` file's contents. Fail if
-   the endpoint in `tauri.conf.json` does not start with `$DOWNLOAD_BASE_URL/`, so the feed and the
-   build cannot disagree about the host.
+   the immutable copy, never `latest/`. Each `signature` is the `.sig` file's contents. The
+   endpoint is injected from the same `DOWNLOAD_BASE_URL`, so the feed and the build cannot
+   disagree about the host; the verify step also greps each built binary for the endpoint.
+   (Implemented in `apps/desktop/scripts/updater-feed.sh`, with tests.)
 7. **Publish versioned.** Also upload the two archives and their `.sig` files to
    `download/${VERSION}/` with the immutable cache header.
 8. **Verify versioned URLs.** Add the four new paths.
 9. **Publish latest / Verify latest.** No change. `latest/` stays the DMG alias for the landing;
    the archives do not need a `latest/` copy.
-10. **Publish the feed (new, last publishing step).** Download the live `updates/latest.json`,
-    if there is one, and **refuse to continue** if its version is greater than or equal to
-    `${VERSION}`. A rerun of an old tag must never move the feed backwards. Then upload
-    `updates/latest.json` with `public, max-age=0, must-revalidate` and
-    `application/json`.
+10. **Publish the feed (new, last publishing step).** Read the live `updates/latest.json`
+    straight from the bucket (S3 API, not a cache), if there is one, and **refuse to continue**
+    if its version is greater than `${VERSION}`. A rerun of an old tag must never move the feed
+    backwards. The same version is republished rather than refused: a rerun re-signs and
+    re-uploads that version's archives, and a feed left with the old signatures would make
+    every install fail its signature check. Then upload `updates/latest.json` with
+    `public, max-age=0, must-revalidate` and `application/json`.
 11. **Verify the feed (new).** `curl` it, check `.version == VERSION`, and `HEAD` each platform
     `url`.
 12. **Prune.** No change in logic. It lists only `download/` and the feed points at the newest
@@ -347,20 +360,27 @@ Docs to update in the implementation PR: `releasing.mdx` (new secrets, the `upda
 rehearsal outputs), `scripts/production-env.sh` (known names), and amendment notes on ADRs 0003
 and 0004.
 
-### 3.3 Feed hostname (do this before the first updater build)
+### 3.3 Feed hostname (decided: the existing `r2.dev` URL)
 
 Every installed copy requests the feed URL it was built with, forever. The URLs _inside_ the feed
-can change on any release; the feed URL cannot. So:
+can change on any release; the feed URL cannot.
 
-1. Add one R2 custom domain on `chapay-bucket` (open question 1; for example
-   `chapay-releases.cs19.dev`).
-2. Set `DOWNLOAD_BASE_URL` to it. That also needs a web release so the landing picks it up
-   (ADR 0004).
-3. Commit the feed URL into `tauri.conf.json`.
+The draft recommended a custom domain before the first updater build. **The owner chose the
+existing R2 public URL** (`DOWNLOAD_BASE_URL`, a `pub-….r2.dev` URL). Consequences, recorded in
+ADR 0007:
 
-The `r2.dev` URL keeps working for old links. It is not added as a second endpoint, because the
-plugin falls back only on non-2xx responses (behaviour on a DNS or TLS failure is unverified) and
-because every extra endpoint is one more permanent host.
+- Cloudflare rate-limits `r2.dev` URLs and documents them as not meant for production. One small
+  JSON request per copy per day is far below any limit at chapay's scale; if the limit bites,
+  checks fail quietly (no banner) until the feed moves.
+- `DOWNLOAD_BASE_URL` becomes part of every installed copy. Changing the variable no longer only
+  needs a web release (ADR 0004): it needs a **bridge release** — a release built with the new
+  endpoint, published to the old feed as well, which stays alive (frozen on the bridge version)
+  until the installed base has moved.
+
+The endpoint is not committed: the release workflow injects `$DOWNLOAD_BASE_URL/updates/latest.json`
+at build time, and refuses to build when the variable is not an HTTPS URL. No second endpoint is
+added, because the plugin falls back only on non-2xx responses (behaviour on a DNS or TLS failure
+is unverified) and because every extra endpoint is one more permanent host.
 
 ### 3.4 Key management runbook
 
@@ -392,7 +412,8 @@ rotation is a **bridge release** plus a **new feed path**:
 
 1. Generate K2 and store it as above, under a new password-manager item.
 2. Release N, still signed with K1, ships K2's public key **and** a new endpoint
-   `updates/v2/latest.json`.
+   `updates/v2/latest.json` (change `FEED_PATH` in `release-desktop.yml`; the endpoint is
+   injected from it).
 3. Release N updates the old feed `updates/latest.json` for the last time. From then on, the
    workflow writes only `updates/v2/latest.json` and signs with K2.
 4. A copy on any version below N reads the old feed, gets N (verified with K1), restarts, and
@@ -407,8 +428,8 @@ rotate as above, and check R2 tokens and Cloudflare access.
 
 **Lost key (every copy).** No bridge is possible, so every installed copy is stranded on its
 version. The remedy is the `0.1.0` migration again: ship a release with a new key and endpoint,
-and ask users to download it by hand (landing, release notes, and the last notify-only fallback
-in About, which still works because it needs no key). That is why the second offline copy (open
+and ask users to download it by hand (landing, release notes). Installed copies cannot be told
+in-app: their feed can no longer be signed for. That is why the second offline copy (open
 question 3) matters.
 
 ### 3.5 Migration of the `0.1.0` installed base
@@ -422,9 +443,8 @@ question 3) matters.
   release ("This release adds in-app updates. Install it once from the DMG; later versions
   install from Settings › About."), and any channel the owner uses. There is no in-app message,
   because `0.1.0` cannot show one.
-- **If PR #45 ships before the updater** (open question 4), that release's About already says
-  "chapay X is available" with a Download button. Point that button at the DMG for the user's
-  architecture on R2 rather than the GitHub release page, so the manual hop is one click shorter.
+- Settings and the updater ship together in `0.2.0` (owner decision 4), so no release carries
+  only the notify-only check.
 - From the first updater release on, About never needs migration copy.
 
 ### 3.6 Developer ID gate before installing (defence in depth)
@@ -433,18 +453,36 @@ The plugin trusts the minisign key alone. chapay splits the install into steps:
 
 1. `Update::download()` returns the verified bytes.
 2. chapay extracts them to a temp folder.
-3. It runs `codesign --verify --strict -R='<designated requirement>'` on the extracted
-   `chapay.app`, or the Security framework's `SecStaticCodeCheckValidity` with that requirement.
-   The requirement is the one quoted in section 1, Developer ID markers included, compiled in as
-   a constant.
+3. It runs `codesign --verify --strict --deep -R '=<designated requirement>'` on the extracted
+   `chapay.app`. The requirement is the one quoted in section 1, Developer ID markers included,
+   compiled in as a constant (`src-tauri/src/update/identity.rs`).
 4. Only then does it call `Update::install(bytes)`.
 
-If the check fails, chapay installs nothing and About shows "This update isn't signed by chapay's
-developer" with the manual Download link. An attacker now needs the minisign key, the
-Developer ID certificate _and_ control of the feed. The Developer ID requirement is the one macOS
-already uses to recognise chapay.
+If the check fails, chapay installs nothing; the banner and About say "This update isn't signed by
+chapay's developer", and About offers "Download instead". An attacker now needs the minisign key,
+the Developer ID certificate _and_ control of the feed. The Developer ID requirement is the one
+macOS already uses to recognise chapay.
 
-The cost is a second extraction (2 MB) and about 40 lines of Rust. It also keeps the Team ID
+**What the gate checks, exactly** (as implemented):
+
+- The plugin installs an archive by dropping each entry's first path component into a temp
+  folder that becomes the new bundle. The gate therefore refuses any archive that is not exactly
+  one `chapay.app` tree: every entry must start with `chapay.app`, contain no `..`, absolute or
+  `.` component, and be a plain file, folder or symlink. It unpacks the same bytes with
+  `tar`'s `unpack_in` (which also refuses writes through symlinks that leave the folder). Given
+  that shape, what is checked is what the plugin installs.
+- `codesign` exit status 0 passes. Status 3 (valid signature, wrong requirement: another team,
+  another bundle id, ad hoc) and anything else (unsigned, modified, codesign missing) refuse.
+- Verified on 2026-10-13 against real files: the shipped `0.1.0` app passes; the same app
+  re-signed ad hoc fails with "code failed to satisfy specified code requirement(s)"; the same
+  app with one byte appended to `Info.plist` fails as modified.
+
+**What it does not check:** notarization (the stapled ticket is checked in CI, not on the user's
+Mac; the downloaded files carry no quarantine flag, so Gatekeeper does not assess them either),
+and whether the new app's `CFBundleShortVersionString` equals the feed's version
+(`requireSignedVersion` already binds the archive to that version).
+
+The cost is a second extraction (2 MB) and about 100 lines of Rust. It also keeps the Team ID
 fixed. Moving to another Apple team would need a bridge release, which matches how TCC treats a
 team change anyway.
 
@@ -474,50 +512,71 @@ Run it on Apple silicon and Intel if possible.
 
 **Settings › About.** The fuchsia primary button is the state machine:
 
-| State               | Primary button (fuchsia)       | Status line                                      |
-| ------------------- | ------------------------------ | ------------------------------------------------ |
-| idle                | Check for updates              | —                                                |
-| checking            | Checking… (spinner, disabled)  | —                                                |
-| up to date          | Check for updates              | You're on the latest version.                    |
-| available           | **Update to 0.3.0**            | chapay 0.3.0 is available · Release notes        |
-| downloading         | Updating… (progress, disabled) | Downloading 1.4 / 2.2 MB                         |
-| installed           | **Restart chapay**             | 0.3.0 is installed. chapay restarts in a second. |
-| cannot install here | Download                       | Move chapay to Applications to update in place.  |
-| failed              | Try again                      | Couldn't update. · Download instead              |
+| State               | Primary button (fuchsia)      | Status line                                          |
+| ------------------- | ----------------------------- | ---------------------------------------------------- |
+| updates off (dev)   | Check for updates (disabled)  | Updates are off in this build.                       |
+| idle                | Check for updates             | —                                                    |
+| checking            | Checking… (spinner, disabled) | —                                                    |
+| up to date          | Check for updates             | You're on the latest version.                        |
+| check failed        | Check for updates             | Couldn't check for updates.                          |
+| available           | **Update to 0.3.0**           | chapay 0.3.0 is available.                           |
+| downloading         | Updating… (spinner, disabled) | Downloading 1.4 / 2.2 MB                             |
+| installed           | **Restart chapay**            | 0.3.0 is installed. Restart chapay to finish.        |
+| cannot install here | Download                      | Move chapay to Applications to update in place.      |
+| failed              | Try again                     | (reason, e.g. "Couldn't update.") · Download instead |
+
+**Panel banner** (owner decision 2 and 5). A slim bar at the top of the panel, above the search:
+
+| State               | Banner                                                  |
+| ------------------- | ------------------------------------------------------- |
+| available           | chapay 0.3.0 is available · **Update** (fuchsia) · ×    |
+| downloading         | Updating to 0.3.0… 45% (thin fuchsia progress line)     |
+| installed           | chapay 0.3.0 is ready · **Restart to update** (fuchsia) |
+| failed              | (reason) · Try again · ×                                |
+| cannot install here | Move chapay to Applications to update. · ×              |
+| anything else       | hidden                                                  |
+
+× dismisses the banner for that version only (setting `dismissedUpdateVersion`); a newer version
+shows it again, and "Restart to update" always shows. While any version is waiting, the panel
+footer's gear carries a small fuchsia dot (its accessible name says which version). Panel and
+About read the same Rust state through the `update-status` event, so a click in one updates both.
 
 - A download is about 2 MB, so there is no background pre-download. One click downloads,
   verifies and installs, which takes seconds. A restart needs its own click, because chapay may
-  be mid-kill-confirmation in the panel.
+  be mid-kill-confirmation in the panel. No dialogs anywhere; every message is inline.
 - **Restarting loses nothing.** chapay holds no session state: the port list is re-read, and
   settings are on disk. The restart re-registers the global shortcut. If the user never clicks
-  Restart, the new version runs at the next launch. About shows "Restart chapay" for as long as
-  the running version is older than the installed one.
-- **No Dock icon** means no badge and no app menu. Restart therefore lives in About. If a tray
-  menu exists by then, a "Restart to update" item can go there as well.
-- **Settings › General** gains a "Check for updates automatically" switch (open question 2).
-  When on: one check about 10 seconds after launch, then every 24 hours while running. It never
-  downloads without a click.
-- **Panel** (open question 5): only when the automatic check found an update, a small fuchsia
-  dot on the panel's Settings entry. Nothing is installed from the panel.
-- **Debug builds** skip the automatic check, so `tauri dev` never contacts the production feed.
+  Restart, the new version runs at the next launch. The banner and About show the restart for as
+  long as this process runs.
+- **No Dock icon** means no badge and no app menu: the banner, the gear dot and About carry it.
+- **Settings › General › Updates** has "Check for updates automatically" ("Once when chapay
+  opens, then daily. Nothing else is sent."), bound to `autoCheckUpdates`, **on by default**.
+  When on: one check about 10 seconds after launch, then at most every 24 hours while running
+  (wall-clock, so a Mac that slept overnight checks on wake). The automatic check never replaces
+  an offer on screen or interrupts a download, and it never downloads.
+- **Debug builds** skip the automatic check, and builds without an injected endpoint (every local
+  build) cannot check at all, so `tauri dev` never contacts the production feed.
 
 ### 3.9 Privacy
 
-| Mode              | When the app goes online                  | What leaves the machine                                                                                                                                              |
-| ----------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Today (PR #45)    | On click                                  | IP address, `User-Agent: chapay`, to `api.github.com`                                                                                                                |
-| Proposed, default | On click; when downloading after a click  | IP address, `User-Agent: tauri-plugin-updater/<version>`, to the feed host (Cloudflare). The archive request shows the architecture. No app version, id or settings. |
-| Proposed, opt-in  | Plus once after launch and every 24 hours | Same as above, on a schedule                                                                                                                                         |
+| Mode                         | When the app goes online                                     | What leaves the machine                                                                                                                         |
+| ---------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| PR #45 (replaced)            | On click                                                     | IP address, `User-Agent: chapay`, to `api.github.com`                                                                                           |
+| Default (automatic check on) | ~10 s after launch, then every 24 h; on click; when updating | IP address, `User-Agent: chapay`, to the feed host (Cloudflare R2). The archive request shows the architecture. No app version, id or settings. |
+| Automatic check off          | On click; when downloading after a click                     | Same as above, only when the user asks                                                                                                          |
 
-No URL variables are used, so the request does not carry `current_version`. The User-Agent can
-be overridden with the builder's `header()` to keep it `chapay`.
+No URL variables are used, so the request does not carry `current_version`. The User-Agent is
+overridden with the builder's `header()` to `chapay`.
 
 ### 3.10 Security summary
 
 - **HTTPS only.** The plugin enforces TLS in release builds; `dangerous*` flags stay unset.
-- **No downgrades.** The default comparator requires a newer version and `allowDowngrades` stays
-  off. To recover from a bad release, ship a higher version that reverts it. Never point the feed
-  at an older one; installed copies would ignore it anyway.
+- **HTTPS archives too.** The plugin checks only the endpoint's scheme; chapay also refuses a feed
+  whose archive URL is not HTTPS.
+- **No downgrades.** chapay sets its own comparator: only a strictly newer plain `X.Y.Z` is an
+  update (no pre-release or build-tagged version), and with a comparator set the plugin ignores
+  `allowDowngrades`, which also stays off. To recover from a bad release, ship a higher version
+  that reverts it. Never point the feed at an older one; installed copies would ignore it anyway.
 - **No replay of old releases.** `requireSignedVersion` binds each archive to its version. The
   workflow also refuses to move the feed backwards.
 - **An attacker with R2 write access only** _can_ withhold updates (freeze the feed or serve
@@ -535,7 +594,8 @@ be overridden with the builder's `header()` to keep it `chapay`.
 - **An updater bug is the one bug you cannot fix by shipping an update** (hub, Swift page). Ship
   the first updater release only after a full rehearsal, _and_ test an update from it to a
   throwaway higher version in a test bucket before users depend on it.
-- **The feed hostname is permanent.** A wrong choice is only fixable through a bridge release.
+- **The feed hostname is permanent**, and it is the rate-limited `r2.dev` URL (owner decision 1).
+  Leaving it is only possible through a bridge release (ADR 0007, "Reopen when").
 - **Key loss** means a manual reinstall for everyone (section 3.4).
 - **The first tag run of the new verify and checksum steps** will happen together with the first
   updater steps. Cut one release with the current workflow first, so the two changes fail
@@ -543,7 +603,34 @@ be overridden with the builder's `header()` to keep it `chapay`.
 - **Pitfalls inferred from source** (section 2.1) are unverified until the rehearsal run.
 - **TCC persistence** is expected but not observed (section 3.7).
 
-## 5. References
+## 5. As implemented: differences from the draft
+
+Each item was checked against `tauri-plugin-updater` 2.13.3 and `tauri-cli` 2.12.2 source.
+
+- **Owner decisions** changed the feed host (`r2.dev`, section 3.3), the automatic check (on by
+  default) and the UX (panel banner and gear dot, section 3.8).
+- **Endpoint injected, not committed** (section 3.1): `tauri build --no-bundle --config` sets
+  `TAURI_CONFIG`, which `tauri-build` merges into the compiled config and reruns on. Confirmed
+  with a local release build: the injected URL is in the binary. The workflow greps each built
+  app for it.
+- **Same-version reruns republish the feed** instead of refusing (section 3.2, step 10).
+- **Four commands, not three**: `update_status` lets a window that opens later (Settings) show
+  the state the panel already has. State changes are broadcast as `update-status`.
+- **Archive shape check** in the Developer ID gate (section 3.6), because of how the plugin
+  unpacks archives.
+- **`--bundles app,dmg` confirmed** from `tauri-bundler`: the updater archive is only written when
+  the app bundle type is requested.
+- **The bundler only warns** when the private key does not match the committed public key, so
+  the workflow verifies every `.sig` with `minisign` (from Homebrew, installed before any secret
+  is on the runner) against the committed key, and checks the trusted comment carries
+  `version:<VERSION>`.
+- **Public key placeholder.** `plugins.updater.pubkey` is `CHAPAY_UPDATER_PUBLIC_KEY_NOT_SET`
+  until the owner commits the real key; the workflow's first step refuses to build until it is
+  a minisign public key.
+- **GitHub API check removed.** `update.rs`'s GitHub path, its `check_for_update` command and the
+  `ureq` dependency are gone; `arch_label` stays.
+
+## 6. References
 
 - Tauri 2 updater plugin docs — https://v2.tauri.app/plugin/updater/
 - `tauri-plugin-updater` source and changelog (2.13.3) —

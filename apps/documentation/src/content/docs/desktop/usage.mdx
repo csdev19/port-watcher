@@ -83,6 +83,27 @@ Favourites are ports you want to keep an eye on, even when nothing is running on
   and of chapay. It is stored on your Mac only.
 - Opening the panel always starts on the Listening tab.
 
+## Updates
+
+chapay checks for a newer version once when it opens and then once a day. The check asks one file
+on chapay's download server which version is newest; it sends no app version, identifier or
+setting. To turn it off, open Settings › General and switch off **Check for updates
+automatically**. You can always check by hand in Settings › About › **Check for updates**.
+
+When a newer version exists:
+
+- A slim bar appears at the top of the panel: "chapay 0.3.0 is available". The gear in the panel's
+  footer gets a small pink dot.
+- **Update** downloads and installs it (about 2 MB, a few seconds). The bar shows the progress,
+  then **Restart to update**. Nothing installs, and chapay never restarts, until you click.
+- **×** hides the bar for that version. The dot stays, and Settings › About still offers the
+  update. A newer version brings the bar back.
+- Settings › About runs the same steps: **Update to 0.3.0**, then **Restart chapay**.
+
+Before installing, chapay checks that the download is signed by chapay's developer (both the
+update signature and Apple's Developer ID signature). If a check fails, nothing is installed and
+About offers **Download instead**, which opens the release page.
+
 ## Quit
 
 Right-click the menu-bar icon and choose **Quit**. Closing the panel does not quit the app.

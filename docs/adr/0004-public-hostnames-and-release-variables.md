@@ -113,7 +113,7 @@ layout so the same account, token scopes and mental model serve both apps.
 
 ## Non-goals
 
-- In-app auto-update and an update feed (ADR 0003).
+- In-app auto-update and an update feed (ADR 0003). _(Amended by ADR 0007.)_
 - A `www.` alias or an apex domain for the web app.
 - Windows and Linux installers.
 
@@ -123,3 +123,6 @@ layout so the same account, token scopes and mental model serve both apps.
   custom domain and change the variable.
 - The updater plugin lands: the feed's host is `DOWNLOAD_BASE_URL` and becomes
   permanent for installed copies, so decide the final hostname first.
+  _(Met and decided in [ADR 0007](0007-desktop-updates-through-tauri-updater.md): the owner kept
+  the `r2.dev` URL as the feed host. Moving to a custom domain later now needs a bridge release,
+  not only a variable change.)_
