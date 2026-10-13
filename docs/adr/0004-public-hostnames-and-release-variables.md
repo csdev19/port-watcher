@@ -1,7 +1,9 @@
 # ADR 0004: public hostnames and release variables
 
-**Status:** accepted; configuration is on this branch. The first real run still
-needs the owner setup listed under Consequences.
+**Status:** accepted; configuration is on `main` and in use: release-please has produced
+`desktop-v0.1.0` and `web-v0.1.0` (2026-10-12). The auth-related parts of the Decision and
+Consequences below are superseded by the 2026-10-12 amendment and
+[ADR 0005](0005-disable-web-auth-and-database.md); they are annotated in place.
 **Date:** 2026-10-06.
 
 **Amendment (2026-10-12):** the R2 bucket is `chapay-bucket`, not
@@ -43,7 +45,7 @@ layout so the same account, token scopes and mental model serve both apps.
   `apps/fullstack-fn-only/wrangler.jsonc` (`custom_domain: true`). Wrangler
   creates the DNS record on deploy; the zone must be in the same Cloudflare
   account and the deploy token needs Zone DNS: Edit on it. `BETTER_AUTH_URL`
-  is that origin.
+  is that origin _(only when auth is enabled; it is not read today, ADR 0005)_.
 - **Installers:** the bucket is **public** and its public URL is the
   `DOWNLOAD_BASE_URL` variable, no trailing slash. Today that is the bucket's
   `pub-<id>.r2.dev` URL, exactly as my-pets; a custom domain later is only a
@@ -65,11 +67,16 @@ layout so the same account, token scopes and mental model serve both apps.
   workflow. Both are hub rules
   ([worker-secrets-with-deploy](https://github.com/csdev19/general-knowledge/blob/main/monorepos/worker-secrets-with-deploy.md),
   [wrangler-env-config](https://github.com/csdev19/general-knowledge/blob/main/monorepos/wrangler-env-config.md));
-  this ADR only records that chapay now follows them.
+  this ADR only records that chapay now follows them. _(Today the Worker has no
+  secrets, so the deploy runs without `--secrets-file`; the mechanism returns
+  with auth, ADR 0005.)_
 - **`bootstrap-sha`** is set to the `main` commit at adoption so the first
   release PR's changelog starts there instead of walking the whole history.
   The desktop manifest stays at `0.0.0`, so the first desktop tag is
   `desktop-v0.1.0`, matching the version already in `apps/desktop/package.json`.
+  _(Update: `"initial-version": "0.1.0"` was later added to `release-please-config.json` because
+  release-please otherwise proposed `1.0.0` for the first release; both manifests now say
+  `0.1.0`.)_
 
 ## Alternatives rejected
 
@@ -94,8 +101,8 @@ layout so the same account, token scopes and mental model serve both apps.
   - secrets `RELEASE_PLEASE_TOKEN`, `CSC_LINK`, `CSC_KEY_PASSWORD`,
     `APPLE_API_KEY`, `APPLE_API_KEY_ID`, `APPLE_API_ISSUER`,
     `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `CLOUDFLARE_ACCOUNT_ID`,
-    `CLOUDFLARE_API_TOKEN`, `DATABASE_URL`, `BETTER_AUTH_SECRET`,
-    `BETTER_AUTH_URL`;
+    `CLOUDFLARE_API_TOKEN`, and, only once auth is enabled again (ADR 0005),
+    `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`;
   - variables `R2_BUCKET`, `DOWNLOAD_BASE_URL`;
   - the bucket itself with public access enabled. No DNS record is needed
     for the web hostname: wrangler creates it, and the zone's `*.cs19.dev`

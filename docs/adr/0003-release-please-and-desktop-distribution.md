@@ -1,10 +1,11 @@
 # ADR 0003: release-please versioning and desktop distribution through R2
 
-**Status:** accepted; amended by [ADR 0004](0004-public-hostnames-and-release-variables.md)
+**Status:** accepted and in use; amended by [ADR 0004](0004-public-hostnames-and-release-variables.md)
 (public hostnames, `R2_BUCKET`/`DOWNLOAD_BASE_URL` as variables, secrets shipped
-with the deploy). Not yet exercised in CI — the first run on `main`
-(2026-10-05) failed for lack of `RELEASE_PLEASE_TOKEN`; the owner setup is now
-listed in ADR 0004.
+with the deploy) and [ADR 0005](0005-disable-web-auth-and-database.md) (the web Worker ships no
+secrets while auth and the database are off). The first run on `main` (2026-10-05) failed for lack
+of `RELEASE_PLEASE_TOKEN`; release-please has since produced the tags `desktop-v0.1.0` and
+`web-v0.1.0` (2026-10-12).
 **Date:** 2026-09-21.
 
 ## Context
@@ -31,8 +32,11 @@ Electron; chapay is Tauri.
   `@port-watcher/config`, a lint/tsconfig package with no runtime code. Desktop
   is also a consumer users update on their own schedule, which gives it its own
   line regardless.
-- Both manifests are seeded at `0.0.0`, so the first `feat` proposes `0.1.0`.
-  `bump-minor-pre-major` keeps breaking changes on a minor bump pre-1.0.
+- Both manifests were seeded at `0.0.0` and the first release was meant to be `0.1.0`.
+  Without a previous tag release-please defaulted the first release to `1.0.0`, so
+  `release-please-config.json` now sets `"initial-version": "0.1.0"` on both components and the
+  manifest records `0.1.0` for both. `bump-minor-pre-major` keeps breaking changes on a minor bump
+  pre-1.0.
 - **The desktop version has one source.** `tauri.conf.json` sets
   `"version": "../package.json"`, so the version release-please bumps is the
   one Tauri stamps into the bundle and the DMG name.
@@ -76,7 +80,9 @@ Electron; chapay is Tauri.
 - In-app auto-update. `tauri-plugin-updater` is not installed, so no update
   feed (`updates/`) is published — users download new DMGs by hand.
 - Windows and Linux builds.
-- A download page on the landing site.
+- A download page on the landing site. _(Superseded in practice: the landing now has a download
+  button for the arm64 and x64 DMGs, ADR 0004. A dedicated multi-page download site remains out of
+  scope.)_
 
 ## Reopen when
 
