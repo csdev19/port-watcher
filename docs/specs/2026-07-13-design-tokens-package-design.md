@@ -1,6 +1,8 @@
 # Design tokens package (`@port-watcher/tokens`) — design
 
-> **Status: in progress** (2026-07-13). One typed TS source of truth for the
+> **Status (2026-10-13): implemented as a standalone package; not wired into any
+> app** (the desktop renderer still inlines its palette in `app.module.css`).
+> Originally "in progress" (2026-07-13). One typed TS source of truth for the
 > design tokens, generating the CSS custom properties that feed web-ui's shadcn
 > theme, and (later) a TS theme object for the React Native mobile app.
 > Adapted from the `@kaipu/tokens` pattern; the template's extra platform is

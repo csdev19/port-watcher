@@ -53,3 +53,8 @@ deliberately (#27), so treat them as dormant template packages, not as the produ
 DDD + Hexagonal, layer-first packages. The dependency rule is strict:
 `domain <- application <- infra-*`, and only apps wire them together. See `CLAUDE.md` and
 `.claude/architecture.md`.
+
+## License
+
+[GPL-3.0-or-later](LICENSE). Releases up to and including `desktop-v0.1.0` were published under
+MIT; the relicense applies to later versions.

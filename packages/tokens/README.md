@@ -22,7 +22,9 @@ css/tokens.css    # GENERATED + committed (run `bun run generate` after editing 
 ```
 
 Exports: `@port-watcher/tokens` (TS objects) · `@port-watcher/tokens/css`
-(the stylesheet).
+(the `--mt-*` stylesheet) · `@port-watcher/tokens/css/desktop` (`css/tokens.desktop.css`, the same
+tokens without the prefix, for a renderer with no shadcn in the page; the desktop app does not
+import it yet).
 
 ## Editing tokens
 
