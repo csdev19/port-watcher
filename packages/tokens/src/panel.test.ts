@@ -29,11 +29,8 @@ describe("panel tokens", () => {
 describe("generatePanelCss", () => {
   const css = generatePanelCss();
   const rootBlock = css.slice(css.indexOf(":root {"), css.indexOf("@media"));
-  const mediaBlock = css.slice(
-    css.indexOf("@media"),
-    css.indexOf(':root[data-window="panel"][data-theme="light"]'),
-  );
-  const forcedLight = css.slice(css.indexOf(':root[data-window="panel"][data-theme="light"]'));
+  const mediaBlock = css.slice(css.indexOf("@media"), css.indexOf(':root[data-theme="light"]'));
+  const forcedLight = css.slice(css.indexOf(':root[data-theme="light"]'));
 
   it("declares dark values and the invariant tokens on :root", () => {
     for (const name of PANEL_THEME_TOKEN_NAMES) {
@@ -44,21 +41,21 @@ describe("generatePanelCss", () => {
     }
   });
 
-  it("follows the system appearance only inside the panel window", () => {
+  it("follows the system appearance only in every desktop window", () => {
     expect(mediaBlock).toContain("prefers-color-scheme: light");
-    expect(mediaBlock).toContain(':root[data-window="panel"]:not([data-theme="dark"])');
+    expect(mediaBlock).toContain(':root:not([data-theme="dark"])');
     for (const name of PANEL_THEME_TOKEN_NAMES) {
       expect(mediaBlock).toContain(`--${name}: ${panelLight[name]};`);
     }
   });
 
-  it("lets data-theme=light force the light set in the panel window", () => {
+  it("lets data-theme=light force the light set in every desktop window", () => {
     for (const name of PANEL_THEME_TOKEN_NAMES) {
       expect(forcedLight).toContain(`--${name}: ${panelLight[name]};`);
     }
   });
 
-  it("never re-declares the light set outside a panel-scoped selector", () => {
+  it("never re-declares the light set outside the light selectors", () => {
     const outside = css.replace(mediaBlock, "").replace(forcedLight, "");
     expect(outside).not.toContain(panelLight["pw-band-soft"]);
   });
