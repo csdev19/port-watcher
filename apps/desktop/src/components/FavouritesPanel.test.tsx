@@ -21,6 +21,9 @@ function baseProps() {
     selectedKey: null,
     expandedKey: null,
     armedKey: null,
+    killingKey: null,
+    expandedWatches: new Set<number>(),
+    onToggleWatchGroup: noop,
     onSelect: noop,
     onToggleExpand: noop,
     onRequestKill: noop,
@@ -109,5 +112,50 @@ describe("FavouritesPanel", () => {
 
     expect(add).toHaveBeenCalledWith("4000", "");
     expect(promptSpy).not.toHaveBeenCalled();
+  });
+
+  it("shows a mint 'free' marker for a watched port with nothing listening", () => {
+    render(<FavouritesPanel {...baseProps()} favourites={[{ port: 9999, name: "Staging" }]} />);
+    expect(screen.getByText("free")).toBeTruthy();
+    expect(screen.getByText("Staging")).toBeTruthy();
+    // No kill control and no unwatch-less dead end: the remove action exists.
+    expect(screen.queryByRole("button", { name: /kill/i })).toBeNull();
+    expect(screen.getByRole("button", { name: "Remove watched port 9999" })).toBeTruthy();
+  });
+
+  it("does not show 'free' before the first snapshot", () => {
+    render(<FavouritesPanel {...baseProps()} favourites={[{ port: 3000 }]} data={undefined} />);
+    expect(screen.queryByText("free")).toBeNull();
+  });
+
+  const second = { ...MOCK_PORTS[0], pid: 9101, label: "Next.js dev (2)" };
+
+  it("a two-listener watch is one 'label (2)' row until expanded, then one killable row per listener", () => {
+    const onToggleWatchGroup = vi.fn();
+    const props = {
+      ...baseProps(),
+      favourites: [{ port: 3000 }],
+      data: [...MOCK_PORTS, second],
+      onToggleWatchGroup,
+    };
+    const { rerender } = render(<FavouritesPanel {...props} />);
+    expect(screen.getByText("Next.js dev (2)")).toBeTruthy();
+    expect(screen.queryAllByRole("button", { name: /^Kill /i }).length).toBe(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Show 2 listeners on port 3000" }));
+    expect(onToggleWatchGroup).toHaveBeenCalledWith(3000);
+
+    rerender(<FavouritesPanel {...props} expandedWatches={new Set([3000])} />);
+    expect(screen.getAllByRole("button", { name: /^Kill /i }).length).toBe(2);
+  });
+
+  it("clicking the name of an unnamed watch renames it through rename()", () => {
+    const rename = vi.fn().mockReturnValue({ ok: true });
+    render(<FavouritesPanel {...baseProps()} favourites={[{ port: 9999 }]} rename={rename} />);
+    fireEvent.click(screen.getByRole("button", { name: "Rename watched port 9999" }));
+    const input = screen.getByLabelText("Rename watched port 9999");
+    fireEvent.change(input, { target: { value: "Docs" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(rename).toHaveBeenCalledWith(9999, "Docs");
   });
 });

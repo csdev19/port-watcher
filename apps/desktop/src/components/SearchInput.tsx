@@ -17,32 +17,34 @@ export const SearchInput = forwardRef<HTMLInputElement, Props>(function SearchIn
   ref,
 ) {
   return (
-    <div className={styles.searchWrap}>
-      <Icon name="search" />
-      <input
-        ref={ref}
-        className={styles.search}
-        type="text"
-        autoFocus
-        autoComplete="off"
-        autoCorrect="off"
-        autoCapitalize="off"
-        spellCheck={false}
-        placeholder="Search port, app or folder"
-        value={value}
-        onChange={(e) => onChange(e.currentTarget.value)}
-        aria-label="Search port, app or folder"
-      />
-      {value && (
-        <button
-          type="button"
-          className={styles.searchClear}
-          aria-label="Clear search"
-          onClick={() => onChange("")}
-        >
-          <Icon name="x" />
-        </button>
-      )}
+    <div className={styles.searchBand}>
+      <div className={styles.searchWrap}>
+        <Icon name="search" />
+        <input
+          ref={ref}
+          className={styles.search}
+          type="text"
+          autoFocus
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          placeholder="Search port, app or folder"
+          value={value}
+          onChange={(e) => onChange(e.currentTarget.value)}
+          aria-label="Search port, app or folder"
+        />
+        {value && (
+          <button
+            type="button"
+            className={styles.searchClear}
+            aria-label="Clear search"
+            onClick={() => onChange("")}
+          >
+            <Icon name="x" />
+          </button>
+        )}
+      </div>
     </div>
   );
 });

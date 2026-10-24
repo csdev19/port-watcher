@@ -32,7 +32,7 @@ them here):
 - `apps/documentation` — Astro Starlight.
 - `apps/desktop` — chapay, the Tauri 2 app (React + TS + Vite renderer, Rust core in `src-tauri/`).
   The Rust side reads listening ports and kills processes; the renderer reaches it through
-  `invoke()`. It imports no `@port-watcher/*` runtime package (only `config` for tsconfig).
+  `invoke()`. It imports only the panel token stylesheet from `@port-watcher/tokens/css/panel` (plus `config` for tsconfig) — no other `@port-watcher/*` runtime package.
   Crate name is `port-watcher`, lib `port_watcher_lib`, bundle id `dev.csdev19.portwatcher`.
 
 ## Package Import Rules
