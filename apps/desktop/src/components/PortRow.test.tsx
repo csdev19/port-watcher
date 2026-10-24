@@ -204,4 +204,27 @@ describe("PortRow", () => {
     );
     expect(screen.getByRole("button", { name: "Watch port 3000" })).toBeTruthy();
   });
+
+  it("secondary variant drops the meta line but keeps port, label and kill", () => {
+    const sys = MOCK_PORTS.find((p) => p.category === "system" && p.killable)!;
+    render(
+      <PortRow
+        entry={sys}
+        variant="secondary"
+        selected={false}
+        expanded={false}
+        armed={false}
+        onSelect={noop}
+        onToggleExpand={noop}
+        onRequestKill={noop}
+        onDisarm={noop}
+      />,
+    );
+    expect(screen.getByText(String(sys.port))).toBeTruthy();
+    expect(screen.getByText(sys.label)).toBeTruthy();
+    expect(
+      screen.queryByText(sys.appBundlePath ?? sys.executablePath ?? sys.processName),
+    ).toBeNull();
+    expect(screen.getByRole("button", { name: new RegExp(`kill ${sys.label}`, "i") })).toBeTruthy();
+  });
 });

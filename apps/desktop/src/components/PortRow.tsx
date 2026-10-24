@@ -28,6 +28,9 @@ interface Props {
    * per-row watch action. */
   watched?: boolean;
   onToggleWatch?: () => void;
+  /** `secondary` is the compact Apps & system row: muted 15px port, one
+   * 12.5px label line, no meta line. Defaults to the full dev row. */
+  variant?: "dev" | "secondary";
 }
 
 const META_WIDTH = 34;
@@ -55,13 +58,17 @@ export function PortRow({
   killDisabled,
   watched,
   onToggleWatch,
+  variant = "dev",
 }: Props) {
   const protectedCategory = entry.category !== "dev";
+  const secondary = variant === "secondary";
   const confirmLabel = entry.category === "system" ? "Kill system?" : "Kill app?";
 
   return (
     <li
-      className={selected ? `${styles.row} ${styles.rowSelected}` : styles.row}
+      className={[styles.row, selected && styles.rowSelected, secondary && styles.rowSecondary]
+        .filter(Boolean)
+        .join(" ")}
       onMouseEnter={onSelect}
       onClick={onToggleExpand}
       role="option"
@@ -73,13 +80,18 @@ export function PortRow({
         </span>
         <div className={styles.rowCenter}>
           <span className={styles.label}>{entry.label}</span>
-          <span className={styles.meta}>
-            {protectedCategory
-              ? middleTruncate(entry.appBundlePath ?? entry.executablePath ?? entry.processName, 34)
-              : entry.cwd
-                ? projectAndPath(entry.project, entry.cwd)
-                : (entry.project ?? entry.processName)}
-          </span>
+          {!secondary && (
+            <span className={styles.meta}>
+              {protectedCategory
+                ? middleTruncate(
+                    entry.appBundlePath ?? entry.executablePath ?? entry.processName,
+                    34,
+                  )
+                : entry.cwd
+                  ? projectAndPath(entry.project, entry.cwd)
+                  : (entry.project ?? entry.processName)}
+            </span>
+          )}
         </div>
         <div className={styles.actions}>
           {onToggleWatch && (

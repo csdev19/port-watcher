@@ -137,51 +137,45 @@
   overflow-y: auto;
 }
 
-.section + .section {
-  border-top: 1px solid var(--pw-line);
-}
-
-.sectionHeading {
-  margin: 0;
-  padding: 8px 12px 4px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: var(--pw-muted-2);
-}
-
 .rowList {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+/* The Apps & system fold sits after the dev rows, on a soft band. */
 .disclosure {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   width: 100%;
   border: none;
-  background: transparent;
-  color: var(--pw-muted-2);
+  border-top: 1px solid var(--pw-line);
+  border-bottom: 1px solid var(--pw-line-row);
+  background: var(--pw-band-soft);
+  color: var(--pw-muted);
   cursor: pointer;
-  padding: 8px 12px 4px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  padding: 8px 12px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+}
+.disclosure:hover:not(:disabled) {
+  color: var(--pw-fg-2);
 }
 .disclosure:disabled {
   cursor: default;
 }
-.disclosure[aria-expanded="true"] svg {
-  transform: rotate(90deg);
-}
-.disclosure svg {
-  transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1);
+.disclosure:focus-visible {
+  outline: 2px solid var(--pw-accent-ring);
+  outline-offset: -2px;
 }
 
 .disclosureLabel {
+  flex: 1;
+  text-align: left;
   color: inherit;
+  font-variant-numeric: tabular-nums;
 }
 
 .portMuted {
@@ -200,6 +194,18 @@
 .rowSelected {
   background: var(--pw-accent-soft);
   box-shadow: inset 2px 0 0 var(--pw-accent);
+}
+
+.rowSecondary .rowMain {
+  min-height: 34px;
+}
+.rowSecondary .port {
+  font-size: 15px;
+  color: var(--pw-muted);
+}
+.rowSecondary .label {
+  font-size: 12.5px;
+  color: var(--pw-fg-2);
 }
 
 .rowMain {

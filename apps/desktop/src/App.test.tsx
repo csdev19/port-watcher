@@ -160,6 +160,20 @@ describe("App", () => {
     expect(killSpy).not.toHaveBeenCalledWith(expect.objectContaining({ port: 7000 }));
   });
 
+  it("the Apps & system fold shows 'x of N' while a search is active", async () => {
+    renderApp();
+    await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+    expect(screen.getByRole("button", { name: /apps & system · 2/i }).textContent).toContain(
+      "Apps & system · 2",
+    );
+
+    fireEvent.change(screen.getByLabelText("Search port, app or folder"), {
+      target: { value: "control" },
+    });
+    const fold = screen.getByRole("button", { name: /expanded for search results/i });
+    expect(fold.textContent).toContain("Apps & system · 1 of 2");
+  });
+
   it("a nonempty search with only secondary matches forces the section open and disables collapsing", async () => {
     renderApp();
     await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());

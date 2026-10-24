@@ -79,6 +79,7 @@ export default function App() {
   // search can never hide a match behind a closed disclosure.
   const filtered = useMemo(() => filterPorts(data ?? [], query), [data, query]);
   const groups = useMemo(() => partitionPorts(filtered), [filtered]);
+  const allSecondaryCount = useMemo(() => partitionPorts(data ?? []).secondary.length, [data]);
   const forcedOpen = query.trim() !== "" && groups.secondary.length > 0;
   const secondaryOpen = manuallyExpanded || forcedOpen;
   // Only the rows actually on screen are keyboard-reachable — a row
@@ -438,6 +439,8 @@ export default function App() {
           ) : filtered.length > 0 ? (
             <PortList
               groups={groups}
+              secondaryTotal={allSecondaryCount}
+              searching={query.trim() !== ""}
               secondaryOpen={secondaryOpen}
               secondaryForcedOpen={forcedOpen}
               selectedKey={nav.selectedKey}
