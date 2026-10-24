@@ -18,13 +18,17 @@ src/
   themes/dark.ts  # applied under .dark
   generate.ts     # TS -> CSS generator (zero deps)
   index.ts        # exports base, light, dark, generateCss + types
+  panel/          # menu-bar panel tokens (types, base, dark, light) -> css/tokens.panel.css
 css/tokens.css    # GENERATED + committed (run `bun run generate` after editing tokens)
 ```
 
 Exports: `@port-watcher/tokens` (TS objects) · `@port-watcher/tokens/css`
 (the `--mt-*` stylesheet) · `@port-watcher/tokens/css/desktop` (`css/tokens.desktop.css`, the same
 tokens without the prefix, for a renderer with no shadcn in the page; the desktop app does not
-import it yet).
+import it yet) · `@port-watcher/tokens/css/panel` (`css/tokens.panel.css`, the desktop
+menu-bar panel: final `--pw-*` names, dark by default, light applied only under
+`<html data-window="panel">`, either from `prefers-color-scheme` or forced with
+`data-theme="light|dark"`).
 
 ## Editing tokens
 

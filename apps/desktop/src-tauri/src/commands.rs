@@ -134,3 +134,9 @@ pub fn system_health_capabilities(
 ) -> system_health::Capabilities {
     state.capabilities()
 }
+
+/// The panel footer's Quit, same effect as the tray menu's Quit item.
+#[tauri::command]
+pub fn quit_app(app: tauri::AppHandle) {
+    app.exit(0);
+}

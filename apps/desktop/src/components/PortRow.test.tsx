@@ -169,8 +169,62 @@ describe("PortRow", () => {
         onDisarm={noop}
       />,
     );
-    expect(screen.getByText(/4101/)).toBeTruthy();
+    expect(screen.getByText("pid")).toBeTruthy();
+    expect(screen.getByText("4101")).toBeTruthy();
     expect(screen.getByText(/210 MB/)).toBeTruthy();
     expect(screen.getByText(/next dev/)).toBeTruthy();
+  });
+
+  it("collapsed row shows no pid line", () => {
+    renderRow(MOCK_PORTS[0]);
+    expect(screen.queryByText("pid")).toBeNull();
+  });
+
+  it("star and kill buttons are in the DOM without any hover", () => {
+    renderRow(MOCK_PORTS[0]);
+    // Hidden by CSS until hover/selection/focus, never removed: keyboard and
+    // screen-reader users must still reach them.
+    expect(screen.getByRole("button", { name: /kill next\.js dev on port 3000/i })).toBeTruthy();
+  });
+
+  it("renders the star in the DOM when a watch handler is given", () => {
+    render(
+      <PortRow
+        entry={MOCK_PORTS[0]}
+        selected={false}
+        expanded={false}
+        armed={false}
+        onSelect={noop}
+        onToggleExpand={noop}
+        onRequestKill={noop}
+        onDisarm={noop}
+        watched={false}
+        onToggleWatch={noop}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Watch port 3000" })).toBeTruthy();
+  });
+
+  it("secondary variant drops the meta line but keeps port, label and kill", () => {
+    const sys = MOCK_PORTS.find((p) => p.category === "system" && p.killable)!;
+    render(
+      <PortRow
+        entry={sys}
+        variant="secondary"
+        selected={false}
+        expanded={false}
+        armed={false}
+        onSelect={noop}
+        onToggleExpand={noop}
+        onRequestKill={noop}
+        onDisarm={noop}
+      />,
+    );
+    expect(screen.getByText(String(sys.port))).toBeTruthy();
+    expect(screen.getByText(sys.label)).toBeTruthy();
+    expect(
+      screen.queryByText(sys.appBundlePath ?? sys.executablePath ?? sys.processName),
+    ).toBeNull();
+    expect(screen.getByRole("button", { name: new RegExp(`kill ${sys.label}`, "i") })).toBeTruthy();
   });
 });

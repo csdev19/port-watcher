@@ -8,12 +8,19 @@ const SECONDARY_LIST_ID = "port-list-secondary";
 
 interface Props {
   groups: PortGroups;
+  /** All apps & system rows in the unfiltered snapshot — the "N" in "x of N"
+   * shown on the fold while a search is active. */
+  secondaryTotal: number;
+  /** True while a search query is active. */
+  searching: boolean;
   /** Whether the Apps & System section is currently rendered. */
   secondaryOpen: boolean;
   /** True while search forces the section open — disables manual collapse. */
   secondaryForcedOpen: boolean;
   selectedKey: string | null;
   expandedKey: string | null;
+  /** Key of the row whose kill is in flight (veil), or null. */
+  killingKey: string | null;
   /** Key of the row currently armed in App's shared kill-confirm instance. */
   armedKey: string | null;
   onSelect: (key: string) => void;
@@ -32,12 +39,14 @@ function renderRows(
   selectedKey: string | null,
   expandedKey: string | null,
   armedKey: string | null,
+  killingKey: string | null,
   favouritePorts: Set<number>,
   onSelect: (key: string) => void,
   onToggleExpand: (key: string) => void,
   onRequestKill: (entry: PortEntry) => void,
   onDisarmKill: () => void,
   onToggleWatch: (entry: PortEntry) => void,
+  variant: "dev" | "secondary" = "dev",
 ) {
   return entries.map((entry) => {
     const k = portKey(entry);
@@ -48,12 +57,14 @@ function renderRows(
         selected={k === selectedKey}
         expanded={expandedKey === k}
         armed={armedKey === k}
+        killing={killingKey === k}
         watched={favouritePorts.has(entry.port)}
         onSelect={() => onSelect(k)}
         onToggleExpand={() => onToggleExpand(k)}
         onRequestKill={() => onRequestKill(entry)}
         onDisarm={onDisarmKill}
         onToggleWatch={() => onToggleWatch(entry)}
+        variant={variant}
       />
     );
   });
@@ -61,11 +72,14 @@ function renderRows(
 
 export function PortList({
   groups,
+  secondaryTotal,
+  searching,
   secondaryOpen,
   secondaryForcedOpen,
   selectedKey,
   expandedKey,
   armedKey,
+  killingKey,
   onSelect,
   onToggleExpand,
   onRequestKill,
@@ -80,13 +94,13 @@ export function PortList({
     <div className={styles.list}>
       {dev.length > 0 && (
         <section className={styles.section}>
-          <h3 className={styles.sectionHeading}>{dev.length} DEV</h3>
           <ul className={styles.rowList} role="listbox" aria-label="Dev ports">
             {renderRows(
               dev,
               selectedKey,
               expandedKey,
               armedKey,
+              killingKey,
               favouritePorts,
               onSelect,
               onToggleExpand,
@@ -110,8 +124,12 @@ export function PortList({
             disabled={secondaryForcedOpen}
             onClick={onToggleSecondary}
           >
-            <Icon name="chevron-right" size={12} />
-            <span className={styles.disclosureLabel}>APPS &amp; SYSTEM · {secondary.length}</span>
+            <Icon name="shield" size={13} />
+            <span className={styles.disclosureLabel}>
+              Apps &amp; system ·{" "}
+              {searching ? `${secondary.length} of ${secondaryTotal}` : secondary.length}
+            </span>
+            <Icon name={secondaryOpen ? "chevron-up" : "chevron-down"} size={13} />
           </button>
           {secondaryOpen && (
             <ul
@@ -125,12 +143,14 @@ export function PortList({
                 selectedKey,
                 expandedKey,
                 armedKey,
+                killingKey,
                 favouritePorts,
                 onSelect,
                 onToggleExpand,
                 onRequestKill,
                 onDisarmKill,
                 onToggleWatch,
+                "secondary",
               )}
             </ul>
           )}

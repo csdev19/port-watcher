@@ -160,6 +160,20 @@ describe("App", () => {
     expect(killSpy).not.toHaveBeenCalledWith(expect.objectContaining({ port: 7000 }));
   });
 
+  it("the Apps & system fold shows 'x of N' while a search is active", async () => {
+    renderApp();
+    await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+    expect(screen.getByRole("button", { name: /apps & system · 2/i }).textContent).toContain(
+      "Apps & system · 2",
+    );
+
+    fireEvent.change(screen.getByLabelText("Search port, app or folder"), {
+      target: { value: "control" },
+    });
+    const fold = screen.getByRole("button", { name: /expanded for search results/i });
+    expect(fold.textContent).toContain("Apps & system · 1 of 2");
+  });
+
   it("a nonempty search with only secondary matches forces the section open and disables collapsing", async () => {
     renderApp();
     await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
@@ -190,14 +204,14 @@ describe("App", () => {
     await waitFor(() => expect(screen.getByText("7000")).toBeTruthy());
   });
 
-  it("footer counts filtered listener rows and dev rows, not only expanded ones", async () => {
+  it("footer counts the filtered dev rows, not only expanded ones", async () => {
     renderApp();
     await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
-    expect(screen.getByText(/6 ports · 4 dev/)).toBeTruthy();
+    expect(screen.getByText(/4 dev · \d+s/)).toBeTruthy();
 
     const search = screen.getByLabelText("Search port, app or folder");
     fireEvent.change(search, { target: { value: "control" } });
-    expect(screen.getByText(/1 ports · 0 dev/)).toBeTruthy();
+    expect(screen.getByText(/0 dev · \d+s/)).toBeTruthy();
   });
 
   it("only-secondary search results are shown, not the empty state", async () => {
@@ -272,6 +286,28 @@ describe("App", () => {
     await waitFor(() => {
       expect(screen.getByRole("status").textContent).toContain("stopped");
     });
+  });
+
+  it("veils the row while its kill is in flight and lifts the veil when it settles", async () => {
+    let resolveKill!: (r: "terminated") => void;
+    vi.spyOn(portsModule, "killPort").mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveKill = resolve as typeof resolveKill;
+        }),
+    );
+    renderApp();
+    await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+    const li = screen.getByText("3000").closest("li")!;
+    expect(li.getAttribute("data-killing")).toBeNull();
+
+    killShortcut();
+    await waitFor(() => expect(li.getAttribute("data-killing")).toBe("true"));
+
+    resolveKill("terminated");
+    await waitFor(() => expect(li.getAttribute("data-killing")).toBeNull());
+    expect(screen.getByRole("status").textContent).toContain("stopped");
+    expect(screen.getByRole("button", { name: "Copy command" })).toBeTruthy();
   });
 
   it("⌘⌫ with the search input focused never kills the selected row", async () => {
@@ -579,7 +615,7 @@ describe("App", () => {
       const notPrevented = fireEvent.keyDown(star, { key: "Enter" });
       expect(notPrevented).toBe(true);
       // Global Enter must not have expanded the row's detail panel.
-      expect(screen.queryByText("PID")).toBeNull();
+      expect(screen.queryByText("pid")).toBeNull();
       expect(screen.getByRole("button", { name: "Watch port 3000" })).toBeTruthy();
 
       fireEvent.click(star);
@@ -758,8 +794,11 @@ describe("App", () => {
       fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
       await waitFor(() => expect(screen.getByText("Next.js dev (2)")).toBeTruthy());
 
-      // One "in use" watch — not two.
+      // One "in use" watch — not two. Its two listeners sit behind one
+      // collapsed row until it is expanded.
       expect(screen.getByText(/^1 watched · 1 in use$/)).toBeTruthy();
+      expect(screen.queryAllByLabelText(/^Kill Next\.js dev.*on port 3000$/).length).toBe(0);
+      fireEvent.click(screen.getByRole("button", { name: "Show 2 listeners on port 3000" }));
 
       const killBtns = screen.getAllByLabelText(/^Kill Next\.js dev.*on port 3000$/);
       expect(killBtns.length).toBe(2);
@@ -861,7 +900,10 @@ describe("App", () => {
       renderApp();
       await waitFor(() => expect(screen.getByText("Next.js dev")).toBeTruthy());
       fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
-      await waitFor(() => expect(screen.getByText("Next.js dev (2)")).toBeTruthy());
+      // The named two-listener watch is one collapsed row: "Frontend (2)".
+      await waitFor(() => expect(screen.getByText("Frontend (2)")).toBeTruthy());
+      fireEvent.click(screen.getByRole("button", { name: "Show 2 listeners on port 3000" }));
+      expect(screen.getByText("Next.js dev (2)")).toBeTruthy();
 
       const search = screen.getByLabelText("Search port, app or folder");
 
