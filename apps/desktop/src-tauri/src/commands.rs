@@ -126,3 +126,9 @@ pub fn set_shortcut(app: tauri::AppHandle, shortcut: String) -> Result<(), AppEr
 pub fn open_settings(app: tauri::AppHandle) -> Result<(), AppError> {
     crate::settings::open_settings(&app).map_err(|e| AppError::Internal(e.to_string()))
 }
+
+/// The panel footer's Quit, same effect as the tray menu's Quit item.
+#[tauri::command]
+pub fn quit_app(app: tauri::AppHandle) {
+    app.exit(0);
+}

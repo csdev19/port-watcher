@@ -503,34 +503,31 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 4px 4px 12px;
-  min-height: 30px;
+  gap: 8px;
+  padding: 7px 12px;
   border-top: 1px solid var(--pw-line);
   background: var(--pw-footer);
-  color: var(--pw-muted-2);
+  font-size: 12px;
+}
+.footerStatus {
   font-size: 11px;
+  color: var(--pw-muted-2);
   font-variant-numeric: tabular-nums;
 }
-
 .footerButton {
   position: relative;
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 22px;
-  padding: 0;
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--pw-muted);
   cursor: default;
+  padding: 2px 4px;
+  font-family: inherit;
+  font-size: 12px;
 }
-
 .footerButton:hover {
-  background: var(--pw-raised-hover);
   color: var(--pw-fg);
 }
-
 .footerButton:focus-visible {
   outline: 2px solid var(--pw-accent-ring);
   outline-offset: 1px;
@@ -888,11 +885,11 @@
   transition: width 140ms linear;
 }
 
-/* The gear carries a fuchsia dot while a newer chapay is waiting. */
+/* The Settings button carries a fuchsia dot while a newer chapay is waiting. */
 .updateDot {
   position: absolute;
-  top: 3px;
-  right: 4px;
+  top: 0;
+  right: -4px;
   width: 6px;
   height: 6px;
   border-radius: 50%;

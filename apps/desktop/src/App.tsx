@@ -13,14 +13,14 @@ import {
   filterFavouriteMatches,
   joinFavourites,
 } from "@/lib/favourites";
-import { inTauri, killPort, openSettings } from "@/lib/ports";
+import { inTauri, killPort, openSettings, quitApp } from "@/lib/ports";
 import { portKey, type PortEntry } from "@/lib/types";
 import { PortList } from "@/components/PortList";
 import { FavouritesPanel } from "@/components/FavouritesPanel";
 import { SearchInput } from "@/components/SearchInput";
 import { EmptyState, ErrorState, FilteredEmptyState } from "@/components/PanelStates";
 import { Toast, type ToastData } from "@/components/Toast";
-import { Icon } from "@/components/Icon";
+import { PanelFooter } from "@/components/PanelFooter";
 import { Tabs } from "@/components/Tabs";
 import { PanelHeader } from "@/components/PanelHeader";
 import { UpdateBanner } from "@/components/UpdateBanner";
@@ -423,7 +423,7 @@ export default function App() {
   const footerText =
     activeTab === "listening"
       ? data
-        ? `${filtered.length} ports · ${groups.dev.length} dev · updated ${updatedSecondsAgo}s ago${error ? " (update failed)" : ""}`
+        ? `${groups.dev.length} dev · ${updatedSecondsAgo}s${error ? " · update failed" : ""}`
         : "loading…"
       : favouritesFooterText(favourites.items.length, favMatches, favHealth);
 
@@ -514,25 +514,12 @@ export default function App() {
         </div>
       )}
 
-      <footer className={styles.footer}>
-        <span>{footerText}</span>
-        <button
-          type="button"
-          className={styles.footerButton}
-          aria-label={
-            pendingVersion(update)
-              ? `Settings (chapay ${pendingVersion(update)} is available)`
-              : "Settings"
-          }
-          title="Settings (⌘,)"
-          onClick={() => void openSettings()}
-        >
-          <Icon name="settings" />
-          {pendingVersion(update) ? (
-            <span className={styles.updateDot} data-testid="update-dot" aria-hidden />
-          ) : null}
-        </button>
-      </footer>
+      <PanelFooter
+        status={footerText}
+        pendingUpdateVersion={pendingVersion(update)}
+        onOpenSettings={() => void openSettings()}
+        onQuit={() => void quitApp()}
+      />
       {toast && (
         <Toast
           toast={toast}

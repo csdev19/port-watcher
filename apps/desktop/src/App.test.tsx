@@ -204,14 +204,14 @@ describe("App", () => {
     await waitFor(() => expect(screen.getByText("7000")).toBeTruthy());
   });
 
-  it("footer counts filtered listener rows and dev rows, not only expanded ones", async () => {
+  it("footer counts the filtered dev rows, not only expanded ones", async () => {
     renderApp();
     await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
-    expect(screen.getByText(/6 ports · 4 dev/)).toBeTruthy();
+    expect(screen.getByText(/4 dev · \d+s/)).toBeTruthy();
 
     const search = screen.getByLabelText("Search port, app or folder");
     fireEvent.change(search, { target: { value: "control" } });
-    expect(screen.getByText(/1 ports · 0 dev/)).toBeTruthy();
+    expect(screen.getByText(/0 dev · \d+s/)).toBeTruthy();
   });
 
   it("only-secondary search results are shown, not the empty state", async () => {
