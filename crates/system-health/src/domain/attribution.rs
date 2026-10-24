@@ -8,7 +8,8 @@ use std::collections::HashMap;
 pub struct ProcessCounters {
     pub pid: u32,
     pub name: String,
-    /// Process start, in nanoseconds on the machine clock. Distinguishes a reused PID.
+    /// Process start in epoch seconds (the BSD start time, the same value the ports list and
+    /// the kill guard use). Distinguishes a reused PID.
     pub started_at: u64,
     /// User + system CPU time, in nanoseconds.
     pub cpu_time_ns: u64,
