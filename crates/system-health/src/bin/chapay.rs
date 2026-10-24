@@ -104,6 +104,7 @@ mod mac {
             let text = match a.format {
                 Format::Human => {
                     let label = match a.sort {
+                        Sort::None => "none",
                         Sort::Cpu => "cpu",
                         Sort::Mem => "mem",
                         Sort::Energy => "energy",

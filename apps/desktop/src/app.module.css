@@ -74,8 +74,22 @@
   border-radius: 999px;
   background: var(--pw-muted-2);
 }
-.pill[data-tone="live"] .pillDot {
+.pill[data-tone="live"] .pillDot,
+.pill[data-tone="ok"] .pillDot {
   background: var(--pw-free);
+}
+/* System health verdict on the Machine tab. The word is always in the text. */
+.pill[data-tone="watch"] .pillDot {
+  background: var(--pw-warn);
+}
+.pill[data-tone="watch"] {
+  color: var(--pw-warn-text);
+}
+.pill[data-tone="stop"] .pillDot {
+  background: var(--status-danger);
+}
+.pill[data-tone="stop"] {
+  color: var(--pw-stop-text);
 }
 
 .searchBand {

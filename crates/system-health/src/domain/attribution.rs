@@ -15,6 +15,10 @@ pub struct ProcessCounters {
     pub footprint_bytes: u64,
     /// Cumulative energy in nanojoules; `None` when the OS does not report it.
     pub energy_nj: Option<u64>,
+    /// Executable path, when the OS reports it. Constant for one incarnation.
+    pub path: Option<String>,
+    /// Owner (effective) user id, when the OS reports it.
+    pub uid: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -28,10 +32,16 @@ pub struct ProcessUsage {
     pub footprint_bytes: u64,
     /// Average power over the interval. Label it "energy impact"; do not sum it to system watts.
     pub energy_mw: Option<f32>,
+    /// Executable path, so a caller can group helpers under their app bundle.
+    pub path: Option<String>,
+    pub uid: Option<u32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Sort {
+    /// Keep the order the OS listed the processes in. With `n = usize::MAX` this returns every
+    /// process, for callers that group them.
+    None,
     Cpu,
     Mem,
     Energy,
@@ -82,17 +92,22 @@ pub fn rank(
                 cpu_pct,
                 footprint_bytes: c.footprint_bytes,
                 energy_mw,
+                path: c.path.clone(),
+                uid: c.uid,
             }
         })
         .collect();
     let key = |u: &ProcessUsage| -> f64 {
         match sort {
+            Sort::None => 0.0,
             Sort::Cpu => u.cpu_pct as f64,
             Sort::Mem => u.footprint_bytes as f64,
             Sort::Energy => u.energy_mw.unwrap_or(0.0) as f64,
         }
     };
-    rows.sort_by(|a, b| key(b).total_cmp(&key(a)).then(a.pid.cmp(&b.pid)));
+    if sort != Sort::None {
+        rows.sort_by(|a, b| key(b).total_cmp(&key(a)).then(a.pid.cmp(&b.pid)));
+    }
     rows.truncate(n);
     rows
 }
@@ -115,6 +130,8 @@ mod tests {
             cpu_time_ns: cpu_ms * 1_000_000,
             footprint_bytes: mem,
             energy_nj,
+            path: Some(format!("/bin/p{pid}")),
+            uid: Some(501),
         }
     }
 
@@ -178,6 +195,26 @@ mod tests {
         assert_eq!(order(Sort::Mem), [2, 3, 1]);
         assert_eq!(order(Sort::Energy), [2, 3, 1]);
         assert_eq!(rank(&prev, &curr, 1000, Sort::Cpu, 1).len(), 1);
+    }
+
+    #[test]
+    fn path_and_uid_are_carried_through() {
+        let prev = [p(1, 1, 0, 1, None)];
+        let curr = [p(1, 1, 500, 1, None)];
+        let r = rank(&prev, &curr, 1000, Sort::Cpu, 5);
+        assert_eq!(r[0].path.as_deref(), Some("/bin/p1"));
+        assert_eq!(r[0].uid, Some(501));
+    }
+
+    #[test]
+    fn sort_none_keeps_listing_order_and_returns_everything() {
+        let curr = [
+            p(9, 1, 900, 1, None),
+            p(2, 1, 100, 1, None),
+            p(5, 1, 500, 1, None),
+        ];
+        let r = rank(&[], &curr, 1000, Sort::None, usize::MAX);
+        assert_eq!(r.iter().map(|u| u.pid).collect::<Vec<_>>(), [9, 2, 5]);
     }
 
     #[test]

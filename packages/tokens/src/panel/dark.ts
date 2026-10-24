@@ -27,4 +27,8 @@ export const panelDark: PanelThemeTokens = {
   "pw-plum": "#2a2333",
   "pw-plum-hover": "#352c40",
   "status-danger": "#ff5c62",
+  // Machine tab: warn is yellow (text and marks), stop text is the danger red.
+  "pw-warn": "#ffe600",
+  "pw-warn-text": "#ffe600",
+  "pw-stop-text": "#ff5c62",
 };

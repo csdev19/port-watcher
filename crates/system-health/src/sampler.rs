@@ -230,6 +230,8 @@ mod tests {
             cpu_time_ns: cpu_ms * 1_000_000,
             footprint_bytes: 1,
             energy_nj: None,
+            path: None,
+            uid: None,
         }
     }
 

@@ -78,7 +78,8 @@ are WATCH. CPU and GPU load never change the verdict. Thresholds are fixed defau
   pressure mapping, attribution). No I/O, no `unsafe`.
 - `sampler`: the `Sources` trait and `Sampler`. `Sampler::sample()` never sleeps; the first call
   has `cpu: None` because a load needs two snapshots. `Sampler::top()` ranks processes since the
-  previous call.
+  previous call; each row carries the executable `path` and owner `uid` (cached per process
+  incarnation), and `Sort::None` with `n = usize::MAX` returns every process in listing order.
 - `infra` (macOS): SMC, IORegistry GPU, mach CPU and memory, sysctl, `proc_pid_rusage`. All
   `unsafe` lives here and in `events`. Every source degrades to `None`.
 - `events` (macOS): `subscribe_thermal` and `subscribe_memory`.

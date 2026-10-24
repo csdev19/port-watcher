@@ -3,6 +3,7 @@
 
 use super::ffi;
 use crate::domain::attribution::{ProcessCounters, ticks_to_ns};
+use std::collections::{HashMap, HashSet};
 use std::ffi::c_void;
 
 const RUSAGE_INFO_V4: i32 = 4;
@@ -45,11 +46,40 @@ fn timebase() -> (u32, u32) {
     }
 }
 
+const PROC_PIDTBSDINFO: i32 = 3;
+const PROC_PIDPATHINFO_MAXSIZE: usize = 4096;
+
+/// A process incarnation: PID plus start time, so a reused PID is a different key.
+type Incarnation = (i32, u64);
+type Identity = (Option<String>, Option<u32>);
+
+/// Path and owner never change for one incarnation, so each process pays the two syscalls once.
+/// Entries of processes that left the walk are dropped, which bounds the size.
+#[derive(Default)]
+struct IdentityCache {
+    map: HashMap<Incarnation, Identity>,
+}
+
+impl IdentityCache {
+    fn get_or_insert_with(
+        &mut self,
+        key: Incarnation,
+        load: impl FnOnce() -> Identity,
+    ) -> Identity {
+        self.map.entry(key).or_insert_with(load).clone()
+    }
+
+    fn retain_live(&mut self, live: &HashSet<Incarnation>) {
+        self.map.retain(|k, _| live.contains(k));
+    }
+}
+
 pub struct ProcessReader {
     numer: u32,
     denom: u32,
     /// Flavor that worked last time; V6 is tried first and V4 is the fallback.
     flavor: i32,
+    identities: IdentityCache,
 }
 
 impl Default for ProcessReader {
@@ -65,6 +95,7 @@ impl ProcessReader {
             numer,
             denom,
             flavor: RUSAGE_INFO_V6,
+            identities: IdentityCache::default(),
         }
     }
 
@@ -96,6 +127,15 @@ impl ProcessReader {
     }
 
     fn read_one(&mut self, pid: i32, with_name: bool) -> Option<ProcessCounters> {
+        self.read_one_with(pid, with_name, false)
+    }
+
+    fn read_one_with(
+        &mut self,
+        pid: i32,
+        with_name: bool,
+        with_identity: bool,
+    ) -> Option<ProcessCounters> {
         let info = self.rusage(pid)?;
         let name = if with_name {
             name_of(pid)
@@ -103,10 +143,17 @@ impl ProcessReader {
             String::new()
         };
         let energy_nj = (self.flavor == RUSAGE_INFO_V6).then_some(info.energy_nj);
+        let started_at = ticks_to_ns(info.proc_start_abstime, self.numer, self.denom);
+        let (path, uid) = if with_identity {
+            self.identities
+                .get_or_insert_with((pid, started_at), || (path_of(pid), uid_of(pid)))
+        } else {
+            (None, None)
+        };
         Some(ProcessCounters {
             pid: pid as u32,
             name,
-            started_at: ticks_to_ns(info.proc_start_abstime, self.numer, self.denom),
+            started_at,
             cpu_time_ns: ticks_to_ns(
                 info.user_time.saturating_add(info.system_time),
                 self.numer,
@@ -114,16 +161,21 @@ impl ProcessReader {
             ),
             footprint_bytes: info.phys_footprint,
             energy_nj,
+            path,
+            uid,
         })
     }
 
     /// Counters for every process readable by the current user. Other users' processes are
     /// invisible without sudo and are skipped.
     pub fn read_all(&mut self) -> Vec<ProcessCounters> {
-        list_pids()
+        let all: Vec<ProcessCounters> = list_pids()
             .into_iter()
-            .filter_map(|pid| self.read_one(pid, true))
-            .collect()
+            .filter_map(|pid| self.read_one_with(pid, true, true))
+            .collect();
+        let live: HashSet<Incarnation> = all.iter().map(|c| (c.pid as i32, c.started_at)).collect();
+        self.identities.retain_live(&live);
+        all
     }
 }
 
@@ -156,6 +208,31 @@ fn name_of(pid: i32) -> String {
     String::from_utf8_lossy(&buf[..n as usize]).into_owned()
 }
 
+fn path_of(pid: i32) -> Option<String> {
+    let mut buf = vec![0u8; PROC_PIDPATHINFO_MAXSIZE];
+    let n = unsafe { ffi::proc_pidpath(pid, buf.as_mut_ptr() as *mut c_void, buf.len() as u32) };
+    if n <= 0 {
+        return None;
+    }
+    Some(String::from_utf8_lossy(&buf[..n as usize]).into_owned())
+}
+
+fn uid_of(pid: i32) -> Option<u32> {
+    // SAFETY: proc_bsdinfo is plain old data; the kernel fills at most `size_of` bytes.
+    let mut info: libc::proc_bsdinfo = unsafe { std::mem::zeroed() };
+    let size = std::mem::size_of::<libc::proc_bsdinfo>() as i32;
+    let n = unsafe {
+        ffi::proc_pidinfo(
+            pid,
+            PROC_PIDTBSDINFO,
+            0,
+            &mut info as *mut _ as *mut c_void,
+            size,
+        )
+    };
+    (n == size).then_some(info.pbi_uid)
+}
+
 // Layout checked against `sizeof`/`offsetof` of `struct rusage_info_v6` in the macOS SDK.
 const _: () = {
     assert!(std::mem::size_of::<RusageInfo>() == 464);
@@ -164,3 +241,55 @@ const _: () = {
     assert!(std::mem::offset_of!(RusageInfo, flags) == 296);
     assert!(std::mem::offset_of!(RusageInfo, energy_nj) == 336);
 };
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn identity_is_loaded_once_per_incarnation() {
+        let mut cache = IdentityCache::default();
+        let mut loads = 0;
+        for _ in 0..3 {
+            let id = cache.get_or_insert_with((10, 1), || {
+                loads += 1;
+                (Some("/bin/x".into()), Some(501))
+            });
+            assert_eq!(id, (Some("/bin/x".into()), Some(501)));
+        }
+        assert_eq!(loads, 1);
+        // A reused PID with another start time is a new incarnation.
+        cache.get_or_insert_with((10, 2), || {
+            loads += 1;
+            (None, None)
+        });
+        assert_eq!(loads, 2);
+    }
+
+    #[test]
+    fn cache_drops_incarnations_that_left_the_walk() {
+        let mut cache = IdentityCache::default();
+        cache.get_or_insert_with((1, 1), || (None, None));
+        cache.get_or_insert_with((2, 1), || (None, None));
+        cache.retain_live(&HashSet::from([(2, 1)]));
+        assert_eq!(cache.map.keys().copied().collect::<Vec<_>>(), [(2, 1)]);
+    }
+
+    #[test]
+    fn own_process_has_path_and_uid_when_hardware_tests_are_on() {
+        if std::env::var("CHAPAY_HW_TESTS").is_err() {
+            return;
+        }
+        let mut reader = ProcessReader::new();
+        let me = std::process::id();
+        let row = reader
+            .read_all()
+            .into_iter()
+            .find(|c| c.pid == me)
+            .expect("own pid is listed");
+        assert_eq!(row.uid, Some(unsafe { libc::geteuid() }));
+        let exe = std::env::current_exe().unwrap();
+        let name = exe.file_name().unwrap().to_str().unwrap();
+        assert!(row.path.unwrap().ends_with(name));
+    }
+}
