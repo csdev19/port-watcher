@@ -31,6 +31,53 @@
   pointer-events: none;
 }
 
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 10px 9px 12px;
+  background: var(--pw-band);
+  border-bottom: 1px solid var(--pw-line);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--pw-fg);
+}
+.wordmark {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--pw-fg);
+}
+.wordmarkDot {
+  color: var(--pw-action);
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--pw-border);
+  border-radius: 999px;
+  padding: 3px 9px 3px 7px;
+  font-size: 11px;
+  color: var(--pw-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.pillDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--pw-muted-2);
+}
+.pill[data-tone="live"] .pillDot {
+  background: var(--pw-free);
+}
+
 .searchWrap {
   position: relative;
   margin: 9px 9px 8px;

@@ -21,6 +21,7 @@ import { SearchInput } from "@/components/SearchInput";
 import { EmptyState, ErrorState, FilteredEmptyState } from "@/components/PanelStates";
 import { Toast, type ToastData } from "@/components/Toast";
 import { Icon } from "@/components/Icon";
+import { PanelHeader } from "@/components/PanelHeader";
 import { UpdateBanner } from "@/components/UpdateBanner";
 import { pendingVersion, useUpdate } from "@/lib/update";
 import styles from "@/app.module.css";
@@ -427,6 +428,7 @@ export default function App() {
 
   return (
     <main className={styles.panel}>
+      <PanelHeader count={allPorts?.length ?? 0} />
       <UpdateBanner
         status={update}
         actions={updateActions}
