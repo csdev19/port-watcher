@@ -1,0 +1,3 @@
+target/
+# Process snapshots and sensor dumps name local paths and apps; only probe.csv is shared.
+measurements/**/*.txt
