@@ -34,6 +34,12 @@ them here):
   The Rust side reads listening ports and kills processes; the renderer reaches it through
   `invoke()`. It imports no `@port-watcher/*` runtime package (only `config` for tsconfig).
   Crate name is `port-watcher`, lib `port_watcher_lib`, bundle id `dev.csdev19.portwatcher`.
+- `crates/system-health` — pure Rust library (no Tauri) plus the `chapay` CLI: sudoless SMC
+  temperatures, load, memory and thermal pressure, per-process attribution, and event-driven
+  pressure subscriptions (ADR 0009/0010/0011). The desktop crate depends on it by path; there is no
+  Cargo workspace, so it has its own `Cargo.lock`, `target/` and `rust-toolchain.toml` (keep the
+  toolchain pin in lockstep with `apps/desktop/src-tauri/`). Hardware tests are opt-in:
+  `CHAPAY_HW_TESTS=1 cargo test`. See its README.
 
 ## Package Import Rules
 
@@ -97,7 +103,9 @@ in the same commit — and never reintroduce a script literally named `dev` on `
 release-please owns versions: `desktop` (`desktop-v*` → `release-desktop.yml`, signed DMGs to R2
 `chapay-bucket`) and `web` (`web-v*` → `release-web.yml`). Never bump `apps/desktop` or
 `apps/fullstack-fn-only` `package.json` versions or push tags by hand — merge the release PR.
-`tauri.conf.json` reads its version from `apps/desktop/package.json`. Flow and secrets:
+`tauri.conf.json` reads its version from `apps/desktop/package.json`. A change under
+`crates/system-health` reaches users only through a desktop release, and release-please counts only
+commits under `apps/desktop`: a crate-only `fix:` cuts no release by itself (ADR 0009). Flow and secrets:
 `apps/documentation/src/content/docs/desktop/releasing.mdx`; decision: `docs/adr/0003-*`.
 
 ## Manual testing fixtures
