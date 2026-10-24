@@ -1,8 +1,5 @@
 //! Raw declarations for the system libraries the adapters call.
 
-// Some declarations are only used by `events` and `procs`.
-#![allow(dead_code)]
-
 use std::ffi::{c_char, c_void};
 
 pub type CFTypeRef = *const c_void;

@@ -68,3 +68,53 @@ fn memory_reads_are_sane() {
     assert!(m.total_bytes > 0 && m.used_bytes > 0 && m.used_bytes <= m.total_bytes);
     assert!(memory::pressure().is_some());
 }
+
+#[test]
+fn a_busy_thread_ranks_in_the_top_five_by_cpu() {
+    if !enabled() {
+        return;
+    }
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use system_health::infra::procs::ProcessReader;
+    use system_health::{Sort, rank};
+
+    let stop = Arc::new(AtomicBool::new(false));
+    let s = stop.clone();
+    let busy = std::thread::spawn(move || {
+        let mut x = 0u64;
+        while !s.load(Ordering::Relaxed) {
+            x = std::hint::black_box(x.wrapping_add(1));
+        }
+    });
+    let mut reader = ProcessReader::new();
+    let before = reader.read_all();
+    assert!(
+        before.len() > 50,
+        "only {} processes readable",
+        before.len()
+    );
+    let t0 = std::time::Instant::now();
+    std::thread::sleep(std::time::Duration::from_millis(1000));
+    let after = reader.read_all();
+    let dt = t0.elapsed().as_millis() as u64;
+    stop.store(true, Ordering::Relaxed);
+    busy.join().unwrap();
+
+    let top = rank(&before, &after, dt, Sort::Cpu, 5);
+    let me = std::process::id();
+    let mine = top
+        .iter()
+        .find(|u| u.pid == me)
+        .unwrap_or_else(|| panic!("test process not in top 5: {top:?}"));
+    assert!(mine.cpu_pct > 50.0, "cpu {}", mine.cpu_pct);
+    assert!(mine.footprint_bytes > 0);
+}
+
+#[test]
+fn energy_is_reported_for_own_processes() {
+    if !enabled() {
+        return;
+    }
+    assert!(system_health::infra::procs::ProcessReader::new().energy_supported());
+}

@@ -1,5 +1,6 @@
 //! Pure domain: no I/O, no `unsafe`, no `cfg`.
 
+pub mod attribution;
 pub mod cpu;
 pub mod heat;
 pub mod machine;
@@ -10,6 +11,7 @@ pub mod thermal;
 pub mod threshold;
 pub mod verdict;
 
+pub use attribution::{ProcessCounters, ProcessUsage, Sort, rank};
 pub use cpu::{CoreKind, CoreLoad, CoreTicks, CpuLoad, CpuTicks};
 pub use heat::{Heat, aggregate};
 pub use machine::MachineInfo;
