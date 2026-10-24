@@ -31,6 +31,9 @@ interface Props {
   /** `secondary` is the compact Apps & system row: muted 15px port, one
    * 12.5px label line, no meta line. Defaults to the full dev row. */
   variant?: "dev" | "secondary";
+  /** True from the confirmed kill until `killPort` settles: a veil covers the
+   * row so it reads as "going away" and cannot be acted on twice. */
+  killing?: boolean;
 }
 
 const META_WIDTH = 34;
@@ -59,6 +62,7 @@ export function PortRow({
   watched,
   onToggleWatch,
   variant = "dev",
+  killing,
 }: Props) {
   const protectedCategory = entry.category !== "dev";
   const secondary = variant === "secondary";
@@ -71,6 +75,7 @@ export function PortRow({
         .join(" ")}
       onMouseEnter={onSelect}
       onClick={onToggleExpand}
+      data-killing={killing ? "true" : undefined}
       role="option"
       aria-selected={selected}
     >
@@ -175,6 +180,7 @@ export function PortRow({
           <DetailActions entry={entry} />
         </div>
       )}
+      {killing && <div className={styles.veil} aria-hidden="true" />}
     </li>
   );
 }

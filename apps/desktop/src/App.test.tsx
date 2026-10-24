@@ -288,6 +288,28 @@ describe("App", () => {
     });
   });
 
+  it("veils the row while its kill is in flight and lifts the veil when it settles", async () => {
+    let resolveKill!: (r: "terminated") => void;
+    vi.spyOn(portsModule, "killPort").mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveKill = resolve as typeof resolveKill;
+        }),
+    );
+    renderApp();
+    await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+    const li = screen.getByText("3000").closest("li")!;
+    expect(li.getAttribute("data-killing")).toBeNull();
+
+    killShortcut();
+    await waitFor(() => expect(li.getAttribute("data-killing")).toBe("true"));
+
+    resolveKill("terminated");
+    await waitFor(() => expect(li.getAttribute("data-killing")).toBeNull());
+    expect(screen.getByRole("status").textContent).toContain("stopped");
+    expect(screen.getByRole("button", { name: "Copy command" })).toBeTruthy();
+  });
+
   it("⌘⌫ with the search input focused never kills the selected row", async () => {
     const killSpy = vi.spyOn(portsModule, "killPort");
     renderApp();

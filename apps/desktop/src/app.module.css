@@ -196,6 +196,23 @@
   box-shadow: inset 2px 0 0 var(--pw-accent);
 }
 
+/* Kill veil: covers the row while its kill is in flight (design 7a). */
+.veil {
+  position: absolute;
+  inset: 0;
+  background: var(--pw-veil);
+  pointer-events: none;
+  animation: pwVeil 200ms linear forwards;
+}
+@keyframes pwVeil {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 .rowSecondary .rowMain {
   min-height: 34px;
 }

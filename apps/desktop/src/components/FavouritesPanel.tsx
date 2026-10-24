@@ -31,6 +31,7 @@ interface Props {
   selectedKey: string | null;
   expandedKey: string | null;
   armedKey: string | null;
+  killingKey: string | null;
   onSelect: (key: string) => void;
   onToggleExpand: (key: string) => void;
   onRequestKill: (entry: PortEntry) => void;
@@ -57,6 +58,7 @@ export function FavouritesPanel({
   selectedKey,
   expandedKey,
   armedKey,
+  killingKey,
   onSelect,
   onToggleExpand,
   onRequestKill,
@@ -234,6 +236,7 @@ export function FavouritesPanel({
                           selected={k === selectedKey}
                           expanded={expandedKey === k}
                           armed={armedKey === k}
+                          killing={killingKey === k}
                           killDisabled={stale}
                           onSelect={() => onSelect(k)}
                           onToggleExpand={() => onToggleExpand(k)}

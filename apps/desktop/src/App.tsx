@@ -61,6 +61,8 @@ export default function App() {
   const [query, setQuery] = useState("");
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [manuallyExpanded, setManuallyExpanded] = useState(false);
+  // Key of the row whose confirmed kill is in flight; drives the row veil.
+  const [killingKey, setKillingKey] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastData | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("listening");
   const searchRef = useRef<HTMLInputElement>(null);
@@ -163,6 +165,7 @@ export default function App() {
     const pendingKey = pendingKeyFor(entry);
     if (pendingKills.current.has(pendingKey)) return;
     pendingKills.current.add(pendingKey);
+    setKillingKey(portKey(entry));
     try {
       const result = await killPort(entry);
       if (result === "terminated" || result === "killed") {
@@ -181,6 +184,7 @@ export default function App() {
       });
     } finally {
       pendingKills.current.delete(pendingKey);
+      setKillingKey((prev) => (prev === portKey(entry) ? null : prev));
     }
   }
 
@@ -446,6 +450,7 @@ export default function App() {
               selectedKey={nav.selectedKey}
               expandedKey={expandedKey}
               armedKey={confirm.armedTarget?.key ?? null}
+              killingKey={killingKey}
               favouritePorts={favouritePorts}
               onSelect={nav.setSelectedKey}
               onToggleExpand={(k) => setExpandedKey((prev) => (prev === k ? null : k))}
@@ -482,6 +487,7 @@ export default function App() {
             selectedKey={nav.selectedKey}
             expandedKey={expandedKey}
             armedKey={confirm.armedTarget?.key ?? null}
+            killingKey={killingKey}
             onSelect={nav.setSelectedKey}
             onToggleExpand={(k) => setExpandedKey((prev) => (prev === k ? null : k))}
             onRequestKill={(entry) => requestKill(entry, "pointer")}

@@ -21,6 +21,7 @@ function baseProps() {
     selectedKey: null,
     expandedKey: null,
     armedKey: null,
+    killingKey: null,
     onSelect: noop,
     onToggleExpand: noop,
     onRequestKill: noop,

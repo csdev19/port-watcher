@@ -19,6 +19,8 @@ interface Props {
   secondaryForcedOpen: boolean;
   selectedKey: string | null;
   expandedKey: string | null;
+  /** Key of the row whose kill is in flight (veil), or null. */
+  killingKey: string | null;
   /** Key of the row currently armed in App's shared kill-confirm instance. */
   armedKey: string | null;
   onSelect: (key: string) => void;
@@ -37,6 +39,7 @@ function renderRows(
   selectedKey: string | null,
   expandedKey: string | null,
   armedKey: string | null,
+  killingKey: string | null,
   favouritePorts: Set<number>,
   onSelect: (key: string) => void,
   onToggleExpand: (key: string) => void,
@@ -54,6 +57,7 @@ function renderRows(
         selected={k === selectedKey}
         expanded={expandedKey === k}
         armed={armedKey === k}
+        killing={killingKey === k}
         watched={favouritePorts.has(entry.port)}
         onSelect={() => onSelect(k)}
         onToggleExpand={() => onToggleExpand(k)}
@@ -75,6 +79,7 @@ export function PortList({
   selectedKey,
   expandedKey,
   armedKey,
+  killingKey,
   onSelect,
   onToggleExpand,
   onRequestKill,
@@ -95,6 +100,7 @@ export function PortList({
               selectedKey,
               expandedKey,
               armedKey,
+              killingKey,
               favouritePorts,
               onSelect,
               onToggleExpand,
@@ -137,6 +143,7 @@ export function PortList({
                 selectedKey,
                 expandedKey,
                 armedKey,
+                killingKey,
                 favouritePorts,
                 onSelect,
                 onToggleExpand,
