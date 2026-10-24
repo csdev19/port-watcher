@@ -18,14 +18,16 @@
     ".": "./src/index.ts",
     "./package.json": "./package.json",
     "./css": "./css/tokens.css",
-    "./css/desktop": "./css/tokens.desktop.css"
+    "./css/desktop": "./css/tokens.desktop.css",
+    "./css/panel": "./css/tokens.panel.css"
   },
   "publishConfig": {
     "exports": {
       ".": "./dist/index.mjs",
       "./package.json": "./package.json",
       "./css": "./css/tokens.css",
-      "./css/desktop": "./css/tokens.desktop.css"
+      "./css/desktop": "./css/tokens.desktop.css",
+      "./css/panel": "./css/tokens.panel.css"
     }
   },
   "scripts": {
