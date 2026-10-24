@@ -1,5 +1,6 @@
 import type { PortEntry } from "@/lib/types";
 import { formatMemory, formatUptime, middleTruncate } from "@/lib/format";
+import { DetailActions } from "@/components/DetailActions";
 import { Icon } from "@/components/Icon";
 import styles from "@/app.module.css";
 
@@ -159,6 +160,7 @@ export function PortRow({
             </span>
           </div>
           <div className={styles.command}>{entry.command}</div>
+          <DetailActions entry={entry} />
         </div>
       )}
     </li>

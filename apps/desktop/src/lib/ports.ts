@@ -27,3 +27,12 @@ export async function openSettings(): Promise<void> {
   if (!inTauri) return;
   await invoke("open_settings");
 }
+
+/** Opens http://localhost:<port> in the default browser (no-op in the browser
+ * dev loop). The panel's opener permission is scoped to localhost and
+ * 127.0.0.1 only (capabilities/default.json), so this can open nothing else. */
+export async function openLocalUrl(port: number): Promise<void> {
+  if (!inTauri) return;
+  const { openUrl } = await import("@tauri-apps/plugin-opener");
+  await openUrl(`http://localhost:${port}`);
+}

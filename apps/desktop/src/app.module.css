@@ -397,6 +397,32 @@
   border: 1px solid var(--pw-line-row);
   border-radius: var(--radius-sm);
 }
+.detailActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.detailAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 9px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--pw-fg-2);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.detailAction:hover {
+  background: var(--pw-hover);
+  color: var(--pw-fg);
+}
+.detailAction:focus-visible {
+  outline: 2px solid var(--pw-accent-ring);
+}
 @keyframes pwFade {
   from {
     opacity: 0;
