@@ -10,6 +10,10 @@ import {
 afterEach(() => resetMemorySettings());
 
 describe("settings store (outside Tauri)", () => {
+  it("defaults appearance to system", async () => {
+    expect(await getSetting("appearance")).toBe("system");
+  });
+
   it("returns the default until a value is set", async () => {
     expect(await getSetting("refreshIntervalMs")).toBe(SETTINGS_DEFAULTS.refreshIntervalMs);
     await setSetting("refreshIntervalMs", 5000);

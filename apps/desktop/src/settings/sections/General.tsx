@@ -3,7 +3,17 @@ import { getAutostart, registerShortcut, setAutostart } from "../native";
 import { recordKey, shortcutKeys, shortcutText, validateShortcut } from "../shortcut";
 import { useSetting } from "../store";
 import styles from "../settings.module.css";
-import { Button, Group, Keys, Row, RowNote, SectionHeading, Select, Switch } from "../ui";
+import {
+  Button,
+  Group,
+  Keys,
+  Row,
+  RowNote,
+  SectionHeading,
+  Segmented,
+  Select,
+  Switch,
+} from "../ui";
 
 const REFRESH_OPTIONS = [
   { value: 1000, label: "Every 1s" },
@@ -22,6 +32,7 @@ export default function General() {
       </Group>
       <SectionHeading>Panel</SectionHeading>
       <Group>
+        <AppearanceRow />
         <RefreshRow />
       </Group>
       <SectionHeading>Updates</SectionHeading>
@@ -167,6 +178,30 @@ function LaunchAtLoginRow() {
       />
       {note ? <RowNote>{note}</RowNote> : null}
     </>
+  );
+}
+
+const APPEARANCE_OPTIONS = [
+  { value: "system", label: "System" },
+  { value: "dark", label: "Dark" },
+  { value: "light", label: "Light" },
+] as const;
+
+function AppearanceRow() {
+  const [appearance, setAppearance] = useSetting("appearance");
+  return (
+    <Row
+      label="Appearance"
+      reason="System follows your Mac's light or dark mode."
+      control={
+        <Segmented
+          label="Appearance"
+          value={appearance}
+          options={APPEARANCE_OPTIONS}
+          onChange={setAppearance}
+        />
+      }
+    />
   );
 }
 

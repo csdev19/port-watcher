@@ -1,4 +1,4 @@
-# Thermal baseline — MacBook Pro M4 Pro (2026-10-23)
+# Thermal baseline — MacBook Pro M4 Pro (2026-10-23, stress run 2026-10-24)
 
 Evidence behind the System health thresholds in the
 [v2 spec](../specs/2026-10-24-chapay-v2-design.md). One machine, one owner, on battery; read the
@@ -35,6 +35,30 @@ to 66 %.
 The `cpu_temp_avg` column in these CSVs is biased low: the probe version that recorded them still
 averaged power-gated `Tp*` keys at 40.0 °C (about 46 °C instead of 51 °C on one snapshot). The
 hotspot (`cpu_temp_max`) is unaffected. The probe in the repo has the fix.
+
+## Sustained CPU stress (2026-10-24)
+
+Run by the owner with the `chapay` CLI (`heat --watch 5 --csv` and `events --json` side by side):
+30 s baseline, 12 busy loops for 300 s (17:55:52–18:00:58), then a 120 s cooldown. Raw data:
+`examples/thermal-probe/measurements/2026-10-24-1754-cpu-stress/` (`probe.csv`, `events.jsonl`,
+`run.log`).
+
+| Phase               | CPU hotspot                     | Thermal pressure       | Fan                                    | System power          |
+| ------------------- | ------------------------------- | ---------------------- | -------------------------------------- | --------------------- |
+| Baseline (30 s)     | 57–77 °C                        | nominal                | ~2,300 rpm (30 %)                      | 5–8 W                 |
+| First 5 s of stress | 104 °C                          | nominal                | ~2,300 rpm                             | 51 W                  |
+| Stress, 60 samples  | **mean 110.8 °C, max 115.2 °C** | **nominal throughout** | rising to 4,988 rpm (64 %) after ~70 s | mean 45 W, max 53.7 W |
+
+- `events.jsonl` holds only the two initial levels: **no thermal or memory pressure transition
+  fired** during five minutes with the hotspot above 104 °C.
+- The fan lagged the temperature by more than a minute.
+- The cooldown is **contaminated**: from 18:01 other agents started builds on the same machine, so
+  the 100 % bursts after the stress window are not part of the experiment.
+
+**Consequence:** [ADR 0011](../adr/0011-event-driven-background-signals-and-alerts.md)'s reopen
+condition is met — thermal pressure stayed nominal while the hotspot passed 95 °C. A default STOP rule
+on thermal pressure alone would not have fired. Whether 115 °C is a localized sensor the chip
+tolerates is unknown; macOS did not throttle. The local-LLM (GPU + memory) case is still uncaptured.
 
 ## What it means for chapay
 
