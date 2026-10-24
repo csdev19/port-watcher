@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 
 use system_health::ProcessUsage;
 
-use super::dto::{KillTarget, LockReason, ProcessGroupDto};
+use super::dto::{KillTarget, LockReason, MemberDto, ProcessGroupDto};
 use crate::ports::classify::{app_bundle_path, classify_port, PortCategory};
 use crate::ports::kill::{is_killable, static_guard};
 
@@ -161,6 +161,18 @@ pub fn group(all: &[ProcessUsage], ctx: &GroupContext) -> Vec<ProcessGroupDto> {
                 target_name: target.name.clone(),
                 killable,
                 lock_reason: lock,
+                gpu_pct: members
+                    .iter()
+                    .filter_map(|m| m.usage.gpu_pct)
+                    .reduce(|a, b| a + b)
+                    .map(|g| g.min(100.0)),
+                members: members
+                    .iter()
+                    .map(|m| MemberDto {
+                        pid: m.usage.pid,
+                        started_at: m.usage.started_at,
+                    })
+                    .collect(),
             }
         })
         .collect();
@@ -191,6 +203,7 @@ mod tests {
             energy_mw: None,
             path: Some(path.into()),
             uid: Some(ME),
+            gpu_pct: None,
         }
     }
 
@@ -377,5 +390,28 @@ mod tests {
             "/Users/mexico/x"
         );
         assert_eq!(tildify(Path::new("/opt/x"), None), "/opt/x");
+    }
+
+    #[test]
+    fn group_gpu_is_the_sum_of_members_and_none_when_nobody_reports() {
+        let mut a = main_proc(1, 5.0);
+        let mut b = renderer(2, 5.0);
+        let rows = group(&[a.clone(), b.clone()], &ctx(10));
+        assert_eq!(rows[0].gpu_pct, None);
+        a.gpu_pct = Some(10.0);
+        b.gpu_pct = Some(2.5);
+        let rows = group(&[a, b], &ctx(10));
+        assert_eq!(rows[0].gpu_pct, Some(12.5));
+    }
+
+    #[test]
+    fn group_lists_every_member_by_pid_and_start() {
+        let rows = group(&[main_proc(1, 5.0), renderer(2, 5.0)], &ctx(10));
+        let members: Vec<(u32, u64)> = rows[0]
+            .members
+            .iter()
+            .map(|m| (m.pid, m.started_at))
+            .collect();
+        assert_eq!(members, [(1, 1001), (2, 1002)]);
     }
 }

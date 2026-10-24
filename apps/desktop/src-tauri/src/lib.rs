@@ -233,6 +233,7 @@ pub fn run() {
             commands::kill_process,
             commands::machine_snapshot,
             commands::top_processes,
+            commands::machine_history,
             commands::check_full_disk_access,
             commands::open_full_disk_access_settings,
             commands::finish_setup,

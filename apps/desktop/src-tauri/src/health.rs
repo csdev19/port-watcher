@@ -4,7 +4,8 @@
 //! into alerts.
 
 use crate::error::AppError;
-use crate::machine::dto::{MachineSnapshot, ProcessGroupDto};
+use crate::machine::dto::{MachineSnapshot, ProcessGroupDto, SeriesDto};
+use crate::machine::history::{Metric, Range};
 use crate::machine::runtime::{Runtime, TopEnv};
 use std::sync::{Condvar, Mutex};
 use std::time::{Duration, Instant};
@@ -66,6 +67,14 @@ impl HealthState {
     /// The gauges and recent history. Samples only when the cached reading is 900 ms old.
     pub fn machine_snapshot(&self, window_s: Option<u32>) -> Result<MachineSnapshot, AppError> {
         self.with_runtime(|rt| rt.snapshot(Instant::now(), window_s))
+    }
+
+    /// One metric over a range, for the full window's chart.
+    pub fn machine_history(&self, metric: Metric, range: Range) -> Result<SeriesDto, AppError> {
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_millis() as u64);
+        self.with_runtime(|rt| rt.history_series(Instant::now(), now_ms, metric, range))
     }
 
     /// Top processes grouped by app bundle. One full process walk per call.
@@ -194,6 +203,7 @@ mod tests {
         state.publish(caps(), Vec::new(), None);
         assert!(state.machine_snapshot(None).is_err());
         assert!(state.top_processes(None).is_err());
+        assert!(state.machine_history(Metric::Cpu, Range::OneMin).is_err());
     }
 
     #[test]
