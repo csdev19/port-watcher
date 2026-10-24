@@ -1,7 +1,8 @@
 # ADR 0009: System health lives in its own Rust crate, with a CLI
 
-**Status:** Accepted by the owner (2026-10-24). Not implemented: Phase 2 on `feat/chapay-v2`
-(issue #55). The spike it starts from is `examples/thermal-probe`.
+**Status:** Accepted by the owner (2026-10-24). Implemented by Phase 2 on `feat/chapay-v2`
+(issue #55), as a branch of that integration line, not yet on `main`. The spike it started from is
+`examples/thermal-probe`.
 **Date:** 2026-10-24.
 **Spec:** [docs/specs/2026-10-24-chapay-v2-design.md](../specs/2026-10-24-chapay-v2-design.md).
 
@@ -25,8 +26,8 @@ workspace; release-please computes the desktop version from commits under `apps/
 - **Releases:** a change only under `crates/system-health` does not move the desktop version by itself.
   Such changes ship with the next desktop release; a crate-only fix that must ship alone gets a
   `fix(desktop): …` commit touching `apps/desktop` (e.g. the dependency line). Revisit if this bites.
-- CI runs the crate's pure tests on Linux; macOS-only adapters are compiled and tested in the existing
-  macOS desktop job.
+- CI runs the crate's fmt, clippy and tests in a macOS job of `desktop-ci.yml` (the adapters are
+  macOS-only); hardware tests stay off in CI (`CHAPAY_HW_TESTS`).
 
 ## Alternatives rejected
 
