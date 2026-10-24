@@ -32,6 +32,9 @@
   --pw-plum: #2a2333;
   --pw-plum-hover: #352c40;
   --status-danger: #ff5c62;
+  --pw-warn: #ffe600;
+  --pw-warn-text: #ffe600;
+  --pw-stop-text: #ff5c62;
   --pw-accent: #0fc2d7;
   --pw-accent-hover: #3dd3e4;
   --pw-action: #ff1e8c;
@@ -72,6 +75,9 @@
     --pw-plum: #ececf0;
     --pw-plum-hover: #e2e2e8;
     --status-danger: #e5484d;
+    --pw-warn: #ffb020;
+    --pw-warn-text: #8a5a00;
+    --pw-stop-text: #c62d32;
   }
 }
 
@@ -101,4 +107,7 @@
   --pw-plum: #ececf0;
   --pw-plum-hover: #e2e2e8;
   --status-danger: #e5484d;
+  --pw-warn: #ffb020;
+  --pw-warn-text: #8a5a00;
+  --pw-stop-text: #c62d32;
 }

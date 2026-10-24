@@ -30,4 +30,8 @@ export const panelLight: PanelThemeTokens = {
   "pw-plum": "#ececf0",
   "pw-plum-hover": "#e2e2e8",
   "status-danger": "#e5484d",
+  // #ffb020 is ~2:1 on white: fine for dots and lines, not for text. The text tokens darken.
+  "pw-warn": "#ffb020",
+  "pw-warn-text": "#8a5a00",
+  "pw-stop-text": "#c62d32",
 };

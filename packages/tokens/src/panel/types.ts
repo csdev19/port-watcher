@@ -32,6 +32,9 @@ export const PANEL_THEME_TOKEN_NAMES = [
   "pw-plum",
   "pw-plum-hover",
   "status-danger",
+  "pw-warn",
+  "pw-warn-text",
+  "pw-stop-text",
 ] as const;
 
 /** Identical in both appearances: brand colours, radii, type. */
