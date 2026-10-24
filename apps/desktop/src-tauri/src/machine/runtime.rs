@@ -106,6 +106,7 @@ impl<S: Sources> Runtime<S> {
             ),
             verdict: verdict_dto(verdict),
             sampled_at_ms: sample.taken_at_ms,
+            system_watts: sample.power.as_ref().map(|p| p.system_w),
         }
     }
 

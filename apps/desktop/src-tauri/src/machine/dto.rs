@@ -79,6 +79,8 @@ pub struct MachineSnapshot {
     pub history: Vec<HistoryPoint>,
     pub verdict: VerdictDto,
     pub sampled_at_ms: u64,
+    /// Whole-system power in watts; `None` when the SMC does not report it.
+    pub system_watts: Option<f32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -249,6 +251,7 @@ mod tests {
                 reasons: vec![],
             },
             sampled_at_ms: 2,
+            system_watts: Some(14.5),
         };
         let v = serde_json::to_value(snap).unwrap();
         for k in [
@@ -258,6 +261,7 @@ mod tests {
             "history",
             "verdict",
             "sampledAtMs",
+            "systemWatts",
         ] {
             assert!(v.get(k).is_some(), "missing {k}");
         }
