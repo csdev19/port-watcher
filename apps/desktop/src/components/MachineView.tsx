@@ -1,4 +1,6 @@
 import type { MachineSnapshot } from "@/lib/machine-types";
+import { openFullWindow } from "@/lib/machine";
+import { Icon } from "@/components/Icon";
 import { Gauge } from "@/components/Gauge";
 import { TopProcesses } from "@/components/TopProcesses";
 import type { ToastData } from "@/components/Toast";
@@ -24,6 +26,18 @@ export function MachineView({ snapshot, error, onToast }: Props) {
   const cpu = snapshot.gauges.find((g) => g.id === "cpu");
   return (
     <div className={styles.machine}>
+      <div className={styles.machineBar}>
+        <button
+          type="button"
+          className={styles.expandButton}
+          aria-label="Open full window"
+          aria-keyshortcuts="Meta+Enter"
+          data-tooltip="Open full window  ⌘↩"
+          onClick={() => void openFullWindow()}
+        >
+          <Icon name="maximize-2" size={13} />
+        </button>
+      </div>
       {snapshot.gauges.map((g) => (
         <Gauge key={g.id} gauge={g} history={snapshot.history} nowMs={snapshot.sampledAtMs} />
       ))}

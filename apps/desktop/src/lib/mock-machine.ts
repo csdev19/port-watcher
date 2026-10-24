@@ -1,4 +1,12 @@
-import type { GaugeDto, HistoryPoint, MachineSnapshot, ProcessGroupDto } from "@/lib/machine-types";
+import type {
+  GaugeDto,
+  HistoryPoint,
+  MachineSnapshot,
+  Metric,
+  ProcessGroupDto,
+  Range,
+  SeriesDto,
+} from "@/lib/machine-types";
 
 /** Deterministic 0..1 wave so the browser dev loop (`vite:dev`) draws stable sparklines. */
 function wave(i: number, period: number, phase = 0): number {
@@ -87,6 +95,7 @@ export function mockMachineSnapshot(nowMs: number = Date.now()): MachineSnapshot
     history: mockHistory(nowMs),
     verdict: { level: "watch", reasons: ["thermal pressure fair - macOS is limiting performance"] },
     sampledAtMs: nowMs,
+    systemWatts: 18.4,
   };
 }
 
@@ -105,6 +114,13 @@ export const MOCK_TOP: ProcessGroupDto[] = [
     targetName: "Cursor",
     killable: true,
     lockReason: null,
+    gpuPct: 8.4,
+    members: [
+      { pid: 4101, startedAt: 1_700_000_001 },
+      { pid: 4102, startedAt: 1_700_000_002 },
+      { pid: 4103, startedAt: 1_700_000_003 },
+      { pid: 4104, startedAt: 1_700_000_004 },
+    ],
   },
   {
     key: "4202:1",
@@ -118,6 +134,8 @@ export const MOCK_TOP: ProcessGroupDto[] = [
     targetName: "node",
     killable: true,
     lockReason: null,
+    gpuPct: null,
+    members: [{ pid: 4202, startedAt: 1_700_000_002 }],
   },
   {
     key: "/Applications/Slack.app",
@@ -131,6 +149,8 @@ export const MOCK_TOP: ProcessGroupDto[] = [
     targetName: "Slack",
     killable: true,
     lockReason: null,
+    gpuPct: 1.2,
+    members: [{ pid: 4303, startedAt: 1_700_000_003 }],
   },
   {
     key: "/System/Library/CoreServices/WindowServer",
@@ -144,6 +164,8 @@ export const MOCK_TOP: ProcessGroupDto[] = [
     targetName: "WindowServer",
     killable: false,
     lockReason: "system",
+    gpuPct: 3.0,
+    members: [{ pid: 410, startedAt: 1_700_000_004 }],
   },
   {
     key: "4404:1",
@@ -157,5 +179,43 @@ export const MOCK_TOP: ProcessGroupDto[] = [
     targetName: "vite",
     killable: true,
     lockReason: null,
+    gpuPct: null,
+    members: [{ pid: 4404, startedAt: 1_700_000_005 }],
   },
 ];
+
+const RANGE_BUCKETS: Record<Range, [number, number]> = {
+  "1m": [1000, 60],
+  "10m": [5000, 120],
+  "1h": [20_000, 180],
+};
+
+/** A believable series for the browser dev loop. The oldest quarter is "not sampled" on the 1 h
+ * range so the gap rendering can be seen. */
+export function mockSeries(metric: Metric, range: Range, nowMs: number = Date.now()): SeriesDto {
+  const [bucketMs, n] = RANGE_BUCKETS[range];
+  const base: Record<Metric, [number, number]> = {
+    cpu: [22, 40],
+    gpu: [8, 20],
+    memoryUsed: [74, 3],
+    hotspot: [58, 38],
+    thermalLevel: [0, 2],
+  };
+  const [lo, span] = base[metric];
+  const buckets: SeriesDto["buckets"] = [];
+  let peak: SeriesDto["peak"] = null;
+  for (let i = 0; i < n; i++) {
+    const tMs = nowMs - (n - 1 - i) * bucketMs;
+    if (range === "1h" && i < n / 4) {
+      buckets.push(null);
+      continue;
+    }
+    const avg =
+      metric === "thermalLevel" ? Math.round(lo + span * wave(i, 25)) : lo + span * wave(i, 7);
+    buckets.push({ tMs, min: avg - 2, avg, max: avg + 3 });
+    if (!peak || avg + 3 > peak.value) {
+      peak = { tMs, value: avg + 3, top: { name: "Cursor", cpuPct: 38 } };
+    }
+  }
+  return { metric, range, bucketMs, endMs: nowMs, buckets, peak };
+}

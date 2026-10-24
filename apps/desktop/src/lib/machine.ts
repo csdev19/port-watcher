@@ -1,8 +1,14 @@
 import { invoke } from "@tauri-apps/api/core";
 import { inTauri } from "@/lib/ports";
-import { MOCK_TOP, mockMachineSnapshot } from "@/lib/mock-machine";
+import { MOCK_TOP, mockMachineSnapshot, mockSeries } from "@/lib/mock-machine";
 import type { KillResult } from "@/lib/types";
-import type { MachineSnapshot, ProcessGroupDto } from "@/lib/machine-types";
+import type {
+  MachineSnapshot,
+  Metric,
+  ProcessGroupDto,
+  Range,
+  SeriesDto,
+} from "@/lib/machine-types";
 
 /** Gauges, verdict and the last 60 s of history. Rust samples at most once per 900 ms. */
 export async function machineSnapshot(): Promise<MachineSnapshot> {
@@ -24,4 +30,22 @@ export async function killProcess(target: { pid: number; startedAt: number }): P
     pid: target.pid,
     startedAt: target.startedAt,
   });
+}
+
+/** One metric over 1 min, 10 min or 1 h, in fixed buckets; `null` buckets were not sampled. */
+export async function machineHistory(metric: Metric, range: Range): Promise<SeriesDto> {
+  if (!inTauri) return mockSeries(metric, range);
+  return invoke<SeriesDto>("machine_history", { metric, range });
+}
+
+/** Opens (or focuses) the full window; the panel hides. */
+export async function openFullWindow(): Promise<void> {
+  if (!inTauri) return;
+  await invoke("open_full_window");
+}
+
+/** Closes the full window and shows the panel under the tray icon. */
+export async function closeFullWindowToMini(): Promise<void> {
+  if (!inTauri) return;
+  await invoke("close_full_window_to_mini");
 }

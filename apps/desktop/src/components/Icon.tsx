@@ -24,6 +24,7 @@ import {
   Command,
   Wifi,
   LoaderCircle,
+  Maximize2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -56,6 +57,7 @@ const ICONS: Record<string, LucideIcon> = {
   command: Command,
   wifi: Wifi,
   "loader-circle": LoaderCircle,
+  "maximize-2": Maximize2,
 };
 
 export type IconName = keyof typeof ICONS;
