@@ -4,7 +4,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App";
 import Settings from "./settings/Settings";
 import Setup from "./setup/Setup";
-import "./tokens.css";
+import { syncPanelTheme } from "./lib/theme";
+import "@fontsource/geist-sans/latin-400.css";
+import "@fontsource/geist-sans/latin-500.css";
+import "@fontsource/geist-sans/latin-600.css";
+import "@fontsource/geist-mono/latin-400.css";
+import "@fontsource/geist-mono/latin-500.css";
+import "@port-watcher/tokens/css/panel";
 import "./global.css";
 
 const queryClient = new QueryClient();
@@ -13,6 +19,11 @@ const queryClient = new QueryClient();
  * `setup` is the first-run window, `settings` the Settings window, and
  * anything else the menu-bar panel. */
 const view = new URLSearchParams(window.location.search).get("view");
+
+/** The panel stylesheet scopes the light appearance to `data-window="panel"`. */
+const isPanel = view !== "setup" && view !== "settings";
+document.documentElement.dataset.window = isPanel ? "panel" : view;
+if (isPanel) syncPanelTheme();
 
 function Root() {
   if (view === "setup") return <Setup />;

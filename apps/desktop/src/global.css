@@ -1,6 +1,11 @@
 /* Window is `transparent: true` in tauri.conf.json — every layer up to
    the panel itself must stay transparent, or the OS paints white behind
    the rounded corners and it reads as a square white card. */
+/* Follow the system appearance for native bits (scrollbars, form controls). */
+:root {
+  color-scheme: light dark;
+}
+
 html,
 body {
   margin: 0;

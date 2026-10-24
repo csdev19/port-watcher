@@ -1,4 +1,4 @@
-/* Design tokens live in tokens.css, shared with the Settings window. */
+/* Design tokens come from @port-watcher/tokens/css/panel, shared with the Settings window. */
 
 .panel {
   position: relative;
@@ -31,9 +31,60 @@
   pointer-events: none;
 }
 
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 10px 9px 12px;
+  background: var(--pw-band);
+  border-bottom: 1px solid var(--pw-line);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--pw-fg);
+}
+.wordmark {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--pw-fg);
+}
+.wordmarkDot {
+  color: var(--pw-action);
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--pw-border);
+  border-radius: 999px;
+  padding: 3px 9px 3px 7px;
+  font-size: 11px;
+  color: var(--pw-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.pillDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--pw-muted-2);
+}
+.pill[data-tone="live"] .pillDot {
+  background: var(--pw-free);
+}
+
+.searchBand {
+  padding: 8px 8px 7px;
+  background: var(--pw-band);
+  border-bottom: 1px solid var(--pw-line);
+}
 .searchWrap {
   position: relative;
-  margin: 9px 9px 8px;
   display: flex;
   align-items: center;
   color: var(--pw-muted);
@@ -45,7 +96,7 @@
 }
 .search {
   width: 100%;
-  height: 36px;
+  height: 34px;
   padding: 0 32px 0 34px;
   border: 1px solid var(--pw-line);
   border-radius: var(--radius-md);
@@ -84,20 +135,6 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  border-top: 1px solid var(--pw-line);
-}
-
-.section + .section {
-  border-top: 1px solid var(--pw-line);
-}
-
-.sectionHeading {
-  margin: 0;
-  padding: 8px 12px 4px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: var(--pw-muted-2);
 }
 
 .rowList {
@@ -106,32 +143,39 @@
   list-style: none;
 }
 
+/* The Apps & system fold sits after the dev rows, on a soft band. */
 .disclosure {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   width: 100%;
   border: none;
-  background: transparent;
-  color: var(--pw-muted-2);
+  border-top: 1px solid var(--pw-line);
+  border-bottom: 1px solid var(--pw-line-row);
+  background: var(--pw-band-soft);
+  color: var(--pw-muted);
   cursor: pointer;
-  padding: 8px 12px 4px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  padding: 8px 12px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+}
+.disclosure:hover:not(:disabled) {
+  color: var(--pw-fg-2);
 }
 .disclosure:disabled {
   cursor: default;
 }
-.disclosure[aria-expanded="true"] svg {
-  transform: rotate(90deg);
-}
-.disclosure svg {
-  transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1);
+.disclosure:focus-visible {
+  outline: 2px solid var(--pw-accent-ring);
+  outline-offset: -2px;
 }
 
 .disclosureLabel {
+  flex: 1;
+  text-align: left;
   color: inherit;
+  font-variant-numeric: tabular-nums;
 }
 
 .portMuted {
@@ -139,36 +183,82 @@
 }
 
 .row {
-  padding: 6px 10px 6px 12px;
+  position: relative;
   border-bottom: 1px solid var(--pw-line-row);
-  border-left: 2px solid transparent;
   cursor: default;
 }
 .row:last-child {
   border-bottom: none;
 }
+/* Selection is an inset bar plus a wash: no border-left, so nothing shifts. */
 .rowSelected {
   background: var(--pw-accent-soft);
-  border-left-color: var(--pw-accent);
+  box-shadow: inset 2px 0 0 var(--pw-accent);
+}
+
+/* Kill veil: covers the row while its kill is in flight (design 7a). */
+.veil {
+  position: absolute;
+  inset: 0;
+  background: var(--pw-veil);
+  pointer-events: none;
+  animation: pwVeil 200ms linear forwards;
+}
+@keyframes pwVeil {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.rowSecondary .rowMain {
+  min-height: 34px;
+}
+.rowSecondary .port {
+  font-size: 15px;
+  color: var(--pw-muted);
+}
+.rowSecondary .label {
+  font-size: 12.5px;
+  color: var(--pw-fg-2);
 }
 
 .rowMain {
-  display: flex;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
-  min-height: 51px;
+  padding: 3px 8px 3px 12px;
+  min-height: 46px;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  min-width: 70px;
+}
+/* Star and kill are always in the DOM (keyboard, screen readers); they only
+ * show on hover, on the selected row, or while focus is inside the row. */
+.reveal {
+  opacity: 0;
+}
+.row:hover .reveal,
+.rowSelected .reveal,
+.row:focus-within .reveal {
+  opacity: 1;
 }
 .port {
   font-family: var(--font-mono);
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 500;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
-  min-width: 48px;
   color: var(--pw-fg);
 }
 .rowCenter {
-  flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -242,7 +332,7 @@
   background: var(--pw-raised-hover);
 }
 .killArmed {
-  color: #fff;
+  color: var(--pw-on-action);
   background: var(--status-danger);
   font-weight: 600;
   font-size: 11px;
@@ -290,9 +380,9 @@
   right: 0;
   padding: 4px 8px;
   border-radius: var(--radius-sm);
-  background: rgba(34, 27, 40, 0.97);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: var(--pw-fg);
+  background: var(--pw-toast-bg);
+  border: 1px solid var(--pw-border);
+  color: var(--pw-toast-fg);
   font-size: 11px;
   white-space: nowrap;
   pointer-events: none;
@@ -300,35 +390,71 @@
 }
 
 .detail {
-  margin: 0 12px 11px 60px;
-  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 0 12px 10px 58px;
   font-size: 11px;
   color: var(--pw-muted);
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 4px 8px;
+  animation: pwFade 200ms cubic-bezier(0.16, 1, 0.3, 1);
   -webkit-user-select: text;
   user-select: text;
 }
-.detail dt {
-  color: var(--pw-muted-2);
+.detailMeta {
+  display: flex;
+  gap: 12px;
 }
-.detail dd {
-  margin: 0;
+.detailValue {
   font-family: var(--font-mono);
-  color: var(--pw-fg-2);
+  color: var(--pw-fg);
+  font-variant-numeric: tabular-nums;
 }
 .command {
-  grid-column: 1 / -1;
   font-family: var(--font-mono);
   font-size: 10.5px;
   line-height: 1.5;
   word-break: break-all;
-  padding: 8px;
-  margin-top: 2px;
+  padding: 6px 8px;
+  color: var(--pw-fg-2);
   background: var(--pw-raised);
-  border: 1px solid var(--pw-line);
+  border: 1px solid var(--pw-line-row);
   border-radius: var(--radius-sm);
+}
+.detailActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.detailAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 9px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--pw-fg-2);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.detailAction:hover {
+  background: var(--pw-hover);
+  color: var(--pw-fg);
+}
+.detailAction:focus-visible {
+  outline: 2px solid var(--pw-accent-ring);
+}
+@keyframes pwFade {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .state {
@@ -377,34 +503,31 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 4px 4px 12px;
-  min-height: 30px;
+  gap: 8px;
+  padding: 7px 12px;
   border-top: 1px solid var(--pw-line);
   background: var(--pw-footer);
-  color: var(--pw-muted-2);
+  font-size: 12px;
+}
+.footerStatus {
   font-size: 11px;
+  color: var(--pw-muted-2);
   font-variant-numeric: tabular-nums;
 }
-
 .footerButton {
   position: relative;
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 22px;
-  padding: 0;
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--pw-muted);
   cursor: default;
+  padding: 2px 4px;
+  font-family: inherit;
+  font-size: 12px;
 }
-
 .footerButton:hover {
-  background: var(--pw-raised-hover);
   color: var(--pw-fg);
 }
-
 .footerButton:focus-visible {
   outline: 2px solid var(--pw-accent-ring);
   outline-offset: 1px;
@@ -421,9 +544,9 @@
   gap: 8px;
   padding: 8px 10px;
   border-radius: var(--radius-md);
-  background: rgba(34, 27, 40, 0.97);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: var(--pw-fg);
+  background: var(--pw-toast-bg);
+  border: 1px solid var(--pw-border);
+  color: var(--pw-toast-fg);
   font-size: 12px;
 }
 .toast button {
@@ -451,122 +574,134 @@
   min-height: 0;
 }
 
-/* F7 Slice 3: tabs */
+/* Underline tabs inside the band, mono counts (design 7a). */
 .tablist {
   display: flex;
-  gap: 4px;
-  margin: 0 9px 8px;
+  align-items: stretch;
+  padding: 0 10px;
+  background: var(--pw-band);
+  border-bottom: 1px solid var(--pw-line);
 }
 .tab {
-  flex: 1;
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 6px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
+  margin-bottom: -1px;
+  border: none;
+  border-bottom: 2px solid transparent;
   background: transparent;
   color: var(--pw-muted);
   cursor: pointer;
-  padding: 6px 10px;
-  font-size: 12px;
+  padding: 8px 10px 7px;
+  font-family: inherit;
+  font-size: 12.5px;
   font-weight: 500;
 }
 .tab:hover {
   color: var(--pw-fg-2);
 }
+.tab:focus-visible {
+  outline: 2px solid var(--pw-accent-ring);
+  outline-offset: -2px;
+}
 .tabActive {
   color: var(--pw-fg);
-  background: var(--pw-raised);
-  border-color: var(--pw-line);
+  border-bottom-color: var(--pw-accent);
 }
 .tabCount {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
   font-variant-numeric: tabular-nums;
   color: var(--pw-muted-2);
 }
-.tabActive .tabCount {
-  color: var(--pw-muted);
-}
 
-/* F7 Slice 3: Favourites watch groups */
-.watchGroup + .watchGroup {
-  border-top: 1px solid var(--pw-line-row);
-}
-.watchHeading {
+/* Favourites rows (design 7a): the same grid as a Listening row; the name is
+ * a click-to-rename control, free ports show a mint dot, unwatch is a star-off. */
+.nameButton {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px 4px;
-}
-.watchHeadingLabel {
-  display: flex;
-  align-items: center;
-  flex: 1;
+  gap: 6px;
   min-width: 0;
-  overflow: hidden;
+  max-width: 100%;
   border: none;
   background: transparent;
   padding: 0;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--pw-fg-2);
+  cursor: text;
   font-family: inherit;
+  text-align: left;
 }
-.watchHeadingLabelText {
-  overflow: hidden;
-  text-overflow: ellipsis;
+.labelPlaceholder {
+  font-size: 13px;
+  color: var(--pw-muted-2);
   white-space: nowrap;
 }
-.watchHeadingPencil {
+.namePencil,
+.namePencilAlways {
   display: flex;
   flex-shrink: 0;
-  margin-left: 4px;
   color: var(--pw-muted-2);
+}
+.namePencil {
   visibility: hidden;
 }
-.watchHeadingLabel:hover .watchHeadingPencil,
-.watchHeadingLabel:focus-visible .watchHeadingPencil {
+.nameButton:hover .namePencil,
+.nameButton:focus-visible .namePencil {
   visibility: visible;
 }
 .watchHeadingRenameInput {
-  flex: 1;
+  width: 100%;
   min-width: 0;
-  font-size: 12px;
-  font-weight: 600;
+  height: 22px;
+  padding: 0 6px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--pw-fg);
   background: var(--pw-raised);
-  border: 1px solid var(--pw-accent, var(--pw-line));
+  border: 1px solid var(--pw-accent);
   border-radius: var(--radius-sm);
-  padding: 2px 6px;
+  outline: none;
+  box-shadow: 0 0 0 3px var(--pw-accent-ring);
+  -webkit-user-select: text;
+  user-select: text;
 }
-.watchHeadingPort {
-  font-family: var(--font-mono);
-  color: var(--pw-fg);
-}
-.watchStatus {
+.freeTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 4px;
   font-size: 11px;
-  color: var(--pw-muted);
-  white-space: nowrap;
-}
-.watchStatusFree {
-  color: var(--pw-free);
-}
-.watchStatusStale {
-  color: var(--status-danger);
-}
-.watchRemove {
-  display: flex;
-  border: none;
-  background: transparent;
   color: var(--pw-muted-2);
-  cursor: pointer;
-  padding: 4px 6px;
-  border-radius: var(--radius-sm);
 }
-.watchRemove:hover {
-  color: var(--status-danger);
-  background: var(--pw-raised-hover);
+.freeDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--pw-free);
+}
+.actionSpacer {
+  display: inline-block;
+  width: 26px;
+  height: 22px;
+}
+/* Listener rows under an expanded multi-listener watch. */
+.rowNested .rowMain {
+  padding-left: 26px;
+}
+.rowNested .detail {
+  padding-left: 72px;
+}
+/* Visually hidden, still announced and still in the DOM. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 .watchError {
   margin: 0 12px 6px;
@@ -576,22 +711,23 @@
 
 /* F7 Slice 3: inline watch form */
 .watchFormTrigger {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  width: calc(100% - 24px);
   margin: 8px 12px;
-  border: 1px dashed var(--pw-line);
-  border-radius: var(--radius-md);
+  height: 28px;
+  padding: 0 9px;
+  border: none;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--pw-muted);
   cursor: pointer;
-  padding: 8px 10px;
+  font-family: inherit;
   font-size: 12px;
 }
 .watchFormTrigger:hover {
-  color: var(--pw-fg-2);
-  background: var(--pw-raised-hover);
+  color: var(--pw-fg);
+  background: var(--pw-hover);
 }
 .watchForm {
   margin: 8px 12px;
@@ -675,7 +811,7 @@
 .watchFormSubmit {
   background: var(--pw-action);
   border-color: var(--pw-action);
-  color: #fff;
+  color: var(--pw-on-action);
   font-weight: 600;
 }
 .watchFormSubmit:hover {
@@ -709,7 +845,7 @@
   border: none;
   border-radius: var(--radius-sm);
   background: var(--pw-action);
-  color: #fff;
+  color: var(--pw-on-action);
   cursor: pointer;
   padding: 4px 10px;
   font-size: 11.5px;
@@ -749,11 +885,11 @@
   transition: width 140ms linear;
 }
 
-/* The gear carries a fuchsia dot while a newer chapay is waiting. */
+/* The Settings button carries a fuchsia dot while a newer chapay is waiting. */
 .updateDot {
   position: absolute;
-  top: 3px;
-  right: 4px;
+  top: 0;
+  right: -4px;
   width: 6px;
   height: 6px;
   border-radius: 50%;

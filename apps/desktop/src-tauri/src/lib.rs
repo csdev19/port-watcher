@@ -218,6 +218,7 @@ pub fn run() {
             commands::update_install,
             commands::update_restart,
             commands::open_settings,
+            commands::quit_app,
             commands::set_shortcut,
             commands::system_health_capabilities
         ])
