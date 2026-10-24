@@ -209,6 +209,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::list_ports,
             commands::kill_port,
+            commands::kill_process,
+            commands::machine_snapshot,
+            commands::top_processes,
             commands::check_full_disk_access,
             commands::open_full_disk_access_settings,
             commands::finish_setup,

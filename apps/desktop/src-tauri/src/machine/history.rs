@@ -35,10 +35,6 @@ impl History {
             .copied()
             .collect()
     }
-
-    pub fn len(&self) -> usize {
-        self.buf.len()
-    }
 }
 
 #[cfg(test)]
@@ -62,7 +58,7 @@ mod tests {
         for t in 1..=5 {
             h.push(point(t));
         }
-        assert_eq!(h.len(), 3);
+        assert_eq!(h.since(0).len(), 3);
         let times: Vec<u64> = h.since(0).iter().map(|p| p.at_ms).collect();
         assert_eq!(times, [3, 4, 5]);
     }

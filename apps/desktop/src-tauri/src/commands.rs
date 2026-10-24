@@ -1,6 +1,8 @@
 use crate::error::AppError;
+use crate::health::HealthState;
+use crate::machine::dto::{MachineSnapshot, ProcessGroupDto};
 use crate::ports::enrich::enrich;
-use crate::ports::kill::kill_port_impl;
+use crate::ports::kill::{kill_port_impl, kill_process_impl};
 use crate::ports::models::{KillResult, PortEntry};
 use crate::ports::source::raw_ports;
 
@@ -20,6 +22,45 @@ pub async fn kill_port(pid: u32, port: u16, started_at: u64) -> Result<KillResul
     tauri::async_runtime::spawn_blocking(move || kill_port_impl(pid, port, started_at))
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
+}
+
+/// One process, by PID plus start time, for the Machine tab's kill button. Same guard chain
+/// and escalation as `kill_port` minus the port check (ADR 0006); blocks up to ~3 s.
+#[tauri::command]
+pub async fn kill_process(pid: u32, started_at: u64) -> Result<KillResult, AppError> {
+    tauri::async_runtime::spawn_blocking(move || kill_process_impl(pid, started_at))
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?
+}
+
+/// Gauges, verdict and the last `window_s` seconds of history (default 60, at most 3600).
+/// Takes a new sample only when the cached one is at least 900 ms old.
+#[tauri::command]
+pub async fn machine_snapshot(
+    app: tauri::AppHandle,
+    window_s: Option<u32>,
+) -> Result<MachineSnapshot, AppError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        use tauri::Manager;
+        app.state::<HealthState>().machine_snapshot(window_s)
+    })
+    .await
+    .map_err(|e| AppError::Internal(e.to_string()))?
+}
+
+/// Top processes by CPU, grouped by app bundle (default 5, at most 20). Walks every process
+/// once, so the renderer polls it only while the Machine tab is open.
+#[tauri::command]
+pub async fn top_processes(
+    app: tauri::AppHandle,
+    limit: Option<u8>,
+) -> Result<Vec<ProcessGroupDto>, AppError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        use tauri::Manager;
+        app.state::<HealthState>().top_processes(limit)
+    })
+    .await
+    .map_err(|e| AppError::Internal(e.to_string()))?
 }
 
 /// Probes Full Disk Access right now (no prompt is ever triggered) and

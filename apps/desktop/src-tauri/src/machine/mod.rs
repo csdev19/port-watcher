@@ -5,4 +5,5 @@
 pub mod dto;
 pub mod gauges;
 pub mod history;
+pub mod runtime;
 pub mod top;
