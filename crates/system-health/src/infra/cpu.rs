@@ -5,8 +5,8 @@ use crate::domain::{CoreKind, CoreTicks, CpuTicks};
 
 const PROCESSOR_CPU_LOAD_INFO: i32 = 2;
 
-/// Apple Silicon lists the efficiency cores first. This ordering was observed, not documented;
-/// see the README ("Core order") for how it was checked.
+/// Assumes Apple Silicon lists the efficiency cores first. Not documented and not yet verified;
+/// see the README ("Core order") for the check to run. Falls back to `Unknown` without perflevel data.
 pub fn core_kind(index: usize, cores_e: u16) -> CoreKind {
     if cores_e == 0 {
         CoreKind::Unknown

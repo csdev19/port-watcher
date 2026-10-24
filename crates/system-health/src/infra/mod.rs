@@ -4,6 +4,7 @@
 
 pub(crate) mod ffi;
 
+pub mod clock;
 pub mod cpu;
 pub mod gpu;
 pub mod mac_sources;

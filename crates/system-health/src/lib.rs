@@ -1,5 +1,6 @@
 //! System health for macOS without sudo. See the README.
 
+pub mod cli;
 pub mod domain;
 pub mod sampler;
 
