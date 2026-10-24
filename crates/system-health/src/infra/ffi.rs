@@ -82,6 +82,14 @@ unsafe extern "C" {
     pub fn notify_post(name: *const c_char) -> u32;
 
     pub fn proc_listallpids(buffer: *mut c_void, buffersize: i32) -> i32;
+    pub fn proc_pidpath(pid: i32, buffer: *mut c_void, buffersize: u32) -> i32;
+    pub fn proc_pidinfo(
+        pid: i32,
+        flavor: i32,
+        arg: u64,
+        buffer: *mut c_void,
+        buffersize: i32,
+    ) -> i32;
     pub fn proc_name(pid: i32, buffer: *mut c_void, buffersize: u32) -> i32;
     pub fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut c_void) -> i32;
 }

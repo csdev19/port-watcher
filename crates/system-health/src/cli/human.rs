@@ -173,6 +173,8 @@ mod tests {
             cpu_pct: 1.0,
             footprint_bytes: 1048576,
             energy_mw: None,
+            path: None,
+            uid: None,
         };
         let t = top_table(&[u], "cpu");
         assert!(t.contains("sudo"));

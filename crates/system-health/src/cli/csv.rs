@@ -158,6 +158,8 @@ mod tests {
             cpu_pct: 12.34,
             footprint_bytes: 2 * 1024 * 1024,
             energy_mw: None,
+            path: None,
+            uid: None,
         };
         assert_eq!(top_rows("t", &[u]), ["t,1,\"a,b\",12.3,2.0,"]);
     }
