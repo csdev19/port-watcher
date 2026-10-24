@@ -67,10 +67,10 @@ at a wrapper or edit those calls to `chapay sensors` / `chapay heat --watch 5 --
 
 ## Verdict
 
-STOP comes only from pressure signals: thermal pressure serious or critical, or memory pressure
-critical. Temperature alone raises at most WATCH (hotspot at 80 C). A hotspot at 95 C is STOP only
-when thermal pressure is unavailable. Swap at 4 GB and a fan above 50% while the machine is idle
-are WATCH. CPU and GPU load never change the verdict. Thresholds are fixed defaults.
+STOP comes from thermal pressure serious or critical, memory pressure critical, or a CPU hotspot at
+95 C or more, even when macOS still reports nominal pressure (a 12-core stress put the hotspot at
+115 C at nominal pressure). A hotspot from 80 C up to 95 C is WATCH. Swap at 4 GB and a fan above 50%
+while the machine is idle are WATCH. CPU and GPU load never change the verdict. Thresholds are fixed defaults.
 
 ## Library
 

@@ -1,10 +1,10 @@
 //! Turns one `Sample` into the four gauges. Levels come from the crate's `Thresholds`; the
-//! renderer never compares numbers. Two deliberate differences from `evaluate`:
+//! renderer never compares numbers.
 //!
-//! - Heat also goes to Stop when the hotspot passes its stop line, even if macOS still reports
-//!   nominal thermal pressure. Measured on an M4 Pro: a 12-core stress put the hotspot at 115 C
-//!   while pressure stayed nominal. The crate's verdict keeps its own rule (Watch only); the
-//!   gauge shows the temperature honestly.
+//! - Heat goes to Stop when the hotspot passes its stop line even if macOS still reports nominal
+//!   thermal pressure (measured on an M4 Pro: a 12-core stress put the hotspot at 115 C while
+//!   pressure stayed nominal). The crate's `evaluate` follows the same rule since 2026-10-24, so
+//!   the header pill and this gauge agree; a test below pins that.
 //! - Memory is coloured by macOS memory pressure, not by used percent (75 % used is normal).
 
 use super::dto::{GaugeDto, GaugeId, GaugeUnit, HistoryPoint, VerdictDto};
@@ -387,8 +387,8 @@ mod tests {
     fn hotspot_past_95_is_stop_even_when_pressure_is_nominal() {
         let mut s = sample();
         s.heat.as_mut().unwrap().cpu_max_c = 115.0;
-        // The crate's verdict stays at Watch for this sample; the gauge must not.
-        assert_eq!(evaluate(&s, &Thresholds::default()).level, Level::Watch);
+        // The header pill (crate verdict) and the gauge agree.
+        assert_eq!(evaluate(&s, &Thresholds::default()).level, Level::Stop);
         let g = run(&s, &caps(true, true));
         let heat = by(GaugeId::Heat, &g);
         assert_eq!(heat.level, Level::Stop);

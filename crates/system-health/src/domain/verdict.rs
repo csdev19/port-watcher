@@ -1,5 +1,7 @@
-//! The overall verdict. Pressure signals decide STOP; temperature alone raises at most WATCH
-//! (owner decision D8), unless thermal pressure is unavailable.
+//! The overall verdict. STOP comes from thermal pressure at Serious or above, memory pressure at
+//! Critical, or a CPU hotspot past its stop line (95 C) even while macOS still reports nominal
+//! pressure (owner decision, 2026-10-24: a 12-core stress put the hotspot at 115 C at nominal).
+//! A hotspot below the stop line raises at most WATCH.
 
 use super::memory::MemoryPressure;
 use super::sample::Sample;
@@ -106,19 +108,13 @@ pub fn evaluate(s: &Sample, t: &Thresholds) -> Verdict {
     if let Some(heat) = &s.heat {
         let hot = t.level(Gauge::Heat, heat.cpu_max_c);
         if hot >= Level::Watch {
-            // Without thermal pressure to confirm, a hotspot past the stop limit is the only signal left.
-            let to = if hot == Level::Stop && s.thermal.is_none() {
-                Level::Stop
-            } else {
-                Level::Watch
-            };
-            let limit = if to == Level::Stop {
+            let limit = if hot == Level::Stop {
                 t.hotspot_c.stop.unwrap_or(t.hotspot_c.warn)
             } else {
                 t.hotspot_c.warn
             };
             raise(
-                to,
+                hot,
                 Reason::Hotspot {
                     celsius: heat.cpu_max_c,
                     limit,
@@ -233,29 +229,28 @@ mod tests {
     }
 
     #[test]
-    fn hotspot_alone_is_at_most_watch_when_thermal_is_known() {
+    fn hotspot_below_the_stop_line_is_at_most_watch() {
         let mut s = sample();
         s.heat.as_mut().unwrap().cpu_max_c = 79.0;
         assert_eq!(eval(&s).level, Level::Ok);
         s.heat.as_mut().unwrap().cpu_max_c = 82.0;
         assert_eq!(eval(&s).level, Level::Watch);
-        s.heat.as_mut().unwrap().cpu_max_c = 99.0;
+        s.heat.as_mut().unwrap().cpu_max_c = 94.9;
         let v = eval(&s);
         assert_eq!(v.level, Level::Watch);
         assert_eq!(
             v.reasons,
             [Reason::Hotspot {
-                celsius: 99.0,
+                celsius: 94.9,
                 limit: 80.0
             }]
         );
     }
 
     #[test]
-    fn hotspot_past_95_is_stop_only_without_thermal_pressure() {
+    fn hotspot_past_95_is_stop_even_at_nominal_pressure() {
         let mut s = sample();
-        s.thermal = None;
-        s.thermal_raw = None;
+        assert_eq!(s.thermal, Some(ThermalPressure::Nominal));
         s.heat.as_mut().unwrap().cpu_max_c = 96.0;
         let v = eval(&s);
         assert_eq!(v.level, Level::Stop);
@@ -266,6 +261,10 @@ mod tests {
                 limit: 95.0
             }]
         );
+        // Without a pressure reading it is still Stop.
+        s.thermal = None;
+        s.thermal_raw = None;
+        assert_eq!(eval(&s).level, Level::Stop);
         s.heat.as_mut().unwrap().cpu_max_c = 90.0;
         assert_eq!(eval(&s).level, Level::Watch);
     }
