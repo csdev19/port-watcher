@@ -7,6 +7,7 @@ export const panelBase: PanelBaseTokens = {
   "pw-action": "#ff1e8c", // the one main action, the wordmark dot
   "pw-action-hover": "#ff4aa3",
   "pw-on-action": "#ffffff", // text on fuchsia and danger fills
+  "pw-toast-fg": "#ededef", // the toast and tooltips are dark in both appearances
   "radius-lg": "14px",
   "radius-md": "8px",
   "radius-sm": "6px",
