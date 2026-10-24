@@ -12,6 +12,8 @@ on:
   pull_request:
     branches:
       - main
+      # Temporary: chapay v2 phase PRs target the integration branch (#55). Remove once it merges.
+      - feat/chapay-v2
     paths:
       - "apps/desktop/**"
       - ".github/workflows/desktop-ci.yml"
