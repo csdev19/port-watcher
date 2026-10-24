@@ -40,6 +40,7 @@ export const PANEL_BASE_TOKEN_NAMES = [
   "pw-accent-hover",
   "pw-action",
   "pw-action-hover",
+  "pw-on-action",
   "radius-lg",
   "radius-md",
   "radius-sm",

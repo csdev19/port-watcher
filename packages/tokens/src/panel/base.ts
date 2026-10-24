@@ -6,6 +6,7 @@ export const panelBase: PanelBaseTokens = {
   "pw-accent-hover": "#3dd3e4",
   "pw-action": "#ff1e8c", // the one main action, the wordmark dot
   "pw-action-hover": "#ff4aa3",
+  "pw-on-action": "#ffffff", // text on fuchsia and danger fills
   "radius-lg": "14px",
   "radius-md": "8px",
   "radius-sm": "6px",

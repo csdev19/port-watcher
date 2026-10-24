@@ -60,6 +60,6 @@ describe("generatePanelCss", () => {
 
   it("never re-declares the light set outside a panel-scoped selector", () => {
     const outside = css.replace(mediaBlock, "").replace(forcedLight, "");
-    expect(outside).not.toContain(panelLight["pw-surface"]);
+    expect(outside).not.toContain(panelLight["pw-band-soft"]);
   });
 });

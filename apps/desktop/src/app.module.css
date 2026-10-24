@@ -1,4 +1,4 @@
-/* Design tokens live in tokens.css, shared with the Settings window. */
+/* Design tokens come from @port-watcher/tokens/css/panel, shared with the Settings window. */
 
 .panel {
   position: relative;
@@ -242,7 +242,7 @@
   background: var(--pw-raised-hover);
 }
 .killArmed {
-  color: #fff;
+  color: var(--pw-on-action);
   background: var(--status-danger);
   font-weight: 600;
   font-size: 11px;
@@ -290,8 +290,8 @@
   right: 0;
   padding: 4px 8px;
   border-radius: var(--radius-sm);
-  background: rgba(34, 27, 40, 0.97);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--pw-toast-bg);
+  border: 1px solid var(--pw-border);
   color: var(--pw-fg);
   font-size: 11px;
   white-space: nowrap;
@@ -421,8 +421,8 @@
   gap: 8px;
   padding: 8px 10px;
   border-radius: var(--radius-md);
-  background: rgba(34, 27, 40, 0.97);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--pw-toast-bg);
+  border: 1px solid var(--pw-border);
   color: var(--pw-fg);
   font-size: 12px;
 }
@@ -675,7 +675,7 @@
 .watchFormSubmit {
   background: var(--pw-action);
   border-color: var(--pw-action);
-  color: #fff;
+  color: var(--pw-on-action);
   font-weight: 600;
 }
 .watchFormSubmit:hover {
@@ -709,7 +709,7 @@
   border: none;
   border-radius: var(--radius-sm);
   background: var(--pw-action);
-  color: #fff;
+  color: var(--pw-on-action);
   cursor: pointer;
   padding: 4px 10px;
   font-size: 11.5px;
