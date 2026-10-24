@@ -7,6 +7,7 @@ pub(crate) mod ffi;
 pub mod clock;
 pub mod cpu;
 pub mod gpu;
+pub mod gpu_clients;
 pub mod mac_sources;
 pub mod machine;
 pub mod memory;

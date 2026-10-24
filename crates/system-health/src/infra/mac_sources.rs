@@ -1,6 +1,6 @@
 //! `MacSources`: the production `Sources` over SMC, IORegistry, mach, sysctl and libproc.
 
-use super::{cpu, gpu, machine, memory, procs::ProcessReader, smc::Smc, thermal};
+use super::{cpu, gpu, gpu_clients, machine, memory, procs::ProcessReader, smc::Smc, thermal};
 use crate::domain::{CpuTicks, Fan, MachineInfo, Memory, ProcessCounters, Reading, SensorGroup};
 use crate::sampler::{Capabilities, Sources};
 
@@ -93,6 +93,10 @@ impl Sources for MacSources {
 
     fn processes(&mut self) -> Vec<ProcessCounters> {
         self.procs.read_all()
+    }
+
+    fn gpu_time_by_pid(&mut self) -> Option<std::collections::HashMap<u32, u64>> {
+        gpu_clients::gpu_time_by_pid()
     }
 
     fn machine(&self) -> MachineInfo {
