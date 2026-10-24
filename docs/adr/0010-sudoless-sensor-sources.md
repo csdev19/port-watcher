@@ -2,7 +2,7 @@
 
 **Status:** Accepted by the owner (2026-10-24). Verified from a plain binary and an ad-hoc,
 hardened-runtime re-signed binary on an M4 Pro; **not yet verified inside the Developer ID signed,
-notarized app** (Phase 2 includes that check). Not implemented in the app.
+notarized app** (Phase 2 includes that check). Implemented in `crates/system-health` (Phase 2, on `feat/chapay-v2`); the app only logs it so far.
 **Date:** 2026-10-24.
 **Evidence:** [docs/research/2026-10-23-thermal-baseline-m4-pro.md](../research/2026-10-23-thermal-baseline-m4-pro.md).
 

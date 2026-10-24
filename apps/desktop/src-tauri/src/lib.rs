@@ -1,6 +1,7 @@
 mod commands;
 mod error;
 mod fda;
+mod health;
 mod panel;
 mod ports;
 mod settings;
@@ -56,6 +57,7 @@ pub fn run() {
             app.manage(LastBlurHide(Mutex::new(None)));
             app.manage(TrayRect(Mutex::new(None)));
             update::init(app.handle());
+            health::init(app.handle());
 
             #[cfg(target_os = "macos")]
             if let Some(window) = app.get_webview_window("main") {
@@ -217,7 +219,8 @@ pub fn run() {
             commands::update_restart,
             commands::open_settings,
             commands::quit_app,
-            commands::set_shortcut
+            commands::set_shortcut,
+            commands::system_health_capabilities
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -2978,6 +2978,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sysinfo",
+ "system-health",
  "tar",
  "tauri",
  "tauri-build",
@@ -3937,6 +3938,15 @@ dependencies = [
  "pkg-config",
  "toml 0.8.2",
  "version-compare",
+]
+
+[[package]]
+name = "system-health"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
