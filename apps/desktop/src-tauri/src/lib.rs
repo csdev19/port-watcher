@@ -1,3 +1,4 @@
+mod alerts;
 mod appearance;
 mod commands;
 mod error;
@@ -48,6 +49,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_positioner::init())
         .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
@@ -59,6 +61,10 @@ pub fn run() {
             app.manage(LastBlurHide(Mutex::new(None)));
             app.manage(TrayRect(Mutex::new(None)));
             update::init(app.handle());
+            // Click handler first (the plugin tracks only notifications shown after it exists),
+            // then the engine, then the pressure subscriptions that feed it.
+            alerts::notifier::init(app.handle());
+            alerts::app::start(app.handle());
             health::init(app.handle());
 
             #[cfg(target_os = "macos")]
@@ -225,7 +231,10 @@ pub fn run() {
             commands::open_settings,
             commands::quit_app,
             commands::set_shortcut,
-            commands::system_health_capabilities
+            commands::system_health_capabilities,
+            commands::list_alert_rules,
+            commands::set_alert_rule_enabled,
+            commands::get_active_alerts
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
