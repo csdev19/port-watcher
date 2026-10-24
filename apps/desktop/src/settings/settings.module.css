@@ -1,4 +1,4 @@
-/* Settings window: 600px wide, solid #141018, macOS-style toolbar. */
+/* Settings window: 600px wide, solid surface colour, macOS-style toolbar. */
 .window {
   display: flex;
   flex-direction: column;

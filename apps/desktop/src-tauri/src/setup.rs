@@ -38,6 +38,8 @@ pub fn show_setup(app: &AppHandle) {
         let _ = window.set_focus();
         return;
     }
+    let appearance = crate::appearance::stored_appearance(app);
+    let theme = crate::appearance::effective_theme(app, appearance);
     let builder = WebviewWindowBuilder::new(
         app,
         SETUP_LABEL,
@@ -48,7 +50,8 @@ pub fn show_setup(app: &AppHandle) {
     .resizable(false)
     .decorations(true)
     .center()
-    .background_color(tauri::window::Color(20, 16, 24, 255));
+    .theme(crate::appearance::window_theme(appearance))
+    .background_color(crate::appearance::background(theme));
     #[cfg(target_os = "macos")]
     let builder = builder
         .title_bar_style(tauri::TitleBarStyle::Overlay)

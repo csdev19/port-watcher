@@ -20,7 +20,7 @@ const queryClient = new QueryClient();
  * anything else the menu-bar panel. */
 const view = new URLSearchParams(window.location.search).get("view");
 
-/** The panel stylesheet scopes the light appearance to `data-window="panel"`. */
+/** `data-window` names the window for CSS; the appearance itself is global. */
 const isPanel = view !== "setup" && view !== "settings";
 document.documentElement.dataset.window = isPanel ? "panel" : view;
 applyCachedAppearance();
