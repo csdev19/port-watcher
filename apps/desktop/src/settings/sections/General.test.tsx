@@ -132,3 +132,28 @@ describe("General: refresh interval", () => {
     await waitFor(async () => expect(await getSetting("refreshIntervalMs")).toBe(5000));
   });
 });
+
+describe("General: appearance", () => {
+  it("shows System / Dark / Light as radios with System selected", () => {
+    render(<General />);
+    const radios = screen.getAllByRole("radio");
+    expect(radios.map((r) => r.textContent)).toEqual(["System", "Dark", "Light"]);
+    expect(screen.getByRole("radio", { name: "System" }).getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("persists the choice on click", async () => {
+    render(<General />);
+    await act(async () => {}); // let the initial store read settle
+    fireEvent.click(screen.getByRole("radio", { name: "Light" }));
+    await waitFor(async () => expect(await getSetting("appearance")).toBe("light"));
+    expect(screen.getByRole("radio", { name: "Light" }).getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("moves the selection with the arrow keys", async () => {
+    render(<General />);
+    fireEvent.keyDown(screen.getByRole("radio", { name: "System" }), { key: "ArrowRight" });
+    await waitFor(async () => expect(await getSetting("appearance")).toBe("dark"));
+    fireEvent.keyDown(screen.getByRole("radio", { name: "Dark" }), { key: "ArrowLeft" });
+    await waitFor(async () => expect(await getSetting("appearance")).toBe("system"));
+  });
+});
