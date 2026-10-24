@@ -64,6 +64,8 @@ export default function App() {
   // Key of the row whose confirmed kill is in flight; drives the row veil.
   const [killingKey, setKillingKey] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastData | null>(null);
+  // Multi-listener Favourites watches whose per-listener rows are open.
+  const [expandedWatches, setExpandedWatches] = useState<ReadonlySet<number>>(new Set());
   const [activeTab, setActiveTab] = useState<Tab>("listening");
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -111,8 +113,12 @@ export default function App() {
   // nothing here, so they can never become a keyboard-selectable or
   // killable target; only real listener rows are navigable.
   const favVisibleEntries = useMemo(
-    () => favVisibleMatches.flatMap((m) => m.listeners),
-    [favVisibleMatches],
+    () =>
+      favVisibleMatches.flatMap((m) =>
+        // A multi-listener watch shows its listener rows only while open.
+        m.listeners.length > 1 && !expandedWatches.has(m.favourite.port) ? [] : m.listeners,
+      ),
+    [favVisibleMatches, expandedWatches],
   );
   // Kill actions are disabled while the snapshot backing Favourites is
   // stale (a background refetch failed and we're showing retained data)
@@ -340,6 +346,7 @@ export default function App() {
       const stop = await listen("panel-shown", () => {
         setActiveTab("listening");
         setManuallyExpanded(false);
+        setExpandedWatches(new Set());
         setQuery("");
         setExpandedKey(null);
         nav.setSelectedKey(null);
@@ -380,6 +387,14 @@ export default function App() {
 
   const updatedSecondsAgo = Math.max(0, Math.round((Date.now() - dataUpdatedAt) / 1000));
 
+  function toggleWatchGroup(port: number) {
+    setExpandedWatches((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(port)) next.add(port);
+      return next;
+    });
+  }
+
   function toggleSecondary() {
     if (forcedOpen) return;
     // A collapse must never leave a now-hidden row selected/armed.
@@ -398,6 +413,7 @@ export default function App() {
   function switchTab(next: Tab) {
     if (next === activeTab) return;
     setActiveTab(next);
+    setExpandedWatches(new Set());
     setQuery("");
     setExpandedKey(null);
     nav.setSelectedKey(null);
@@ -488,6 +504,8 @@ export default function App() {
             expandedKey={expandedKey}
             armedKey={confirm.armedTarget?.key ?? null}
             killingKey={killingKey}
+            expandedWatches={expandedWatches}
+            onToggleWatchGroup={toggleWatchGroup}
             onSelect={nav.setSelectedKey}
             onToggleExpand={(k) => setExpandedKey((prev) => (prev === k ? null : k))}
             onRequestKill={(entry) => requestKill(entry, "pointer")}

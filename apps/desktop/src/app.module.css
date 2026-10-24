@@ -618,85 +618,93 @@
   color: var(--pw-muted-2);
 }
 
-/* F7 Slice 3: Favourites watch groups */
-.watchGroup + .watchGroup {
-  border-top: 1px solid var(--pw-line-row);
-}
-.watchHeading {
+/* Favourites rows (design 7a): the same grid as a Listening row; the name is
+ * a click-to-rename control, free ports show a mint dot, unwatch is a star-off. */
+.nameButton {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px 4px;
-}
-.watchHeadingLabel {
-  display: flex;
-  align-items: center;
-  flex: 1;
+  gap: 6px;
   min-width: 0;
-  overflow: hidden;
+  max-width: 100%;
   border: none;
   background: transparent;
   padding: 0;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--pw-fg-2);
+  cursor: text;
   font-family: inherit;
+  text-align: left;
 }
-.watchHeadingLabelText {
-  overflow: hidden;
-  text-overflow: ellipsis;
+.labelPlaceholder {
+  font-size: 13px;
+  color: var(--pw-muted-2);
   white-space: nowrap;
 }
-.watchHeadingPencil {
+.namePencil,
+.namePencilAlways {
   display: flex;
   flex-shrink: 0;
-  margin-left: 4px;
   color: var(--pw-muted-2);
+}
+.namePencil {
   visibility: hidden;
 }
-.watchHeadingLabel:hover .watchHeadingPencil,
-.watchHeadingLabel:focus-visible .watchHeadingPencil {
+.nameButton:hover .namePencil,
+.nameButton:focus-visible .namePencil {
   visibility: visible;
 }
 .watchHeadingRenameInput {
-  flex: 1;
+  width: 100%;
   min-width: 0;
-  font-size: 12px;
-  font-weight: 600;
+  height: 22px;
+  padding: 0 6px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--pw-fg);
   background: var(--pw-raised);
-  border: 1px solid var(--pw-accent, var(--pw-line));
+  border: 1px solid var(--pw-accent);
   border-radius: var(--radius-sm);
-  padding: 2px 6px;
+  outline: none;
+  box-shadow: 0 0 0 3px var(--pw-accent-ring);
+  -webkit-user-select: text;
+  user-select: text;
 }
-.watchHeadingPort {
-  font-family: var(--font-mono);
-  color: var(--pw-fg);
-}
-.watchStatus {
+.freeTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 4px;
   font-size: 11px;
-  color: var(--pw-muted);
-  white-space: nowrap;
-}
-.watchStatusFree {
-  color: var(--pw-free);
-}
-.watchStatusStale {
-  color: var(--status-danger);
-}
-.watchRemove {
-  display: flex;
-  border: none;
-  background: transparent;
   color: var(--pw-muted-2);
-  cursor: pointer;
-  padding: 4px 6px;
-  border-radius: var(--radius-sm);
 }
-.watchRemove:hover {
-  color: var(--status-danger);
-  background: var(--pw-raised-hover);
+.freeDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--pw-free);
+}
+.actionSpacer {
+  display: inline-block;
+  width: 26px;
+  height: 22px;
+}
+/* Listener rows under an expanded multi-listener watch. */
+.rowNested .rowMain {
+  padding-left: 26px;
+}
+.rowNested .detail {
+  padding-left: 72px;
+}
+/* Visually hidden, still announced and still in the DOM. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 .watchError {
   margin: 0 12px 6px;
@@ -706,22 +714,23 @@
 
 /* F7 Slice 3: inline watch form */
 .watchFormTrigger {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  width: calc(100% - 24px);
   margin: 8px 12px;
-  border: 1px dashed var(--pw-line);
-  border-radius: var(--radius-md);
+  height: 28px;
+  padding: 0 9px;
+  border: none;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--pw-muted);
   cursor: pointer;
-  padding: 8px 10px;
+  font-family: inherit;
   font-size: 12px;
 }
 .watchFormTrigger:hover {
-  color: var(--pw-fg-2);
-  background: var(--pw-raised-hover);
+  color: var(--pw-fg);
+  background: var(--pw-hover);
 }
 .watchForm {
   margin: 8px 12px;

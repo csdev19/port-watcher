@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { PortEntry } from "@/lib/types";
 import { formatMemory, formatUptime, middleTruncate } from "@/lib/format";
 import { DetailActions } from "@/components/DetailActions";
@@ -34,6 +35,15 @@ interface Props {
   /** True from the confirmed kill until `killPort` settles: a veil covers the
    * row so it reads as "going away" and cannot be acted on twice. */
   killing?: boolean;
+  /** Favourites: replaces the plain label (e.g. with a rename control). */
+  labelNode?: ReactNode;
+  /** Favourites: replaces the meta line under the label. */
+  metaText?: string;
+  /** Favourites: shows an "unwatch" star-off button instead of the watch
+   * star, with the accessible name `Remove watched port N`. */
+  onUnwatch?: () => void;
+  /** Favourites: a listener row shown under its expanded multi-listener watch. */
+  nested?: boolean;
 }
 
 const META_WIDTH = 34;
@@ -63,6 +73,10 @@ export function PortRow({
   onToggleWatch,
   variant = "dev",
   killing,
+  labelNode,
+  metaText,
+  onUnwatch,
+  nested,
 }: Props) {
   const protectedCategory = entry.category !== "dev";
   const secondary = variant === "secondary";
@@ -70,7 +84,12 @@ export function PortRow({
 
   return (
     <li
-      className={[styles.row, selected && styles.rowSelected, secondary && styles.rowSecondary]
+      className={[
+        styles.row,
+        selected && styles.rowSelected,
+        secondary && styles.rowSecondary,
+        nested && styles.rowNested,
+      ]
         .filter(Boolean)
         .join(" ")}
       onMouseEnter={onSelect}
@@ -84,22 +103,36 @@ export function PortRow({
           {entry.port}
         </span>
         <div className={styles.rowCenter}>
-          <span className={styles.label}>{entry.label}</span>
+          {labelNode ?? <span className={styles.label}>{entry.label}</span>}
           {!secondary && (
             <span className={styles.meta}>
-              {protectedCategory
-                ? middleTruncate(
-                    entry.appBundlePath ?? entry.executablePath ?? entry.processName,
-                    34,
-                  )
-                : entry.cwd
-                  ? projectAndPath(entry.project, entry.cwd)
-                  : (entry.project ?? entry.processName)}
+              {metaText !== undefined
+                ? metaText
+                : protectedCategory
+                  ? middleTruncate(
+                      entry.appBundlePath ?? entry.executablePath ?? entry.processName,
+                      34,
+                    )
+                  : entry.cwd
+                    ? projectAndPath(entry.project, entry.cwd)
+                    : (entry.project ?? entry.processName)}
             </span>
           )}
         </div>
         <div className={styles.actions}>
-          {onToggleWatch && (
+          {onUnwatch ? (
+            <button
+              type="button"
+              className={`${styles.watch} ${styles.reveal}`}
+              aria-label={`Remove watched port ${entry.port}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onUnwatch();
+              }}
+            >
+              <Icon name="star-off" />
+            </button>
+          ) : onToggleWatch ? (
             <button
               type="button"
               className={watched ? styles.watchActive : `${styles.watch} ${styles.reveal}`}
@@ -112,7 +145,7 @@ export function PortRow({
             >
               <Icon name="star" />
             </button>
-          )}
+          ) : null}
           <span className={styles.uptime}>{formatUptime(entry.startedAt)}</span>
           {entry.killable ? (
             <button

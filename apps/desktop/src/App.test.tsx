@@ -794,8 +794,11 @@ describe("App", () => {
       fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
       await waitFor(() => expect(screen.getByText("Next.js dev (2)")).toBeTruthy());
 
-      // One "in use" watch — not two.
+      // One "in use" watch — not two. Its two listeners sit behind one
+      // collapsed row until it is expanded.
       expect(screen.getByText(/^1 watched · 1 in use$/)).toBeTruthy();
+      expect(screen.queryAllByLabelText(/^Kill Next\.js dev.*on port 3000$/).length).toBe(0);
+      fireEvent.click(screen.getByRole("button", { name: "Show 2 listeners on port 3000" }));
 
       const killBtns = screen.getAllByLabelText(/^Kill Next\.js dev.*on port 3000$/);
       expect(killBtns.length).toBe(2);
@@ -897,7 +900,10 @@ describe("App", () => {
       renderApp();
       await waitFor(() => expect(screen.getByText("Next.js dev")).toBeTruthy());
       fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
-      await waitFor(() => expect(screen.getByText("Next.js dev (2)")).toBeTruthy());
+      // The named two-listener watch is one collapsed row: "Frontend (2)".
+      await waitFor(() => expect(screen.getByText("Frontend (2)")).toBeTruthy());
+      fireEvent.click(screen.getByRole("button", { name: "Show 2 listeners on port 3000" }));
+      expect(screen.getByText("Next.js dev (2)")).toBeTruthy();
 
       const search = screen.getByLabelText("Search port, app or folder");
 
