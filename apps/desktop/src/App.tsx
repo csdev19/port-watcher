@@ -21,14 +21,13 @@ import { SearchInput } from "@/components/SearchInput";
 import { EmptyState, ErrorState, FilteredEmptyState } from "@/components/PanelStates";
 import { Toast, type ToastData } from "@/components/Toast";
 import { Icon } from "@/components/Icon";
+import { Tabs } from "@/components/Tabs";
 import { PanelHeader } from "@/components/PanelHeader";
 import { UpdateBanner } from "@/components/UpdateBanner";
 import { pendingVersion, useUpdate } from "@/lib/update";
 import styles from "@/app.module.css";
 
 type Tab = "listening" | "favourites";
-const TABS: Tab[] = ["listening", "favourites"];
-const TAB_LABEL: Record<Tab, string> = { listening: "Listening", favourites: "Favourites" };
 
 async function hidePanel() {
   if (!inTauri) return;
@@ -65,7 +64,6 @@ export default function App() {
   const [toast, setToast] = useState<ToastData | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("listening");
   const searchRef = useRef<HTMLInputElement>(null);
-  const tabRefs = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({});
 
   // F7 Slice 1-3: persisted watched ports, joined against the same live
   // `usePorts` snapshot both tabs share — no second polling source.
@@ -401,24 +399,6 @@ export default function App() {
     confirm.disarm();
   }
 
-  // Left/Right move and activate; Home/End jump to first/last. Stops
-  // propagation so these never fall through to list navigation.
-  function onTabKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
-    const idx = TABS.indexOf(activeTab);
-    let nextIdx: number | null = null;
-    if (e.key === "ArrowRight") nextIdx = (idx + 1) % TABS.length;
-    else if (e.key === "ArrowLeft") nextIdx = (idx - 1 + TABS.length) % TABS.length;
-    else if (e.key === "Home") nextIdx = 0;
-    else if (e.key === "End") nextIdx = TABS.length - 1;
-
-    if (nextIdx === null) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const next = TABS[nextIdx];
-    switchTab(next);
-    tabRefs.current[next]?.focus();
-  }
-
   const footerText =
     activeTab === "listening"
       ? data
@@ -436,29 +416,15 @@ export default function App() {
         onDismiss={setDismissedUpdate}
       />
       <SearchInput ref={searchRef} value={query} onChange={setQuery} />
-      <div className={styles.tablist} role="tablist" aria-label="Ports" onKeyDown={onTabKeyDown}>
-        {TABS.map((tab) => (
-          <button
-            key={tab}
-            ref={(el) => {
-              tabRefs.current[tab] = el;
-            }}
-            type="button"
-            role="tab"
-            id={`tab-${tab}`}
-            aria-selected={activeTab === tab}
-            aria-controls={`panel-${tab}`}
-            tabIndex={activeTab === tab ? 0 : -1}
-            className={activeTab === tab ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-            onClick={() => switchTab(tab)}
-          >
-            {TAB_LABEL[tab]}
-            <span className={styles.tabCount}>
-              {tab === "listening" ? (data ? data.length : "–") : favourites.items.length}
-            </span>
-          </button>
-        ))}
-      </div>
+      <Tabs
+        ariaLabel="Ports"
+        active={activeTab}
+        onChange={switchTab}
+        tabs={[
+          { id: "listening", label: "Listening", count: data ? data.length : "–" },
+          { id: "favourites", label: "Favourites", count: favourites.items.length },
+        ]}
+      />
 
       {activeTab === "listening" ? (
         <div
