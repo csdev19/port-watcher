@@ -2,6 +2,7 @@ mod commands;
 mod error;
 mod fda;
 mod health;
+mod machine;
 mod panel;
 mod ports;
 mod settings;
