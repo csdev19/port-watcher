@@ -126,3 +126,11 @@ pub fn set_shortcut(app: tauri::AppHandle, shortcut: String) -> Result<(), AppEr
 pub fn open_settings(app: tauri::AppHandle) -> Result<(), AppError> {
     crate::settings::open_settings(&app).map_err(|e| AppError::Internal(e.to_string()))
 }
+
+/// What this Mac can report to the System health context (read-only; Phase 3 shows it).
+#[tauri::command]
+pub fn system_health_capabilities(
+    state: tauri::State<'_, crate::health::HealthState>,
+) -> system_health::Capabilities {
+    state.capabilities()
+}
