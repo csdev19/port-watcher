@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App";
 import Settings from "./settings/Settings";
 import Setup from "./setup/Setup";
-import { syncPanelTheme } from "./lib/theme";
+import { applyCachedAppearance, useAppearance } from "./lib/appearance";
 import "@fontsource/geist-sans/latin-400.css";
 import "@fontsource/geist-sans/latin-500.css";
 import "@fontsource/geist-sans/latin-600.css";
@@ -20,12 +20,13 @@ const queryClient = new QueryClient();
  * anything else the menu-bar panel. */
 const view = new URLSearchParams(window.location.search).get("view");
 
-/** The panel stylesheet scopes the light appearance to `data-window="panel"`. */
+/** `data-window` names the window for CSS; the appearance itself is global. */
 const isPanel = view !== "setup" && view !== "settings";
 document.documentElement.dataset.window = isPanel ? "panel" : view;
-if (isPanel) syncPanelTheme();
+applyCachedAppearance();
 
 function Root() {
+  useAppearance();
   if (view === "setup") return <Setup />;
   if (view === "settings") return <Settings />;
   return (

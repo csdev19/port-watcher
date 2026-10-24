@@ -8,7 +8,7 @@ type Appearance = "light" | "dark";
  * belt-and-braces path for a transparent Accessory-policy WKWebView that may
  * not re-evaluate the media query live. It reads the window theme once and
  * follows `onThemeChanged`. Any failure leaves `data-theme` unset, so the media
- * query keeps deciding. Phase 4 (Appearance setting) takes over this attribute.
+ * query keeps deciding. The Appearance setting (lib/appearance.ts) owns the attribute unless it is "system".
  *
  * Returns a cleanup function. */
 export function syncPanelTheme(root: HTMLElement = document.documentElement): () => void {

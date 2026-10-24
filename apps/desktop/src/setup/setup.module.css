@@ -11,7 +11,7 @@
   /* The overlay title bar lets content run under the traffic lights, so
    * the top padding clears them. */
   padding: 44px 32px 24px;
-  background: #141018;
+  background: var(--pw-surface);
   color: var(--pw-fg);
   font-family: var(--font-sans);
   font-size: 13px;
@@ -97,7 +97,7 @@
   padding: 14px 16px;
   border: 1px solid var(--pw-line);
   border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.025);
+  background: var(--pw-band-soft);
 }
 .cardHead {
   display: flex;
@@ -260,7 +260,7 @@
   padding: 8px 16px;
   border: 1px solid var(--pw-line);
   border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--pw-raised);
   color: var(--pw-fg-2);
 }
 .menubarIcon {
@@ -345,7 +345,7 @@
 .primary {
   background: var(--pw-action);
   border-color: var(--pw-action);
-  color: #fff;
+  color: #fff; /* text on the fuchsia action, same in both themes */
   font-weight: 600;
 }
 .primary:hover:not(:disabled) {

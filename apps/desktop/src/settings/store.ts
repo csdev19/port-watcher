@@ -24,6 +24,8 @@ export const SETTINGS_DEFAULTS = {
    * (src-tauri/src/update/policy.rs); only the check is automatic.
    */
   autoCheckUpdates: true,
+  /** Light or dark for every window; "system" follows macOS. */
+  appearance: "system" as "system" | "dark" | "light",
   /** The version whose update banner the user dismissed ("" = none). */
   dismissedUpdateVersion: "",
 };
@@ -101,6 +103,11 @@ export function subscribeSetting<K extends SettingKey>(
  * cache is overwritten by every value read from or written to the store.
  */
 const CACHE_PREFIX = "chapay.settings.";
+
+/** The last known value of a setting, read synchronously (default if none). */
+export function readCachedSetting<K extends SettingKey>(key: K): Settings[K] {
+  return readCache(key);
+}
 
 function readCache<K extends SettingKey>(key: K): Settings[K] {
   try {

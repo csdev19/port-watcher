@@ -181,3 +181,55 @@ export function Select<T extends string | number>({
     </span>
   );
 }
+
+/** A small radio group of text buttons; the selected one is cyan. Arrow keys move the selection. */
+export function Segmented<T extends string>({
+  value,
+  options,
+  onChange,
+  label,
+}: {
+  value: T;
+  options: readonly { value: T; label: string }[];
+  onChange: (value: T) => void;
+  /** Accessible name; the row's visible label usually repeats it. */
+  label: string;
+}) {
+  const move = (from: number, step: number) => {
+    const next = options[(from + step + options.length) % options.length];
+    onChange(next.value);
+    // The newly selected radio is the only one in the tab order.
+    requestAnimationFrame(() =>
+      document.querySelector<HTMLElement>(`[aria-label="${label}"] [aria-checked="true"]`)?.focus(),
+    );
+  };
+  return (
+    <div role="radiogroup" aria-label={label} className={styles.segmented}>
+      {options.map((option, index) => {
+        const selected = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            tabIndex={selected ? 0 : -1}
+            className={styles.segment}
+            onClick={() => onChange(option.value)}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+                event.preventDefault();
+                move(index, 1);
+              } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+                event.preventDefault();
+                move(index, -1);
+              }
+            }}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}

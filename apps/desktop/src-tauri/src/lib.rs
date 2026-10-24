@@ -1,3 +1,4 @@
+mod appearance;
 mod commands;
 mod error;
 mod fda;
