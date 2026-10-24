@@ -118,3 +118,23 @@ fn energy_is_reported_for_own_processes() {
     }
     assert!(system_health::infra::procs::ProcessReader::new().energy_supported());
 }
+
+#[test]
+fn mac_sources_produce_a_complete_sample() {
+    if !enabled() {
+        return;
+    }
+    use system_health::infra::mac_sources::MacSources;
+    use system_health::{Sampler, Sort};
+    let mut s = Sampler::new(MacSources::new());
+    let caps = s.capabilities();
+    assert!(caps.smc && caps.thermal, "{caps:?}");
+    s.sample();
+    std::thread::sleep(std::time::Duration::from_millis(500));
+    let sample = s.sample();
+    assert!(sample.cpu.is_some());
+    assert!(sample.heat.is_some());
+    assert!(sample.thermal.is_some());
+    assert!(sample.memory.total_bytes > 0);
+    assert!(!s.top(Sort::Mem, 3).is_empty());
+}
