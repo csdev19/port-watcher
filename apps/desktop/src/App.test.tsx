@@ -579,7 +579,7 @@ describe("App", () => {
       const notPrevented = fireEvent.keyDown(star, { key: "Enter" });
       expect(notPrevented).toBe(true);
       // Global Enter must not have expanded the row's detail panel.
-      expect(screen.queryByText("PID")).toBeNull();
+      expect(screen.queryByText("pid")).toBeNull();
       expect(screen.getByRole("button", { name: "Watch port 3000" })).toBeTruthy();
 
       fireEvent.click(star);

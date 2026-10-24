@@ -189,36 +189,53 @@
 }
 
 .row {
-  padding: 6px 10px 6px 12px;
+  position: relative;
   border-bottom: 1px solid var(--pw-line-row);
-  border-left: 2px solid transparent;
   cursor: default;
 }
 .row:last-child {
   border-bottom: none;
 }
+/* Selection is an inset bar plus a wash: no border-left, so nothing shifts. */
 .rowSelected {
   background: var(--pw-accent-soft);
-  border-left-color: var(--pw-accent);
+  box-shadow: inset 2px 0 0 var(--pw-accent);
 }
 
 .rowMain {
-  display: flex;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
-  min-height: 51px;
+  padding: 3px 8px 3px 12px;
+  min-height: 46px;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  min-width: 70px;
+}
+/* Star and kill are always in the DOM (keyboard, screen readers); they only
+ * show on hover, on the selected row, or while focus is inside the row. */
+.reveal {
+  opacity: 0;
+}
+.row:hover .reveal,
+.rowSelected .reveal,
+.row:focus-within .reveal {
+  opacity: 1;
 }
 .port {
   font-family: var(--font-mono);
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 500;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
-  min-width: 48px;
   color: var(--pw-fg);
 }
 .rowCenter {
-  flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -350,35 +367,45 @@
 }
 
 .detail {
-  margin: 0 12px 11px 60px;
-  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 0 12px 10px 58px;
   font-size: 11px;
   color: var(--pw-muted);
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 4px 8px;
+  animation: pwFade 200ms cubic-bezier(0.16, 1, 0.3, 1);
   -webkit-user-select: text;
   user-select: text;
 }
-.detail dt {
-  color: var(--pw-muted-2);
+.detailMeta {
+  display: flex;
+  gap: 12px;
 }
-.detail dd {
-  margin: 0;
+.detailValue {
   font-family: var(--font-mono);
-  color: var(--pw-fg-2);
+  color: var(--pw-fg);
+  font-variant-numeric: tabular-nums;
 }
 .command {
-  grid-column: 1 / -1;
   font-family: var(--font-mono);
   font-size: 10.5px;
   line-height: 1.5;
   word-break: break-all;
-  padding: 8px;
-  margin-top: 2px;
+  padding: 6px 8px;
+  color: var(--pw-fg-2);
   background: var(--pw-raised);
-  border: 1px solid var(--pw-line);
+  border: 1px solid var(--pw-line-row);
   border-radius: var(--radius-sm);
+}
+@keyframes pwFade {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .state {

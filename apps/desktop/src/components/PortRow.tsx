@@ -80,82 +80,86 @@ export function PortRow({
                 : (entry.project ?? entry.processName)}
           </span>
         </div>
-        <span className={styles.uptime}>{formatUptime(entry.startedAt)}</span>
-        {onToggleWatch && (
-          <button
-            type="button"
-            className={watched ? styles.watchActive : styles.watch}
-            aria-label={watched ? `Port ${entry.port} is watched` : `Watch port ${entry.port}`}
-            aria-pressed={watched ?? false}
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleWatch();
-            }}
-          >
-            <Icon name="star" />
-          </button>
-        )}
-        {entry.killable ? (
-          <button
-            type="button"
-            disabled={killDisabled}
-            aria-disabled={killDisabled || undefined}
-            className={
-              killDisabled
-                ? styles.killDisabled
-                : armed
-                  ? protectedCategory
-                    ? styles.killArmedNeutral
-                    : styles.killArmed
-                  : protectedCategory
-                    ? styles.killNeutral
-                    : styles.kill
-            }
-            aria-label={
-              killDisabled
-                ? `Cannot kill ${entry.label} on port ${entry.port}: status is stale`
-                : `Kill ${entry.label} on port ${entry.port}`
-            }
-            onClick={(e) => {
-              e.stopPropagation();
-              if (killDisabled) return;
-              onRequestKill();
-            }}
-            onMouseLeave={onDisarm}
-          >
-            {killDisabled ? (
-              <Icon name="x" />
-            ) : armed ? (
-              protectedCategory ? (
-                confirmLabel
+        <div className={styles.actions}>
+          {onToggleWatch && (
+            <button
+              type="button"
+              className={watched ? styles.watchActive : `${styles.watch} ${styles.reveal}`}
+              aria-label={watched ? `Port ${entry.port} is watched` : `Watch port ${entry.port}`}
+              aria-pressed={watched ?? false}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleWatch();
+              }}
+            >
+              <Icon name="star" />
+            </button>
+          )}
+          <span className={styles.uptime}>{formatUptime(entry.startedAt)}</span>
+          {entry.killable ? (
+            <button
+              type="button"
+              disabled={killDisabled}
+              aria-disabled={killDisabled || undefined}
+              className={
+                killDisabled
+                  ? `${styles.killDisabled} ${styles.reveal}`
+                  : armed
+                    ? protectedCategory
+                      ? styles.killArmedNeutral
+                      : styles.killArmed
+                    : `${protectedCategory ? styles.killNeutral : styles.kill} ${styles.reveal}`
+              }
+              aria-label={
+                killDisabled
+                  ? `Cannot kill ${entry.label} on port ${entry.port}: status is stale`
+                  : `Kill ${entry.label} on port ${entry.port}`
+              }
+              onClick={(e) => {
+                e.stopPropagation();
+                if (killDisabled) return;
+                onRequestKill();
+              }}
+              onMouseLeave={onDisarm}
+            >
+              {killDisabled ? (
+                <Icon name="x" />
+              ) : armed ? (
+                protectedCategory ? (
+                  confirmLabel
+                ) : (
+                  "Kill?"
+                )
               ) : (
-                "Kill?"
-              )
-            ) : (
-              <Icon name="x" />
-            )}
-          </button>
-        ) : (
-          <span
-            className={styles.lock}
-            data-tooltip="Belongs to another user"
-            aria-label="Belongs to another user"
-          >
-            <Icon name="lock" />
-          </span>
-        )}
+                <Icon name="x" />
+              )}
+            </button>
+          ) : (
+            <span
+              className={styles.lock}
+              data-tooltip="Belongs to another user"
+              aria-label="Belongs to another user"
+            >
+              <Icon name="lock" />
+            </span>
+          )}
+        </div>
       </div>
       {expanded && (
-        <dl className={styles.detail} onClick={(e) => e.stopPropagation()}>
-          <dt>PID</dt>
-          <dd>{entry.pid}</dd>
-          <dt>User</dt>
-          <dd>{entry.user ?? "—"}</dd>
-          <dt>Memory</dt>
-          <dd>{formatMemory(entry.memoryBytes)}</dd>
-          <dt>Command</dt>
-          <dd className={styles.command}>{entry.command}</dd>
-        </dl>
+        <div className={styles.detail} onClick={(e) => e.stopPropagation()}>
+          <div className={styles.detailMeta}>
+            <span>
+              pid <span className={styles.detailValue}>{entry.pid}</span>
+            </span>
+            <span>
+              user <span className={styles.detailValue}>{entry.user ?? "—"}</span>
+            </span>
+            <span>
+              mem <span className={styles.detailValue}>{formatMemory(entry.memoryBytes)}</span>
+            </span>
+          </div>
+          <div className={styles.command}>{entry.command}</div>
+        </div>
       )}
     </li>
   );
