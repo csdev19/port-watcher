@@ -2,4 +2,7 @@
 
 pub mod domain;
 
+#[cfg(target_os = "macos")]
+pub mod infra;
+
 pub use domain::*;
