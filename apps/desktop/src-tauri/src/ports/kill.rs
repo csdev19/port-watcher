@@ -138,25 +138,62 @@ pub fn kill_port_with(
         return Ok(KillResult::AlreadyGone);
     }
 
+    kill_validated(ops, pid, raw_pid, started_at, "kill_port")
+}
+
+/// Kills one process by PID, for the Machine tab. Same guard chain as `kill_port_with` except
+/// "still listening on that port": static guard, zombie, start time, owner, `System` refused,
+/// then escalation. No policy differs (ADR 0006).
+pub fn kill_process_impl(pid: u32, started_at: u64) -> Result<KillResult, AppError> {
+    kill_process_with(&SystemOps, pid, started_at)
+}
+
+/// `kill_process_impl` against injectable OS calls.
+pub fn kill_process_with(
+    ops: &impl ProcessOps,
+    pid: u32,
+    started_at: u64,
+) -> Result<KillResult, AppError> {
+    log::info!("kill_process requested: pid={pid} started_at={started_at}");
+    if let Some(denied) = static_guard(pid, ops.self_pid()) {
+        log::warn!("kill_process denied by static guard: pid={pid}");
+        return Ok(denied);
+    }
+    let Ok(raw_pid) = i32::try_from(pid) else {
+        return Ok(KillResult::PermissionDenied);
+    };
+    kill_validated(ops, pid, raw_pid, started_at, "kill_process")
+}
+
+/// Guards shared by both entry points, after the static guard (and, for ports, the listening
+/// check): snapshot, zombie, start time, owner, `System` category, then escalation. `ctx` only
+/// prefixes log lines.
+fn kill_validated(
+    ops: &impl ProcessOps,
+    pid: u32,
+    raw_pid: i32,
+    started_at: u64,
+    ctx: &str,
+) -> Result<KillResult, AppError> {
     // PID-reuse guard 2: same start time = same process incarnation. A
     // zombie has already exited; signalling it does nothing.
     let Some(proc) = ops.snapshot(pid) else {
-        log::warn!("kill_port: pid={pid} vanished before it could be signalled");
+        log::warn!("{ctx}: pid={pid} vanished before it could be signalled");
         return Ok(KillResult::AlreadyGone);
     };
     if proc.zombie {
-        log::warn!("kill_port: pid={pid} is a zombie (already exited)");
+        log::warn!("{ctx}: pid={pid} is a zombie (already exited)");
         return Ok(KillResult::AlreadyGone);
     }
     if proc.start_time != started_at {
-        log::warn!("kill_port: pid={pid} start_time mismatch (likely pid reuse)");
+        log::warn!("{ctx}: pid={pid} start_time mismatch (likely pid reuse)");
         return Ok(KillResult::AlreadyGone);
     }
 
     // Ownership: v1 never signals another user's process (no sudo).
     let my_uid = ops.current_uid();
     if proc.owner_uid != Some(my_uid) {
-        log::warn!("kill_port: pid={pid} owned by a different user");
+        log::warn!("{ctx}: pid={pid} owned by a different user");
         return Ok(KillResult::PermissionDenied);
     }
 
@@ -164,11 +201,11 @@ pub fn kill_port_with(
     // The category is re-derived from the live process, not trusted from
     // the request, so a compromised renderer cannot bypass it.
     if classify_port(proc.owner_uid, my_uid, proc.executable.as_deref()) == PortCategory::System {
-        log::warn!("kill_port: pid={pid} is a system process; refusing");
+        log::warn!("{ctx}: pid={pid} is a system process; refusing");
         return Ok(KillResult::PermissionDenied);
     }
 
-    log::info!("kill_port guards passed for pid={pid}; escalating");
+    log::info!("{ctx} guards passed for pid={pid}; escalating");
     escalate(ops, pid, raw_pid, started_at)
 }
 
@@ -321,6 +358,103 @@ mod tests {
 
     fn run(ops: &FakeOps) -> Result<KillResult, AppError> {
         kill_port_with(ops, PID, 3000, STARTED)
+    }
+
+    fn run_process(ops: &FakeOps) -> Result<KillResult, AppError> {
+        kill_process_with(ops, PID, STARTED)
+    }
+
+    #[test]
+    fn kill_process_never_asks_whether_the_pid_is_listening() {
+        let mut ops = FakeOps::new(vec![Some(dev_process()), None]);
+        ops.listening = Err("port table must not be read".into());
+        assert_eq!(run_process(&ops).unwrap(), KillResult::Terminated);
+        assert_eq!(ops.signals(), vec![Signal::SIGTERM]);
+    }
+
+    #[test]
+    fn kill_process_start_time_mismatch_is_already_gone() {
+        let ops = FakeOps::new(vec![Some(ProcessSnapshot {
+            start_time: STARTED + 1,
+            ..dev_process()
+        })]);
+        assert_eq!(run_process(&ops).unwrap(), KillResult::AlreadyGone);
+        assert!(ops.signals().is_empty());
+    }
+
+    #[test]
+    fn kill_process_zombie_and_vanished_are_already_gone() {
+        let zombie = FakeOps::new(vec![Some(ProcessSnapshot {
+            zombie: true,
+            ..dev_process()
+        })]);
+        assert_eq!(run_process(&zombie).unwrap(), KillResult::AlreadyGone);
+        assert!(zombie.signals().is_empty());
+        let gone = FakeOps::new(vec![None]);
+        assert_eq!(run_process(&gone).unwrap(), KillResult::AlreadyGone);
+        assert!(gone.signals().is_empty());
+    }
+
+    #[test]
+    fn kill_process_other_and_unknown_owner_are_denied() {
+        for owner_uid in [Some(MY_UID + 1), None] {
+            let ops = FakeOps::new(vec![Some(ProcessSnapshot {
+                owner_uid,
+                ..dev_process()
+            })]);
+            assert_eq!(run_process(&ops).unwrap(), KillResult::PermissionDenied);
+            assert!(ops.signals().is_empty());
+        }
+    }
+
+    #[test]
+    fn kill_process_same_user_system_executable_is_denied() {
+        let ops = FakeOps::new(vec![Some(ProcessSnapshot {
+            executable: Some(PathBuf::from(
+                "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder",
+            )),
+            ..dev_process()
+        })]);
+        assert_eq!(run_process(&ops).unwrap(), KillResult::PermissionDenied);
+        assert!(ops.signals().is_empty());
+    }
+
+    #[test]
+    fn kill_process_same_user_app_bundle_escalates() {
+        let ops = FakeOps::new(vec![
+            Some(ProcessSnapshot {
+                executable: Some(PathBuf::from(
+                    "/Applications/Cursor.app/Contents/MacOS/Cursor",
+                )),
+                ..dev_process()
+            }),
+            None,
+        ]);
+        assert_eq!(run_process(&ops).unwrap(), KillResult::Terminated);
+        assert_eq!(ops.signals(), vec![Signal::SIGTERM]);
+    }
+
+    #[test]
+    fn kill_process_ignoring_sigterm_is_killed() {
+        let ops = ignores_sigterm_then(vec![None]);
+        assert_eq!(run_process(&ops).unwrap(), KillResult::Killed);
+    }
+
+    #[test]
+    fn kill_process_static_guard_runs_before_any_os_call() {
+        for pid in [SELF_PID, 50, u32::MAX] {
+            let ops = FakeOps::new(vec![Some(dev_process())]);
+            assert_eq!(
+                kill_process_with(&ops, pid, STARTED).unwrap(),
+                KillResult::PermissionDenied,
+                "pid {pid}"
+            );
+            assert!(ops.signals().is_empty());
+            assert!(
+                ops.last_snapshot.borrow().is_none(),
+                "snapshot for pid {pid}"
+            );
+        }
     }
 
     #[test]
