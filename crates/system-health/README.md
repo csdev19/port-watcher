@@ -26,9 +26,11 @@ chapay --version | --help
 
 - `heat` prints one snapshot (it waits one second to measure CPU load). `--watch SECS` repeats
   every SECS seconds. `--check` exits 0 for OK, 1 for WATCH, 2 for STOP.
-- `top` ranks your own processes. CPU% is per core (200 means two cores busy). Energy is an
-  impact estimate in mW, not system watts. Other users' and root's processes are invisible
-  without sudo. With `--watch SECS` the window between snapshots is SECS seconds.
+- `top` ranks every process, like Activity Monitor. CPU% is per core (200 means two cores busy).
+  Energy is an impact estimate in mW, not system watts. Your own processes come from libproc
+  (footprint, energy); root's and other users' (`WindowServer`, `mds_stores`, ...) come from
+  `/bin/ps`, so their MEM is RSS and their energy shows `-`. `kernel_task` is not listed. With
+  `--watch SECS` the window between snapshots is SECS seconds.
 - `sensors` lists SMC temperature keys with their group and validity (`power-gated` keys read
   exactly 40.0 C and are not real readings). `--all` includes battery and other keys.
 - `events` prints the current thermal and memory pressure, then one line per change. It never
@@ -81,6 +83,12 @@ are WATCH. CPU and GPU load never change the verdict. Thresholds are fixed defau
   previous call.
 - `infra` (macOS): SMC, IORegistry GPU, mach CPU and memory, sysctl, `proc_pid_rusage`. All
   `unsafe` lives here and in `events`. Every source degrades to `None`.
+  `infra::ps` is the one external binary: `proc_pid_rusage` and `proc_pidinfo` return `EPERM`
+  for other users' processes, while `/bin/ps` is setuid root with Apple's
+  `com.apple.system-task-ports.read` entitlement. It costs about 20 ms per call, so
+  `Sources::processes()` is for the on-demand `top`, never for a background loop. A `ps` row has
+  no start time (`startedAt` is 0), RSS instead of footprint, and `ps`'s decaying `%cpu` as the
+  figure for the first snapshot, before a delta exists.
 - `events` (macOS): `subscribe_thermal` and `subscribe_memory`.
 
 ### Subscription semantics

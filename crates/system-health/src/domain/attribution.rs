@@ -15,6 +15,9 @@ pub struct ProcessCounters {
     pub footprint_bytes: u64,
     /// Cumulative energy in nanojoules; `None` when the OS does not report it.
     pub energy_nj: Option<u64>,
+    /// The OS's own CPU estimate (a decaying average, like `ps`'s `%cpu`), used only when there
+    /// is no previous snapshot to take a delta from. `None` when the source has no such figure.
+    pub cpu_pct_hint: Option<f32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -46,8 +49,9 @@ pub fn ticks_to_ns(ticks: u64, numer: u32, denom: u32) -> u64 {
 }
 
 /// Ranks processes by `sort`, top `n`. A process missing from `prev`, or whose start time
-/// changed (a reused PID), appears with no delta: 0 % CPU and no energy figure. A process
-/// missing from `curr` is dropped. `dt_ms` is the time between the two snapshots.
+/// changed (a reused PID), appears with no delta: its `cpu_pct_hint` (or 0 %) and no energy
+/// figure. A process missing from `curr` is dropped. `dt_ms` is the time between the two
+/// snapshots.
 pub fn rank(
     prev: &[ProcessCounters],
     curr: &[ProcessCounters],
@@ -73,7 +77,7 @@ pub fn rank(
                     };
                     (cpu as f32, energy)
                 }
-                _ => (0.0, None),
+                _ => (c.cpu_pct_hint.unwrap_or(0.0), None),
             };
             ProcessUsage {
                 pid: c.pid,
@@ -115,7 +119,24 @@ mod tests {
             cpu_time_ns: cpu_ms * 1_000_000,
             footprint_bytes: mem,
             energy_nj,
+            cpu_pct_hint: None,
         }
+    }
+
+    #[test]
+    fn hint_is_used_only_without_a_baseline() {
+        let hinted = ProcessCounters {
+            cpu_pct_hint: Some(12.5),
+            ..p(1, 10, 1000, 1, None)
+        };
+        let first = rank(&[], std::slice::from_ref(&hinted), 0, Sort::Cpu, 5);
+        assert_eq!(first[0].cpu_pct, 12.5);
+        let later = ProcessCounters {
+            cpu_pct_hint: Some(12.5),
+            ..p(1, 10, 1500, 1, None)
+        };
+        let second = rank(&[hinted], &[later], 1000, Sort::Cpu, 5);
+        assert_eq!(second[0].cpu_pct, 50.0);
     }
 
     #[test]

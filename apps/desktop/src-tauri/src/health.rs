@@ -49,6 +49,7 @@ impl HealthState {
             memory_events: false,
             system_power: false,
             per_process_energy: false,
+            system_processes: false,
         })
     }
 }
@@ -108,6 +109,7 @@ mod tests {
             memory_events: true,
             system_power: false,
             per_process_energy: true,
+            system_processes: true,
         }
     }
 
@@ -123,6 +125,7 @@ mod tests {
             "memoryEvents",
             "systemPower",
             "perProcessEnergy",
+            "systemProcesses",
         ] {
             assert!(json.get(key).is_some(), "missing {key}");
         }

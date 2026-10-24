@@ -1,8 +1,9 @@
 //! `MacSources`: the production `Sources` over SMC, IORegistry, mach, sysctl and libproc.
 
-use super::{cpu, gpu, machine, memory, procs::ProcessReader, smc::Smc, thermal};
+use super::{cpu, gpu, machine, memory, procs::ProcessReader, ps, smc::Smc, thermal};
 use crate::domain::{CpuTicks, Fan, MachineInfo, Memory, ProcessCounters, Reading, SensorGroup};
 use crate::sampler::{Capabilities, Sources};
+use std::collections::HashSet;
 
 const HEAT_GROUPS: [SensorGroup; 3] = [
     SensorGroup::PerfCore,
@@ -36,6 +37,7 @@ impl MacSources {
             memory_events: memory::pressure().is_some(),
             system_power: smc.as_ref().is_some_and(|s| s.system_watts().is_some()),
             per_process_energy: procs.energy_supported(),
+            system_processes: ps::available(),
         };
         Self {
             smc,
@@ -91,8 +93,15 @@ impl Sources for MacSources {
         memory::read()
     }
 
+    /// libproc rows for the user's own processes (footprint and energy), then `ps` rows for
+    /// everything libproc could not read: root's and other users' processes.
     fn processes(&mut self) -> Vec<ProcessCounters> {
-        self.procs.read_all()
+        let mut rows = self.procs.read_all();
+        if self.caps.system_processes {
+            let seen: HashSet<u32> = rows.iter().map(|p| p.pid).collect();
+            rows.extend(ps::read_except(&seen).unwrap_or_default());
+        }
+        rows
     }
 
     fn machine(&self) -> MachineInfo {

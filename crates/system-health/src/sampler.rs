@@ -22,6 +22,8 @@ pub struct Capabilities {
     pub memory_events: bool,
     pub system_power: bool,
     pub per_process_energy: bool,
+    /// Root's and other users' processes are listed (through `/bin/ps`).
+    pub system_processes: bool,
 }
 
 impl Capabilities {
@@ -29,7 +31,7 @@ impl Capabilities {
     pub fn summary(&self) -> String {
         let f = |b: bool| if b { "ok" } else { "missing" };
         format!(
-            "smc={} sensors={} gpu={} thermal={} thermal-events={} memory-events={} system-power={} process-energy={}",
+            "smc={} sensors={} gpu={} thermal={} thermal-events={} memory-events={} system-power={} process-energy={} system-processes={}",
             f(self.smc),
             self.sensors,
             f(self.gpu),
@@ -37,7 +39,8 @@ impl Capabilities {
             f(self.thermal_events),
             f(self.memory_events),
             f(self.system_power),
-            f(self.per_process_energy)
+            f(self.per_process_energy),
+            f(self.system_processes)
         )
     }
 }
@@ -209,6 +212,7 @@ mod tests {
                 memory_events: true,
                 system_power: false,
                 per_process_energy: false,
+                system_processes: false,
             }
         }
     }
@@ -230,6 +234,7 @@ mod tests {
             cpu_time_ns: cpu_ms * 1_000_000,
             footprint_bytes: 1,
             energy_nj: None,
+            cpu_pct_hint: None,
         }
     }
 

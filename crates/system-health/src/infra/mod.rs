@@ -11,6 +11,7 @@ pub mod mac_sources;
 pub mod machine;
 pub mod memory;
 pub mod procs;
+pub mod ps;
 pub mod smc;
 pub mod sysctl;
 pub mod thermal;

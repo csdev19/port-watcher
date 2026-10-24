@@ -138,3 +138,19 @@ fn mac_sources_produce_a_complete_sample() {
     assert!(sample.memory.total_bytes > 0);
     assert!(!s.top(Sort::Mem, 3).is_empty());
 }
+
+#[test]
+fn ps_lists_root_processes_libproc_cannot_read() {
+    if !enabled() {
+        return;
+    }
+    use system_health::infra::ps;
+    assert!(ps::available(), "/bin/ps should run and list launchd");
+    let rows = ps::read_except(&std::collections::HashSet::new()).unwrap();
+    let launchd = rows.iter().find(|p| p.pid == 1).expect("PID 1 listed");
+    assert_eq!(launchd.name, "launchd");
+    assert!(launchd.cpu_time_ns > 0);
+    assert!(launchd.cpu_pct_hint.is_some());
+    // Our own PID is in ps too; MacSources drops it in favour of the libproc row.
+    assert!(rows.iter().any(|p| p.pid == std::process::id()));
+}
