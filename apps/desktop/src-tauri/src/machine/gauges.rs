@@ -159,13 +159,14 @@ fn heat_gauge(s: &Sample, t: &Thresholds, caps: &Capabilities) -> GaugeDto {
     };
     let stop_line = t.hotspot_c.stop;
     let past_stop = matches!((hotspot, stop_line), (Some(c), Some(l)) if c >= l);
+    // The pressure word and the hotspot both show on the gauge; the driver says what they mean.
     let driver = match (s.thermal, hotspot) {
-        (Some(ThermalPressure::Nominal), Some(c)) if past_stop => format!(
-            "CPU hotspot {c:.0} °C is past the stop line though macOS reports nominal pressure"
-        ),
-        (Some(_), Some(c)) => format!("thermal pressure · CPU hotspot {c:.0} °C"),
-        (Some(_), None) => "thermal pressure · no temperature sensors".into(),
-        (None, Some(c)) => format!("CPU hotspot {c:.0} °C · no thermal pressure reading"),
+        (Some(ThermalPressure::Nominal), Some(_)) if past_stop => {
+            "Nominal pressure, but the hotspot is past the stop line".to_string()
+        }
+        (Some(p), Some(_)) => format!("{} pressure", pressure_word(p)),
+        (Some(p), None) => format!("{} pressure · no temperature sensors", pressure_word(p)),
+        (None, Some(_)) => "no thermal pressure reading".to_string(),
         (None, None) => String::new(),
     };
     // The sparkline is hotspot degrees when the SMC works, otherwise pressure steps 0 to 3.

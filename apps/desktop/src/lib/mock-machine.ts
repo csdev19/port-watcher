@@ -56,7 +56,7 @@ export function mockMachineSnapshot(nowMs: number = Date.now()): MachineSnapshot
       level: "watch",
       value: "Fair",
       extra: "86 °C",
-      driver: "thermal pressure · CPU hotspot 86 °C",
+      driver: "Fair pressure",
       warn: 80,
       stop: 95,
       min: 30,
