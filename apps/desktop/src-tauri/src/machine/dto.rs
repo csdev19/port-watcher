@@ -109,6 +109,8 @@ pub struct ProcessGroupDto {
     /// The one process the row's kill button signals.
     pub target: Option<KillTarget>,
     pub target_is_main: bool,
+    /// Name of the target process: the app ("Cursor") for a main process, not the heaviest helper.
+    pub target_name: String,
     pub killable: bool,
     pub lock_reason: Option<LockReason>,
 }
@@ -193,6 +195,7 @@ mod tests {
                 started_at: 5,
             }),
             target_is_main: true,
+            target_name: "Cursor".into(),
             killable: false,
             lock_reason: Some(LockReason::SelfProcess),
         };
@@ -200,6 +203,7 @@ mod tests {
         assert_eq!(v["lockReason"], "self");
         assert_eq!(v["target"]["startedAt"], 5);
         assert_eq!(v["targetIsMain"], true);
+        assert_eq!(v["targetName"], "Cursor");
         assert_eq!(v["memberCount"], 3);
         assert_eq!(
             serde_json::to_value(LockReason::OtherUser).unwrap(),

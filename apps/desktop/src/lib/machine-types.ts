@@ -58,6 +58,8 @@ export interface ProcessGroupDto {
   /** The one process the kill button signals. */
   target: { pid: number; startedAt: number } | null;
   targetIsMain: boolean;
+  /** The target process's own name: the app for a main process, not the heaviest helper. */
+  targetName: string;
   killable: boolean;
   lockReason: LockReason | null;
 }

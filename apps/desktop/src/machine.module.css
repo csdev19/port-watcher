@@ -1,0 +1,267 @@
+/* The Machine tab (design 10a). Classes and SVG attributes only: the production CSP blocks
+ * style strings. Colours come from the panel tokens; --pw-warn / --pw-stop-text are added in
+ * @port-watcher/tokens. Warn is yellow in dark and amber in light; its text variant is darker
+ * in light so the 17 px figures keep contrast on white. */
+
+.machine {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* One gauge: value column, driver and band, sparkline. Tightened to ~46 px so three process
+ * rows fit under four gauges in the 440 px panel. */
+.gauge {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(58px, auto) minmax(0, 1fr) 104px;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--pw-line-row);
+}
+.gaugeHead {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 58px;
+}
+.gaugeLabel {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pw-muted-2);
+}
+.gaugeValue {
+  font-family: var(--font-mono);
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--pw-fg);
+  white-space: nowrap;
+}
+.gaugeValue[data-size="small"] {
+  font-size: 12px;
+  font-weight: 500;
+}
+.gaugeBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.gaugeDriver {
+  font-size: 11px;
+  color: var(--pw-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gaugeWord {
+  font-weight: 600;
+}
+.gaugeBand {
+  font-size: 10px;
+  color: var(--pw-muted-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gauge[data-level="watch"] .gaugeValue,
+.gauge[data-level="watch"] .gaugeWord {
+  color: var(--pw-warn-text);
+}
+.gauge[data-level="stop"] .gaugeValue,
+.gauge[data-level="stop"] .gaugeWord {
+  color: var(--pw-stop-text);
+}
+.gauge[data-level="off"] .gaugeValue {
+  color: var(--pw-muted-2);
+}
+
+.spark {
+  display: block;
+  overflow: visible;
+}
+.sparkLine {
+  fill: none;
+  stroke: var(--pw-muted);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.spark[data-level="watch"] .sparkLine {
+  stroke: var(--pw-warn);
+}
+.spark[data-level="stop"] .sparkLine {
+  stroke: var(--status-danger);
+}
+.sparkWarn,
+.sparkStop {
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+.sparkWarn {
+  stroke: var(--pw-warn);
+  opacity: 0.45;
+}
+.sparkStop {
+  stroke: var(--status-danger);
+  opacity: 0.55;
+}
+.sparkEmpty {
+  font-size: 10px;
+  color: var(--pw-muted-2);
+  text-align: center;
+}
+
+.sectionLabel {
+  margin: 0;
+  padding: 7px 12px 5px;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pw-muted-2);
+}
+
+.procList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.procEmpty {
+  margin: 0;
+  padding: 14px 12px;
+  font-size: 12px;
+  color: var(--pw-muted);
+}
+.procRow {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px 4px 12px;
+  border-top: 1px solid var(--pw-line-row);
+  min-height: 40px;
+}
+.procRowSelected {
+  background: var(--pw-accent-soft);
+  box-shadow: inset 2px 0 0 var(--pw-accent);
+}
+.procCpu {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--pw-fg);
+}
+.procCpu[data-level="watch"] {
+  color: var(--pw-warn-text);
+}
+.procMain {
+  min-width: 0;
+}
+.procName {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--pw-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.procSub {
+  font-size: 11px;
+  color: var(--pw-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.procActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  min-width: 70px;
+}
+.procMem {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--pw-muted-2);
+  font-variant-numeric: tabular-nums;
+}
+.procKill,
+.procKillArmed {
+  border: none;
+  background: transparent;
+  color: var(--pw-muted-2);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 13px;
+  transition: background 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.procKill:hover {
+  color: var(--status-danger);
+  background: var(--pw-raised-hover);
+}
+.procKill:focus-visible,
+.procKillArmed:focus-visible {
+  outline: 2px solid var(--pw-accent-ring);
+  outline-offset: 1px;
+}
+.procKillArmed {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--pw-on-action);
+  background: var(--status-danger);
+  font-weight: 600;
+  font-size: 11px;
+  padding: 4px 8px;
+}
+.procLock {
+  position: relative;
+  color: var(--pw-muted-2);
+  font-size: 13px;
+  padding: 4px 6px;
+}
+/* CSS-only tooltip: a native `title` makes WKWebView flicker the transparent panel. */
+.procLock[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--pw-toast-bg);
+  border: 1px solid var(--pw-border);
+  color: var(--pw-toast-fg);
+  font-size: 11px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .procKill,
+  .procKillArmed {
+    transition: none;
+  }
+}

@@ -4,6 +4,7 @@ import { usePorts } from "@/hooks/use-ports";
 import { useListNavigation } from "@/hooks/use-list-navigation";
 import { useKillConfirm } from "@/hooks/use-kill-confirm";
 import { useFavourites } from "@/hooks/use-favourites";
+import { useMachine } from "@/hooks/use-machine";
 import { useSetting } from "@/settings/store";
 import { filterPorts } from "@/lib/filter";
 import { partitionPorts } from "@/lib/port-groups";
@@ -24,10 +25,12 @@ import { PanelFooter } from "@/components/PanelFooter";
 import { Tabs } from "@/components/Tabs";
 import { PanelHeader } from "@/components/PanelHeader";
 import { UpdateBanner } from "@/components/UpdateBanner";
+import { MachineView } from "@/components/MachineView";
 import { pendingVersion, useUpdate } from "@/lib/update";
 import styles from "@/app.module.css";
 
 type Tab = "listening" | "favourites";
+type TopTab = "ports" | "machine";
 
 async function hidePanel() {
   if (!inTauri) return;
@@ -68,6 +71,20 @@ export default function App() {
   const [expandedWatches, setExpandedWatches] = useState<ReadonlySet<number>>(new Set());
   const [activeTab, setActiveTab] = useState<Tab>("listening");
   const searchRef = useRef<HTMLInputElement>(null);
+  // Top-level tabs. Machine samples at 1 Hz only while it is the active tab and the panel is
+  // visible; the Ports state below stays mounted, so nothing there changes.
+  const [topTab, setTopTab] = useState<TopTab>("ports");
+  const topTabRef = useRef<TopTab>(topTab);
+  topTabRef.current = topTab;
+  const machine = useMachine(topTab === "machine");
+  const focusSearchOnMount = useRef(false);
+  useEffect(() => {
+    if (topTab === "ports" && focusSearchOnMount.current && searchRef.current) {
+      focusSearchOnMount.current = false;
+      searchRef.current.focus();
+      searchRef.current.select();
+    }
+  }, [topTab]);
 
   // F7 Slice 1-3: persisted watched ports, joined against the same live
   // `usePorts` snapshot both tabs share — no second polling source.
@@ -175,13 +192,22 @@ export default function App() {
     try {
       const result = await killPort(entry);
       if (result === "terminated" || result === "killed") {
-        setToast({ message: `${entry.label} (${entry.port}) stopped`, command: entry.command });
+        setToast({
+          message: `${entry.label} (${entry.port}) stopped`,
+          command: entry.command,
+        });
         queryClient.invalidateQueries({ queryKey: ["ports"] });
       } else if (result === "alreadyGone") {
-        setToast({ message: `${entry.label} (${entry.port}) was already gone`, command: null });
+        setToast({
+          message: `${entry.label} (${entry.port}) was already gone`,
+          command: null,
+        });
         queryClient.invalidateQueries({ queryKey: ["ports"] });
       } else {
-        setToast({ message: `Cannot kill ${entry.label} (${entry.port})`, command: null });
+        setToast({
+          message: `Cannot kill ${entry.label} (${entry.port})`,
+          command: null,
+        });
       }
     } catch (err) {
       setToast({
@@ -239,6 +265,20 @@ export default function App() {
       if (e.key === "," && e.metaKey) {
         e.preventDefault();
         void openSettings();
+        return;
+      }
+
+      // ⌘1 / ⌘2 switch the top-level tabs from anywhere in the panel.
+      if (e.metaKey && (e.key === "1" || e.key === "2")) {
+        e.preventDefault();
+        switchTopTab(e.key === "1" ? "ports" : "machine");
+        return;
+      }
+
+      // On the Machine tab the port list is not on screen: its arrows, Enter and ⌘⌫ must not
+      // touch ports. The process list owns ↑/↓/⌘⌫ itself; Esc still hides the panel.
+      if (topTabRef.current === "machine") {
+        if (e.key === "Escape") void hidePanel();
         return;
       }
 
@@ -344,6 +384,8 @@ export default function App() {
     let unlisten: (() => void) | undefined;
     void import("@tauri-apps/api/event").then(async ({ listen }) => {
       const stop = await listen("panel-shown", () => {
+        // Always open on Ports: shortcut-then-type-to-search stays the default habit.
+        setTopTab("ports");
         setActiveTab("listening");
         setManuallyExpanded(false);
         setExpandedWatches(new Set());
@@ -352,8 +394,13 @@ export default function App() {
         nav.setSelectedKey(null);
         confirm.disarm();
         void refetch();
-        searchRef.current?.focus();
-        searchRef.current?.select();
+        // The search box is not mounted while Machine is showing; focus it once Ports is back.
+        if (searchRef.current) {
+          searchRef.current.focus();
+          searchRef.current.select();
+        } else {
+          focusSearchOnMount.current = true;
+        }
       });
       if (disposed) {
         stop();
@@ -420,97 +467,156 @@ export default function App() {
     confirm.disarm();
   }
 
-  const footerText =
+  // Switching top tabs drops any armed port kill and its keyboard selection, so a hidden
+  // list can never be confirmed from the other tab.
+  function switchTopTab(next: TopTab) {
+    if (next === topTabRef.current) return;
+    confirm.disarm();
+    setTopTab(next);
+  }
+
+  const portsFooterText =
     activeTab === "listening"
       ? data
         ? `${groups.dev.length} dev · ${updatedSecondsAgo}s${error ? " · update failed" : ""}`
         : "loading…"
       : favouritesFooterText(favourites.items.length, favMatches, favHealth);
+  const footerText =
+    topTab === "machine"
+      ? machine.data
+        ? `${machine.data.machine.chip} · ${machine.data.machine.cores} cores · ${
+            machine.data.intervalMs / 1000
+          }s`
+        : "reading machine…"
+      : portsFooterText;
 
   return (
     <main className={styles.panel}>
-      <PanelHeader count={allPorts?.length ?? 0} />
+      <PanelHeader
+        count={allPorts?.length ?? 0}
+        verdict={topTab === "machine" ? (machine.data?.verdict ?? null) : null}
+      />
       <UpdateBanner
         status={update}
         actions={updateActions}
         dismissedVersion={dismissedUpdate}
         onDismiss={setDismissedUpdate}
       />
-      <SearchInput ref={searchRef} value={query} onChange={setQuery} />
       <Tabs
-        ariaLabel="Ports"
-        active={activeTab}
-        onChange={switchTab}
+        ariaLabel="Panel"
+        active={topTab}
+        onChange={switchTopTab}
         tabs={[
-          { id: "listening", label: "Listening", count: data ? data.length : "–" },
-          { id: "favourites", label: "Favourites", count: favourites.items.length },
+          {
+            id: "ports",
+            label: "Ports",
+            count: allPorts ? allPorts.length : "–",
+          },
+          { id: "machine", label: "Machine", count: "" },
         ]}
       />
 
-      {activeTab === "listening" ? (
+      {topTab === "machine" ? (
         <div
-          id="panel-listening"
+          id="panel-machine"
           role="tabpanel"
-          aria-labelledby="tab-listening"
+          aria-labelledby="tab-machine"
           className={styles.tabPanel}
         >
-          {error && !data ? (
-            <ErrorState message={String(error)} onRetry={() => void refetch()} />
-          ) : filtered.length > 0 ? (
-            <PortList
-              groups={groups}
-              secondaryTotal={allSecondaryCount}
-              searching={query.trim() !== ""}
-              secondaryOpen={secondaryOpen}
-              secondaryForcedOpen={forcedOpen}
-              selectedKey={nav.selectedKey}
-              expandedKey={expandedKey}
-              armedKey={confirm.armedTarget?.key ?? null}
-              killingKey={killingKey}
-              favouritePorts={favouritePorts}
-              onSelect={nav.setSelectedKey}
-              onToggleExpand={(k) => setExpandedKey((prev) => (prev === k ? null : k))}
-              onRequestKill={(entry) => requestKill(entry, "pointer")}
-              onDisarmKill={confirm.disarm}
-              onToggleSecondary={toggleSecondary}
-              onToggleWatch={toggleWatch}
-            />
-          ) : query.trim() !== "" ? (
-            <FilteredEmptyState query={query} onClear={() => setQuery("")} />
-          ) : (
-            <EmptyState />
-          )}
+          <MachineView snapshot={machine.data} error={machine.error} onToast={setToast} />
         </div>
       ) : (
         <div
-          id="panel-favourites"
+          id="panel-ports"
           role="tabpanel"
-          aria-labelledby="tab-favourites"
+          aria-labelledby="tab-ports"
           className={styles.tabPanel}
         >
-          <FavouritesPanel
-            favourites={favourites.items}
-            favouritesError={favourites.error}
-            onClearFavouritesError={favourites.clearError}
-            add={favourites.add}
-            remove={favourites.remove}
-            rename={favourites.rename}
-            data={allPorts}
-            queryError={error}
-            query={query}
-            onClearQuery={() => setQuery("")}
-            onRetry={() => void refetch()}
-            selectedKey={nav.selectedKey}
-            expandedKey={expandedKey}
-            armedKey={confirm.armedTarget?.key ?? null}
-            killingKey={killingKey}
-            expandedWatches={expandedWatches}
-            onToggleWatchGroup={toggleWatchGroup}
-            onSelect={nav.setSelectedKey}
-            onToggleExpand={(k) => setExpandedKey((prev) => (prev === k ? null : k))}
-            onRequestKill={(entry) => requestKill(entry, "pointer")}
-            onDisarmKill={confirm.disarm}
+          <SearchInput ref={searchRef} value={query} onChange={setQuery} />
+          <Tabs
+            ariaLabel="Ports"
+            active={activeTab}
+            onChange={switchTab}
+            tabs={[
+              {
+                id: "listening",
+                label: "Listening",
+                count: data ? data.length : "–",
+              },
+              {
+                id: "favourites",
+                label: "Favourites",
+                count: favourites.items.length,
+              },
+            ]}
           />
+
+          {activeTab === "listening" ? (
+            <div
+              id="panel-listening"
+              role="tabpanel"
+              aria-labelledby="tab-listening"
+              className={styles.tabPanel}
+            >
+              {error && !data ? (
+                <ErrorState message={String(error)} onRetry={() => void refetch()} />
+              ) : filtered.length > 0 ? (
+                <PortList
+                  groups={groups}
+                  secondaryTotal={allSecondaryCount}
+                  searching={query.trim() !== ""}
+                  secondaryOpen={secondaryOpen}
+                  secondaryForcedOpen={forcedOpen}
+                  selectedKey={nav.selectedKey}
+                  expandedKey={expandedKey}
+                  armedKey={confirm.armedTarget?.key ?? null}
+                  killingKey={killingKey}
+                  favouritePorts={favouritePorts}
+                  onSelect={nav.setSelectedKey}
+                  onToggleExpand={(k) => setExpandedKey((prev) => (prev === k ? null : k))}
+                  onRequestKill={(entry) => requestKill(entry, "pointer")}
+                  onDisarmKill={confirm.disarm}
+                  onToggleSecondary={toggleSecondary}
+                  onToggleWatch={toggleWatch}
+                />
+              ) : query.trim() !== "" ? (
+                <FilteredEmptyState query={query} onClear={() => setQuery("")} />
+              ) : (
+                <EmptyState />
+              )}
+            </div>
+          ) : (
+            <div
+              id="panel-favourites"
+              role="tabpanel"
+              aria-labelledby="tab-favourites"
+              className={styles.tabPanel}
+            >
+              <FavouritesPanel
+                favourites={favourites.items}
+                favouritesError={favourites.error}
+                onClearFavouritesError={favourites.clearError}
+                add={favourites.add}
+                remove={favourites.remove}
+                rename={favourites.rename}
+                data={allPorts}
+                queryError={error}
+                query={query}
+                onClearQuery={() => setQuery("")}
+                onRetry={() => void refetch()}
+                selectedKey={nav.selectedKey}
+                expandedKey={expandedKey}
+                armedKey={confirm.armedTarget?.key ?? null}
+                killingKey={killingKey}
+                expandedWatches={expandedWatches}
+                onToggleWatchGroup={toggleWatchGroup}
+                onSelect={nav.setSelectedKey}
+                onToggleExpand={(k) => setExpandedKey((prev) => (prev === k ? null : k))}
+                onRequestKill={(entry) => requestKill(entry, "pointer")}
+                onDisarmKill={confirm.disarm}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -525,9 +631,12 @@ export default function App() {
           toast={toast}
           onCopy={() => {
             if (toast.command) {
-              navigator.clipboard
-                .writeText(toast.command)
-                .catch(() => setToast({ message: "Could not copy command", command: null }));
+              navigator.clipboard.writeText(toast.command).catch(() =>
+                setToast({
+                  message: "Could not copy command",
+                  command: null,
+                }),
+              );
             }
             setToast(null);
           }}

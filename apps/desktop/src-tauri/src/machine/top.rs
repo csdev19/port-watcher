@@ -158,6 +158,7 @@ pub fn group(all: &[ProcessUsage], ctx: &GroupContext) -> Vec<ProcessGroupDto> {
                     started_at: target.started_at,
                 }),
                 target_is_main: main.is_some(),
+                target_name: target.name.clone(),
                 killable,
                 lock_reason: lock,
             }
@@ -250,6 +251,8 @@ mod tests {
         assert_eq!(t.pid, 199);
         assert_eq!(t.started_at, 1199);
         assert!(rows[0].target_is_main);
+        assert_eq!(rows[0].target_name, "Cursor");
+        assert_eq!(rows[0].name, "Cursor Helper (Renderer)");
         assert!(rows[0].killable);
         assert_eq!(rows[0].lock_reason, None);
     }
