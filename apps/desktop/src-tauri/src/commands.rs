@@ -168,6 +168,18 @@ pub fn open_settings(app: tauri::AppHandle) -> Result<(), AppError> {
     crate::settings::open_settings(&app).map_err(|e| AppError::Internal(e.to_string()))
 }
 
+/// Opens the full window from the panel's ⤢ button or ⌘↩.
+#[tauri::command]
+pub fn open_full_window(app: tauri::AppHandle) -> Result<(), AppError> {
+    crate::full_window::open_full_window(&app).map_err(|e| AppError::Internal(e.to_string()))
+}
+
+/// The full window's "Mini" button: close it and show the panel under the tray icon.
+#[tauri::command]
+pub fn close_full_window_to_mini(app: tauri::AppHandle) {
+    crate::full_window::close_full_to_mini(&app);
+}
+
 /// What this Mac can report to the System health context (read-only; Phase 3 shows it).
 #[tauri::command]
 pub fn system_health_capabilities(

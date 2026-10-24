@@ -2,6 +2,7 @@ mod appearance;
 mod commands;
 mod error;
 mod fda;
+mod full_window;
 mod health;
 mod machine;
 mod panel;
@@ -48,6 +49,19 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_positioner::init())
         .plugin(tauri_plugin_store::Builder::new().build())
+        // Remembers the full window's frame. Runtime-created windows are covered (the plugin
+        // hooks every window as it becomes ready); the other windows are denied, and only
+        // size and position are kept so it never shows or hides anything. The frame reaches
+        // disk when the app exits.
+        .plugin(
+            tauri_plugin_window_state::Builder::new()
+                .with_denylist(&["main", "settings", "setup"])
+                .with_state_flags(
+                    tauri_plugin_window_state::StateFlags::SIZE
+                        | tauri_plugin_window_state::StateFlags::POSITION,
+                )
+                .build(),
+        )
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
@@ -197,6 +211,12 @@ pub fn run() {
             // Note for development: opening the inspector steals focus and
             // closes the panel — use the browser dev loop for UI work.
             // Only the panel does this; the setup window must stay put.
+            if window.label() == full_window::FULL_LABEL {
+                if let tauri::WindowEvent::Destroyed = event {
+                    full_window::on_destroyed(window.app_handle());
+                }
+                return;
+            }
             if window.label() != "main" {
                 return;
             }
@@ -223,6 +243,8 @@ pub fn run() {
             commands::update_install,
             commands::update_restart,
             commands::open_settings,
+            commands::open_full_window,
+            commands::close_full_window_to_mini,
             commands::quit_app,
             commands::set_shortcut,
             commands::system_health_capabilities
