@@ -2,10 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { BrandMark } from "@/components/BrandMark";
 import { LivePill } from "@/components/LivePill";
 import { Toast, type ToastData } from "@/components/Toast";
+import { useActiveAlerts } from "@/hooks/use-active-alerts";
 import { useMachine } from "@/hooks/use-machine";
 import { usePorts } from "@/hooks/use-ports";
 import { closeFullWindowToMini } from "@/lib/machine";
 import { openSettings } from "@/lib/ports";
+import { AlertsPage } from "./AlertsPage";
 import { OverviewPage } from "./OverviewPage";
 import { PortsPage } from "./PortsPage";
 import { RightNow } from "./RightNow";
@@ -21,6 +23,7 @@ export default function FullWindow() {
   const [toast, setToast] = useState<ToastData | null>(null);
   const machine = useMachine(true);
   const ports = usePorts();
+  const alerts = useActiveAlerts();
   const snapshot = machine.data;
 
   useEffect(() => {
@@ -72,11 +75,14 @@ export default function FullWindow() {
           page={page}
           onPage={setPage}
           portCount={ports.data ? ports.data.length : null}
+          alertCount={alerts.length}
           onOpenSettings={() => void openSettings()}
         />
         <main className={styles.main}>
           {page === "overview" ? (
             <OverviewPage snapshot={snapshot} onToast={showToast} />
+          ) : page === "alerts" ? (
+            <AlertsPage alerts={alerts} onToast={showToast} />
           ) : (
             <PortsPage onToast={showToast} />
           )}
