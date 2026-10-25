@@ -7,6 +7,7 @@ const native = vi.hoisted(() => ({
   registerShortcut: vi.fn<(s: string) => Promise<void>>(),
   getAutostart: vi.fn<() => Promise<boolean>>(),
   setAutostart: vi.fn<(on: boolean) => Promise<void>>(),
+  setAlertRuleEnabled: vi.fn<(rule: string, on: boolean) => Promise<void>>(),
 }));
 vi.mock("../native", () => native);
 
@@ -19,6 +20,7 @@ beforeEach(() => {
   native.registerShortcut.mockResolvedValue();
   native.getAutostart.mockResolvedValue(false);
   native.setAutostart.mockResolvedValue();
+  native.setAlertRuleEnabled.mockResolvedValue();
 });
 
 afterEach(() => {
@@ -155,5 +157,38 @@ describe("General: appearance", () => {
     await waitFor(async () => expect(await getSetting("appearance")).toBe("dark"));
     fireEvent.keyDown(screen.getByRole("radio", { name: "Dark" }), { key: "ArrowLeft" });
     await waitFor(async () => expect(await getSetting("appearance")).toBe("system"));
+  });
+});
+
+describe("General: alerts", () => {
+  const switches = [
+    ["Thermal pressure", "thermalPressure", true],
+    ["CPU hotspot over 95 °C", "hotspot", true],
+    ["Memory pressure", "memoryPressure", true],
+    ["CPU over 80% for 2 min", "cpuSustained", false],
+    ["GPU over 90% for 2 min", "gpuSustained", false],
+  ] as const;
+
+  it("lists the five rules with the default rules on", () => {
+    render(<General />);
+    for (const [label, , on] of switches) {
+      const sw = screen.getByRole("switch", { name: label });
+      expect(sw.getAttribute("aria-checked")).toBe(String(on));
+    }
+  });
+
+  it("a toggle asks Rust first, then the setting follows", async () => {
+    render(<General />);
+    fireEvent.click(screen.getByRole("switch", { name: "CPU over 80% for 2 min" }));
+    expect(native.setAlertRuleEnabled).toHaveBeenCalledExactlyOnceWith("cpuSustained", true);
+  });
+
+  it("a refused toggle leaves the switch unchanged and says so", async () => {
+    native.setAlertRuleEnabled.mockRejectedValue(new Error("engine is not running"));
+    render(<General />);
+    const sw = screen.getByRole("switch", { name: "Thermal pressure" });
+    fireEvent.click(sw);
+    await waitFor(() => expect(screen.getByText(/Couldn't turn this alert off/)).toBeTruthy());
+    expect(sw.getAttribute("aria-checked")).toBe("true");
   });
 });

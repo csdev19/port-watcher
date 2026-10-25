@@ -1,58 +1,113 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FAVOURITES_STORAGE_KEY } from "@/lib/favourites";
+import { resetFavouritesMigration } from "@/lib/favourites-migration";
+import { getSetting, hasSetting, resetMemorySettings, setSetting } from "@/settings/store";
 import { useFavourites } from "./use-favourites";
 
-describe("useFavourites", () => {
-  beforeEach(() => {
-    window.localStorage.clear();
-    vi.restoreAllMocks();
-  });
-  afterEach(() => {
-    window.localStorage.clear();
-    vi.restoreAllMocks();
-  });
+vi.mock("@/settings/store", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/settings/store")>();
+  return { ...actual, setSetting: vi.fn(actual.setSetting) };
+});
 
-  it("absent key -> empty list, no error", () => {
+function reset() {
+  window.localStorage.clear();
+  resetMemorySettings();
+  resetFavouritesMigration();
+  vi.restoreAllMocks();
+}
+
+describe("useFavourites", () => {
+  beforeEach(reset);
+  afterEach(reset);
+
+  it("nothing stored anywhere -> empty list, no error, nothing written", async () => {
     const { result } = renderHook(() => useFavourites());
+    await waitFor(() => expect(hasSetting("favourites")).resolves.toBe(false));
     expect(result.current.items).toEqual([]);
     expect(result.current.error).toBeNull();
+    expect(setSetting).not.toHaveBeenCalled();
   });
 
-  it("malformed JSON -> empty list plus a non-blocking error, no overwrite", () => {
+  describe("one-time import of the old localStorage list (ADR 0013)", () => {
+    it("copies a valid list into settings and leaves the old key in place", async () => {
+      const legacy = JSON.stringify([{ port: 3000, name: "api" }, { port: 5173 }]);
+      window.localStorage.setItem(FAVOURITES_STORAGE_KEY, legacy);
+      const { result } = renderHook(() => useFavourites());
+      await waitFor(() =>
+        expect(result.current.items).toEqual([{ port: 3000, name: "api" }, { port: 5173 }]),
+      );
+      expect(await getSetting("favourites")).toEqual([{ port: 3000, name: "api" }, { port: 5173 }]);
+      expect(window.localStorage.getItem(FAVOURITES_STORAGE_KEY)).toBe(legacy);
+      expect(result.current.error).toBeNull();
+    });
+
+    it("runs once: a later launch never overwrites the settings list", async () => {
+      window.localStorage.setItem(FAVOURITES_STORAGE_KEY, JSON.stringify([{ port: 3000 }]));
+      const first = renderHook(() => useFavourites());
+      await waitFor(() => expect(first.result.current.items).toEqual([{ port: 3000 }]));
+      act(() => {
+        first.result.current.add("4000");
+      });
+      first.unmount();
+
+      // Next launch: the old key still says [3000], the settings list says [3000, 4000].
+      resetFavouritesMigration();
+      const second = renderHook(() => useFavourites());
+      await waitFor(() => expect(second.result.current.items).toHaveLength(2));
+      expect(await getSetting("favourites")).toEqual([{ port: 3000 }, { port: 4000 }]);
+    });
+
+    it("an empty settings list counts as migrated", async () => {
+      await setSetting("favourites", []);
+      window.localStorage.setItem(FAVOURITES_STORAGE_KEY, JSON.stringify([{ port: 3000 }]));
+      const { result } = renderHook(() => useFavourites());
+      await act(async () => {});
+      expect(result.current.items).toEqual([]);
+    });
+
+    it("sanitizes records on import and reports a recovery error", async () => {
+      window.localStorage.setItem(
+        FAVOURITES_STORAGE_KEY,
+        JSON.stringify([{ port: 3000 }, { port: 99999 }, { port: 8080, name: "api", junk: 1 }]),
+      );
+      const { result } = renderHook(() => useFavourites());
+      await waitFor(() =>
+        expect(result.current.items).toEqual([{ port: 3000 }, { port: 8080, name: "api" }]),
+      );
+      await waitFor(() => expect(result.current.error).toBe("Could not load watched ports"));
+    });
+
+    it("malformed JSON -> empty list plus an error, nothing written to settings", async () => {
+      window.localStorage.setItem(FAVOURITES_STORAGE_KEY, "{not json");
+      const { result } = renderHook(() => useFavourites());
+      await waitFor(() => expect(result.current.error).toBe("Could not load watched ports"));
+      expect(result.current.items).toEqual([]);
+      expect(await hasSetting("favourites")).toBe(false);
+      expect(window.localStorage.getItem(FAVOURITES_STORAGE_KEY)).toBe("{not json");
+    });
+
+    it("a blocked localStorage leaves the app usable", async () => {
+      vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+        throw new Error("blocked");
+      });
+      const { result } = renderHook(() => useFavourites());
+      await act(async () => {});
+      expect(result.current.items).toEqual([]);
+    });
+  });
+
+  it("a malformed stored value is normalized with a recovery error", async () => {
+    await setSetting("favourites", [{ port: 3000 }, { port: 0 }] as never);
+    const { result } = renderHook(() => useFavourites());
+    await waitFor(() => expect(result.current.items).toEqual([{ port: 3000 }]));
+    expect(result.current.error).toBe("Could not load watched ports");
+  });
+
+  it("clearError resets the error without touching items", async () => {
     window.localStorage.setItem(FAVOURITES_STORAGE_KEY, "{not json");
-    const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
     const { result } = renderHook(() => useFavourites());
-    expect(result.current.items).toEqual([]);
-    expect(result.current.error).toBe("Could not load watched ports");
-    expect(setItemSpy).not.toHaveBeenCalled();
-    expect(window.localStorage.getItem(FAVOURITES_STORAGE_KEY)).toBe("{not json");
-  });
-
-  it("wrong root shape -> empty list plus error, no overwrite", () => {
-    window.localStorage.setItem(FAVOURITES_STORAGE_KEY, JSON.stringify({ port: 3000 }));
-    const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
-    const { result } = renderHook(() => useFavourites());
-    expect(result.current.items).toEqual([]);
-    expect(result.current.error).toBe("Could not load watched ports");
-    expect(setItemSpy).not.toHaveBeenCalled();
-  });
-
-  it("mixed valid/invalid records normalize on load with a recovery error, no overwrite", () => {
-    window.localStorage.setItem(
-      FAVOURITES_STORAGE_KEY,
-      JSON.stringify([{ port: 3000 }, { port: 99999 }, { port: 8080, name: "api", junk: 1 }]),
-    );
-    const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
-    const { result } = renderHook(() => useFavourites());
-    expect(result.current.items).toEqual([{ port: 3000 }, { port: 8080, name: "api" }]);
-    expect(result.current.error).toBe("Could not load watched ports");
-    expect(setItemSpy).not.toHaveBeenCalled();
-  });
-
-  it("clearError resets the error without touching items", () => {
-    window.localStorage.setItem(FAVOURITES_STORAGE_KEY, "{not json");
-    const { result } = renderHook(() => useFavourites());
+    await waitFor(() => expect(result.current.error).not.toBeNull());
     act(() => result.current.clearError());
     expect(result.current.error).toBeNull();
     expect(result.current.items).toEqual([]);
@@ -67,7 +122,7 @@ describe("useFavourites", () => {
     expect(result.current.items).toEqual([]);
   });
 
-  it("add trims/normalizes name and persists, preserving insertion order", () => {
+  it("add trims/normalizes name and persists to settings, preserving insertion order", async () => {
     const { result } = renderHook(() => useFavourites());
     act(() => {
       expect(result.current.add("03000", "  api  ")).toEqual({ ok: true });
@@ -76,10 +131,7 @@ describe("useFavourites", () => {
       expect(result.current.add("8080")).toEqual({ ok: true });
     });
     expect(result.current.items).toEqual([{ port: 3000, name: "api" }, { port: 8080 }]);
-    expect(JSON.parse(window.localStorage.getItem(FAVOURITES_STORAGE_KEY) ?? "[]")).toEqual([
-      { port: 3000, name: "api" },
-      { port: 8080 },
-    ]);
+    expect(await getSetting("favourites")).toEqual([{ port: 3000, name: "api" }, { port: 8080 }]);
   });
 
   it("add rejects a name over 30 characters", () => {
@@ -120,7 +172,7 @@ describe("useFavourites", () => {
     expect(result.current.items).toEqual([{ port: 3000 }, { port: 4000 }]);
   });
 
-  it("remove drops the port and persists", () => {
+  it("remove drops the port and persists", async () => {
     const { result } = renderHook(() => useFavourites());
     act(() => {
       result.current.add("3000");
@@ -130,12 +182,22 @@ describe("useFavourites", () => {
       expect(result.current.remove(3000)).toEqual({ ok: true });
     });
     expect(result.current.items).toEqual([{ port: 4000 }]);
-    expect(JSON.parse(window.localStorage.getItem(FAVOURITES_STORAGE_KEY) ?? "[]")).toEqual([
-      { port: 4000 },
-    ]);
+    expect(await getSetting("favourites")).toEqual([{ port: 4000 }]);
   });
 
-  it("successful remount reflects persisted state", () => {
+  it("rename changes only the named record", async () => {
+    const { result } = renderHook(() => useFavourites());
+    act(() => {
+      result.current.add("3000", "api");
+      result.current.add("4000");
+    });
+    act(() => {
+      expect(result.current.rename(3000, "web")).toEqual({ ok: true });
+    });
+    expect(await getSetting("favourites")).toEqual([{ port: 3000, name: "web" }, { port: 4000 }]);
+  });
+
+  it("successful remount reflects persisted state", async () => {
     const first = renderHook(() => useFavourites());
     act(() => {
       first.result.current.add("3000", "api");
@@ -143,57 +205,37 @@ describe("useFavourites", () => {
     first.unmount();
 
     const second = renderHook(() => useFavourites());
-    expect(second.result.current.items).toEqual([{ port: 3000, name: "api" }]);
+    await waitFor(() => expect(second.result.current.items).toEqual([{ port: 3000, name: "api" }]));
   });
 
-  it("getItem throwing on read leaves the app usable (empty list, error set)", () => {
-    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
-      throw new Error("blocked");
-    });
-    const { result } = renderHook(() => useFavourites());
-    expect(result.current.items).toEqual([]);
-    expect(result.current.error).toBe("Could not load watched ports");
-  });
-
-  it("setItem throwing on add returns an error and keeps the previous in-memory list", () => {
+  it("a failed save puts the previous list back and reports it", async () => {
     const { result } = renderHook(() => useFavourites());
     act(() => {
       result.current.add("3000");
     });
-    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
-      throw new Error("quota");
-    });
+    vi.mocked(setSetting).mockRejectedValueOnce(new Error("disk full"));
     act(() => {
-      const res = result.current.add("4000");
-      expect(res).toEqual({ ok: false, message: "Could not save watched ports" });
+      expect(result.current.add("4000")).toEqual({ ok: true });
     });
-    // Previous list is unchanged; the failed add never appears as if watched.
+    await waitFor(() => expect(result.current.error).toBe("Could not save watched ports"));
+    // The failed add never stays on screen as if it were watched.
     expect(result.current.items).toEqual([{ port: 3000 }]);
   });
 
-  it("no writes happen on mount", () => {
-    window.localStorage.setItem(FAVOURITES_STORAGE_KEY, JSON.stringify([{ port: 3000 }]));
-    const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
-    renderHook(() => useFavourites());
-    expect(setItemSpy).not.toHaveBeenCalled();
-  });
-
-  it("re-reads when another window writes the key (storage event)", () => {
+  it("shows a list written by another window", async () => {
     const { result } = renderHook(() => useFavourites());
     expect(result.current.items).toEqual([]);
-    act(() => {
-      window.localStorage.setItem(FAVOURITES_STORAGE_KEY, JSON.stringify([{ port: 4321 }]));
-      window.dispatchEvent(new StorageEvent("storage", { key: FAVOURITES_STORAGE_KEY }));
+    await act(async () => {
+      await vi.mocked(setSetting).getMockImplementation()!("favourites", [{ port: 4321 }]);
     });
     expect(result.current.items).toEqual([{ port: 4321 }]);
   });
 
-  it("ignores storage events for other keys", () => {
-    const { result } = renderHook(() => useFavourites());
-    act(() => {
-      window.localStorage.setItem(FAVOURITES_STORAGE_KEY, JSON.stringify([{ port: 4321 }]));
-      window.dispatchEvent(new StorageEvent("storage", { key: "something-else" }));
-    });
-    expect(result.current.items).toEqual([]);
+  it("does not write on mount", async () => {
+    await setSetting("favourites", [{ port: 3000 }]);
+    vi.mocked(setSetting).mockClear();
+    renderHook(() => useFavourites());
+    await act(async () => {});
+    expect(setSetting).not.toHaveBeenCalled();
   });
 });

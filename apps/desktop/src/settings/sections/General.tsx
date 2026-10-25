@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { getAutostart, registerShortcut, setAutostart } from "../native";
 import { recordKey, shortcutKeys, shortcutText, validateShortcut } from "../shortcut";
 import { useSetting } from "../store";
+import { AlertRuleRow } from "../AlertRuleRow";
 import styles from "../settings.module.css";
 import {
   Button,
@@ -35,6 +36,40 @@ export default function General() {
         <AppearanceRow />
         <RefreshRow />
       </Group>
+      <SectionHeading>Alerts</SectionHeading>
+      <Group>
+        <AlertRuleRow
+          rule="thermalPressure"
+          label="Thermal pressure"
+          reason="macOS is slowing the chip down. Waits 30 s, then alerts. Costs nothing: macOS tells chapay."
+        />
+        <AlertRuleRow
+          rule="hotspot"
+          label="CPU hotspot over 95 °C"
+          reason="A minute at 95 °C or more, even if macOS says nominal. Reads the sensors every 30 s while the panel is closed."
+        />
+        <AlertRuleRow
+          rule="memoryPressure"
+          label="Memory pressure"
+          reason="macOS is short on memory. Waits 1 min, then alerts. Costs nothing: macOS tells chapay."
+        />
+        <AlertRuleRow
+          rule="cpuSustained"
+          label="CPU over 80% for 2 min"
+          reason="Checks the load every 30 s while this is on."
+        />
+        <AlertRuleRow
+          rule="gpuSustained"
+          label="GPU over 90% for 2 min"
+          reason="Checks the load every 30 s while this is on."
+        />
+      </Group>
+      <div className={styles.note}>
+        <p className={styles.noteText}>
+          Alerts appear in the Machine tab and as a notification, at most once per 15 minutes per
+          alert. Nothing is posted while the panel is open.
+        </p>
+      </div>
       <SectionHeading>Updates</SectionHeading>
       <Group>
         <AutoCheckUpdatesRow />

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTopProcesses } from "@/hooks/use-top-processes";
 import { useProcessKill } from "@/hooks/use-process-kill";
+import type { FocusTarget } from "@/lib/alerts";
 import { killProcess } from "@/lib/machine";
 import type { ProcessGroupDto } from "@/lib/machine-types";
 import { ProcessRow } from "@/components/ProcessRow";
@@ -12,16 +13,30 @@ interface Props {
   cores: number;
   cpuWarn: number | null;
   onToast: (toast: ToastData) => void;
+  /** A notification click asks to select the row holding this process. */
+  focus?: FocusTarget | null;
+  onFocusHandled?: () => void;
 }
 
 /** "Top by CPU": ↑/↓ move, ⌘⌫ arms then confirms (always two steps). Esc is handled by App
  * (it hides the panel on every tab).
  * The key listener lives here, so it exists only while the Machine tab is open. */
-export function TopProcesses({ cores, cpuWarn, onToast }: Props) {
+export function TopProcesses({ cores, cpuWarn, onToast, focus, onFocusHandled }: Props) {
   const queryClient = useQueryClient();
   const { data: rows = [], error } = useTopProcesses(true);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const inFlight = useRef<Set<string>>(new Set());
+
+  // Select the row a notification pointed at once the list has loaded; if the process is not
+  // in the list any more, there is nothing to select and the request is dropped.
+  useEffect(() => {
+    if (focus?.kind !== "process" || rows.length === 0) return;
+    const row = rows.find(
+      (r) => r.target?.pid === focus.pid && r.target?.startedAt === focus.startedAt,
+    );
+    if (row) setSelectedKey(row.key);
+    onFocusHandled?.();
+  }, [focus, rows, onFocusHandled]);
 
   const latest = useRef({ rows, selectedKey });
   latest.current = { rows, selectedKey };

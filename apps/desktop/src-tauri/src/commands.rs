@@ -81,6 +81,13 @@ pub fn open_full_disk_access_settings() -> Result<(), AppError> {
     crate::setup::open_fda_settings().map_err(|e| AppError::Internal(e.to_string()))
 }
 
+/// Opens System Settings at Notifications. chapay cannot read whether macOS lets it post, so
+/// Settings › Permissions only links there.
+#[tauri::command]
+pub fn open_notification_settings() -> Result<(), AppError> {
+    crate::setup::open_notification_settings().map_err(|e| AppError::Internal(e.to_string()))
+}
+
 /// "Open chapay" on the final setup screen: close the setup window, then
 /// open the panel through the same toggle the tray and shortcut use.
 #[tauri::command]

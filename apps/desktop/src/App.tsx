@@ -5,6 +5,9 @@ import { useListNavigation } from "@/hooks/use-list-navigation";
 import { useKillConfirm } from "@/hooks/use-kill-confirm";
 import { useFavourites } from "@/hooks/use-favourites";
 import { useMachine } from "@/hooks/use-machine";
+import { useActiveAlerts } from "@/hooks/use-active-alerts";
+import { useAlertFocus } from "@/hooks/use-alert-focus";
+import type { FocusTarget } from "@/lib/alerts";
 import { useSetting } from "@/settings/store";
 import { filterPorts } from "@/lib/filter";
 import { partitionPorts } from "@/lib/port-groups";
@@ -77,6 +80,14 @@ export default function App() {
   const topTabRef = useRef<TopTab>(topTab);
   topTabRef.current = topTab;
   const machine = useMachine(topTab === "machine");
+  const alerts = useActiveAlerts();
+  // A notification click: open the right tab now, select the row once its list has loaded.
+  const [focus, setFocus] = useState<FocusTarget | null>(null);
+  useAlertFocus((target) => {
+    setFocus(target);
+    setTopTab(target.kind === "process" ? "machine" : "ports");
+    if (target.kind === "port") setActiveTab("listening");
+  });
   const focusSearchOnMount = useRef(false);
   useEffect(() => {
     if (topTab === "ports" && focusSearchOnMount.current && searchRef.current) {
@@ -88,6 +99,18 @@ export default function App() {
 
   // F7 Slice 1-3: persisted watched ports, joined against the same live
   // `usePorts` snapshot both tabs share — no second polling source.
+  useEffect(() => {
+    if (focus?.kind !== "port" || !allPorts) return;
+    const entry = allPorts.find((e) => e.port === focus.port);
+    if (entry) {
+      // An app or system row sits in the collapsed group; open it so the selection is visible.
+      if (entry.category !== "dev") setManuallyExpanded(true);
+      nav.setSelectedKey(portKey(entry));
+    }
+    setFocus(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus, allPorts]);
+
   const favourites = useFavourites();
   const favouritePorts = useMemo(
     () => new Set(favourites.items.map((f) => f.port)),
@@ -512,7 +535,7 @@ export default function App() {
             label: "Ports",
             count: allPorts ? allPorts.length : "–",
           },
-          { id: "machine", label: "Machine", count: "" },
+          { id: "machine", label: "Machine", count: alerts.length > 0 ? alerts.length : "" },
         ]}
       />
 
@@ -523,7 +546,14 @@ export default function App() {
           aria-labelledby="tab-machine"
           className={styles.tabPanel}
         >
-          <MachineView snapshot={machine.data} error={machine.error} onToast={setToast} />
+          <MachineView
+            snapshot={machine.data}
+            error={machine.error}
+            onToast={setToast}
+            alerts={alerts}
+            focus={focus}
+            onFocusHandled={() => setFocus(null)}
+          />
         </div>
       ) : (
         <div

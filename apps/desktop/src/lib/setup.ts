@@ -15,6 +15,12 @@ export async function openFullDiskAccessSettings(): Promise<void> {
   await invoke("open_full_disk_access_settings");
 }
 
+/** Opens System Settings at Notifications (chapay cannot read that permission's state). */
+export async function openNotificationSettings(): Promise<void> {
+  if (!inTauri) return;
+  await invoke("open_notification_settings");
+}
+
 /** Closes the setup window and opens the panel. */
 export async function finishSetup(): Promise<void> {
   if (!inTauri) return;

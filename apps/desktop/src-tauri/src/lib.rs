@@ -221,6 +221,7 @@ pub fn run() {
             commands::top_processes,
             commands::check_full_disk_access,
             commands::open_full_disk_access_settings,
+            commands::open_notification_settings,
             commands::finish_setup,
             commands::show_setup_window,
             commands::app_arch,

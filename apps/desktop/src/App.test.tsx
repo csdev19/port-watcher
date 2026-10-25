@@ -4,7 +4,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { MOCK_PORTS } from "@/lib/mock-ports";
 import * as portsModule from "@/lib/ports";
+import * as storeModule from "@/settings/store";
 import { resetMemorySettings, setSetting } from "@/settings/store";
+import { resetFavouritesMigration } from "@/lib/favourites-migration";
 
 /** jsdom has no __TAURI_INTERNALS__, so `inTauri` is false and the app
  * renders MOCK_PORTS with zero Tauri mocking — this is the whole point
@@ -57,6 +59,7 @@ describe("App", () => {
     vi.restoreAllMocks();
     window.localStorage.clear();
     resetMemorySettings();
+    resetFavouritesMigration();
   });
 
   it("opens Settings from the footer's gear button and from ⌘,", async () => {
@@ -686,10 +689,7 @@ describe("App", () => {
     // that never resolved, or resolved with an error and no prior data,
     // must never show the free/in-use presentation at all.
     it("an empty successful snapshot shows free; loading/error-with-no-data never shows free or in-use", async () => {
-      window.localStorage.setItem(
-        "chapay.favourites",
-        JSON.stringify([{ port: 3000, name: "API" }]),
-      );
+      await setSetting("favourites", [{ port: 3000, name: "API" }]);
       let resolveList!: (v: typeof MOCK_PORTS) => void;
       const listSpy = vi
         .spyOn(portsModule, "listPorts")
@@ -698,8 +698,9 @@ describe("App", () => {
       renderApp();
       fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
 
-      // Still loading: neither free nor in-use presentation is shown.
-      expect(screen.getByText("checking…")).toBeTruthy();
+      // Still loading: neither free nor in-use presentation is shown. (The saved list itself
+      // arrives from the store a tick after the first render.)
+      expect(await screen.findByText("checking…")).toBeTruthy();
       expect(screen.queryByText("nothing listening")).toBeNull();
       expect(screen.queryByText("in use")).toBeNull();
 
@@ -712,9 +713,9 @@ describe("App", () => {
     // Case 4: free -> in use -> free across successive polls, with no
     // localStorage write anywhere in that sequence (only a mutation, never
     // a live-status change, may write the favourites key).
-    it("free/in-use/free transitions across polls never touch localStorage", async () => {
-      window.localStorage.setItem("chapay.favourites", JSON.stringify([{ port: 3000 }]));
-      const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
+    it("free/in-use/free transitions across polls never rewrite the saved list", async () => {
+      await setSetting("favourites", [{ port: 3000 }]);
+      const setItemSpy = vi.spyOn(storeModule, "setSetting");
       const listSpy = vi.spyOn(portsModule, "listPorts").mockResolvedValue([]);
 
       renderApp();
@@ -789,7 +790,7 @@ describe("App", () => {
       };
       listSpy.mockResolvedValue([...MOCK_PORTS, second]);
 
-      window.localStorage.setItem("chapay.favourites", JSON.stringify([{ port: 3000 }]));
+      await setSetting("favourites", [{ port: 3000 }]);
       renderApp();
       fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
       await waitFor(() => expect(screen.getByText("Next.js dev (2)")).toBeTruthy());
@@ -816,7 +817,7 @@ describe("App", () => {
     // locked-row guard, both hold inside Favourites too.
     it("a locked watched row never invokes killPort, pointer or keyboard, inside Favourites", async () => {
       const killSpy = vi.spyOn(portsModule, "killPort");
-      window.localStorage.setItem("chapay.favourites", JSON.stringify([{ port: 631 }]));
+      await setSetting("favourites", [{ port: 631 }]);
       renderApp();
       await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
       fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
@@ -842,17 +843,14 @@ describe("App", () => {
       fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
       await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
 
-      const setItemSpy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
-        throw new Error("quota exceeded");
-      });
+      vi.spyOn(storeModule, "setSetting").mockRejectedValueOnce(new Error("disk full"));
 
       fireEvent.click(screen.getByRole("button", { name: "Remove watched port 3000" }));
 
-      expect(screen.getByText("Could not save watched ports")).toBeTruthy();
-      // The record survives: still rendered, not reverted to the empty
+      await waitFor(() => expect(screen.getByText("Could not save watched ports")).toBeTruthy());
+      // The record survives: put back and rendered, not left in the empty
       // state.
-      expect(screen.getByText("in use")).toBeTruthy();
-      setItemSpy.mockRestore();
+      await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
     });
 
     // Case 9: the inline form is an excluded keyboard scope end-to-end —
@@ -860,7 +858,7 @@ describe("App", () => {
     // keys/⌘⌫ typed while the form is focused never reach row navigation.
     it("Escape in the watch form only closes the form; arrows/⌘⌫ inside it never reach row navigation", async () => {
       const killSpy = vi.spyOn(portsModule, "killPort");
-      window.localStorage.setItem("chapay.favourites", JSON.stringify([{ port: 3000 }]));
+      await setSetting("favourites", [{ port: 3000 }]);
       renderApp();
       await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
       fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
@@ -892,10 +890,7 @@ describe("App", () => {
         label: "Next.js dev (2)",
       };
       listSpy.mockResolvedValue([...MOCK_PORTS, second]);
-      window.localStorage.setItem(
-        "chapay.favourites",
-        JSON.stringify([{ port: 3000, name: "Frontend" }, { port: 5432 }]),
-      );
+      await setSetting("favourites", [{ port: 3000, name: "Frontend" }, { port: 5432 }]);
 
       renderApp();
       await waitFor(() => expect(screen.getByText("Next.js dev")).toBeTruthy());

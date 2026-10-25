@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { load, type Store } from "@tauri-apps/plugin-store";
 import { inTauri } from "../lib/ports";
+import type { FavouritePort } from "../lib/favourites";
 
 /**
  * Every setting, with its default. One JSON file (`settings.json` in the
@@ -28,7 +29,32 @@ export const SETTINGS_DEFAULTS = {
   appearance: "system" as "system" | "dark" | "light",
   /** The version whose update banner the user dismissed ("" = none). */
   dismissedUpdateVersion: "",
+  /**
+   * Watched ports. Lives here, not in localStorage, so Rust can read it for the "watched port
+   * taken" alert (ADR 0013). Deliberately NOT written as a store default: its absence is how the
+   * one-time import of the old `chapay.favourites` localStorage list knows it still has to run.
+   */
+  favourites: [] as FavouritePort[],
+  /*
+   * Alert rules (ADR 0011): on/off only, thresholds are fixed. Read by Rust at startup
+   * (src-tauri/src/alerts/mod.rs); changes go through `set_alert_rule_enabled` first.
+   */
+  /** macOS thermal pressure Serious for 30 s (an OS event, no polling). */
+  alertThermalPressure: true,
+  /** CPU hotspot at 95 °C or more for 60 s (a 30 s sensor read while the panel is closed). */
+  alertHotspot: true,
+  /** macOS memory pressure Warning for 60 s (an OS event, no polling). */
+  alertMemoryPressure: true,
+  /** Whole-machine CPU at 80 % or more for 2 min (sampled every 30 s while on). */
+  alertCpuSustained: false,
+  /** GPU at 90 % or more for 2 min (sampled every 30 s while on). */
+  alertGpuSustained: false,
+  /** Another program starts listening on a watched port (scanned every 30 s while on). */
+  alertWatchedPortTaken: false,
 };
+
+/** What `load()` writes as defaults: everything except `favourites` (see above). */
+const { favourites: _favouritesIsNotADefault, ...STORE_DEFAULTS } = SETTINGS_DEFAULTS;
 
 export type Settings = typeof SETTINGS_DEFAULTS;
 export type SettingKey = keyof Settings;
@@ -37,7 +63,7 @@ const STORE_FILE = "settings.json";
 
 let storePromise: Promise<Store> | null = null;
 function store(): Promise<Store> {
-  storePromise ??= load(STORE_FILE, { defaults: SETTINGS_DEFAULTS, autoSave: true });
+  storePromise ??= load(STORE_FILE, { defaults: STORE_DEFAULTS, autoSave: true });
   return storePromise;
 }
 
@@ -49,6 +75,12 @@ export async function getSetting<K extends SettingKey>(key: K): Promise<Settings
   if (!inTauri) return (memory[key] ?? SETTINGS_DEFAULTS[key]) as Settings[K];
   const value = await (await store()).get<Settings[K]>(key);
   return value ?? SETTINGS_DEFAULTS[key];
+}
+
+/** Whether `key` has ever been written (a default does not count). */
+export async function hasSetting(key: SettingKey): Promise<boolean> {
+  if (!inTauri) return key in memory;
+  return (await store()).has(key);
 }
 
 export async function setSetting<K extends SettingKey>(key: K, value: Settings[K]): Promise<void> {
@@ -117,6 +149,11 @@ function readCache<K extends SettingKey>(key: K): Settings[K] {
     // Unreadable cache: fall back to the default.
   }
   return SETTINGS_DEFAULTS[key];
+}
+
+/** Records the latest value for the next window's first frame (see the warm cache above). */
+export function writeCachedSetting<K extends SettingKey>(key: K, value: Settings[K]): void {
+  writeCache(key, value);
 }
 
 function writeCache<K extends SettingKey>(key: K, value: Settings[K]): void {
