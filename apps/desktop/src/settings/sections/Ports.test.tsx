@@ -1,17 +1,25 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import Ports from "./Ports";
+import { resetFavouritesMigration } from "../../lib/favourites-migration";
 import { FAVOURITES_STORAGE_KEY } from "../../lib/favourites";
-import { getSetting, resetMemorySettings } from "../store";
+import { getSetting, resetMemorySettings, setSetting } from "../store";
 
-function seed(items: { port: number; name?: string }[]) {
-  window.localStorage.setItem(FAVOURITES_STORAGE_KEY, JSON.stringify(items));
+const native = vi.hoisted(() => ({
+  setAlertRuleEnabled: vi.fn<(rule: string, on: boolean) => Promise<void>>(),
+}));
+vi.mock("../native", () => native);
+
+async function seed(items: { port: number; name?: string }[]) {
+  await setSetting("favourites", items);
 }
 
 describe("Settings > Ports", () => {
   afterEach(() => {
     window.localStorage.clear();
     resetMemorySettings();
+    resetFavouritesMigration();
+    vi.clearAllMocks();
   });
 
   it("saves the two list switches as soon as they change", async () => {
@@ -22,34 +30,55 @@ describe("Settings > Ports", () => {
     expect(await getSetting("showAppsAndSystem")).toBe(false);
   });
 
-  it("renders the v0.2 notify switch disabled and off", () => {
+  it("the notify switch is off by default and turns the watched-port rule on through Rust", async () => {
+    native.setAlertRuleEnabled.mockResolvedValue();
     render(<Ports />);
     const notify = screen.getByRole("switch", { name: /Notify when a watched port is taken/ });
-    expect((notify as HTMLButtonElement).disabled).toBe(true);
+    expect((notify as HTMLButtonElement).disabled).toBe(false);
     expect(notify.getAttribute("aria-checked")).toBe("false");
-    expect(screen.getByText("v0.2")).toBeTruthy();
+    fireEvent.click(notify);
+    expect(native.setAlertRuleEnabled).toHaveBeenCalledExactlyOnceWith("watchedPortTaken", true);
+  });
+
+  it("a refused rule change leaves the switch where it was and says so", async () => {
+    native.setAlertRuleEnabled.mockRejectedValue(new Error("engine is not running"));
+    render(<Ports />);
+    const notify = screen.getByRole("switch", { name: /Notify when a watched port is taken/ });
+    fireEvent.click(notify);
+    await waitFor(() => expect(screen.getByText(/Couldn't turn this alert on/)).toBeTruthy());
+    expect(notify.getAttribute("aria-checked")).toBe("false");
   });
 
   it("lists watched ports with in use / free, and the listener label when unnamed", async () => {
     // Mock snapshot (outside Tauri): 3000 is listening, 4321 is not.
-    seed([{ port: 3000 }, { port: 4321, name: "Storybook" }]);
+    await seed([{ port: 3000 }, { port: 4321, name: "Storybook" }]);
     render(<Ports />);
-    expect(screen.getByText("Watched ports · 2")).toBeTruthy();
+    await waitFor(() => expect(screen.getByText("Watched ports · 2")).toBeTruthy());
     await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
     expect(screen.getByText("free")).toBeTruthy();
     expect(screen.getByText("Storybook")).toBeTruthy();
     expect(screen.getByText("Next.js dev")).toBeTruthy();
   });
 
-  it("unwatches a port and persists it", () => {
-    seed([{ port: 3000 }]);
+  it("imports the old localStorage list once and keeps the old key", async () => {
+    const legacy = JSON.stringify([{ port: 3000 }]);
+    window.localStorage.setItem(FAVOURITES_STORAGE_KEY, legacy);
     render(<Ports />);
-    fireEvent.click(screen.getByRole("button", { name: "Stop watching port 3000" }));
-    expect(screen.getByText("Watched ports · 0")).toBeTruthy();
-    expect(JSON.parse(window.localStorage.getItem(FAVOURITES_STORAGE_KEY)!)).toEqual([]);
+    await waitFor(() => expect(screen.getByText("Watched ports · 1")).toBeTruthy());
+    expect(await getSetting("favourites")).toEqual([{ port: 3000 }]);
+    expect(window.localStorage.getItem(FAVOURITES_STORAGE_KEY)).toBe(legacy);
   });
 
-  it("adds a port with Enter; Watch stays disabled until the input is valid", () => {
+  it("unwatches a port and persists it in settings", async () => {
+    await seed([{ port: 3000 }]);
+    render(<Ports />);
+    await waitFor(() => expect(screen.getByText("Watched ports · 1")).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Stop watching port 3000" }));
+    expect(screen.getByText("Watched ports · 0")).toBeTruthy();
+    await waitFor(async () => expect(await getSetting("favourites")).toEqual([]));
+  });
+
+  it("adds a port with Enter; Watch stays disabled until the input is valid", async () => {
     render(<Ports />);
     const input = screen.getByLabelText("Port to watch");
     const watch = screen.getByRole("button", { name: "Watch" }) as HTMLButtonElement;
@@ -61,25 +90,23 @@ describe("Settings > Ports", () => {
     fireEvent.submit(input.closest("form")!);
     expect(screen.getByText("Watched ports · 1")).toBeTruthy();
     expect((input as HTMLInputElement).value).toBe("");
-    expect(JSON.parse(window.localStorage.getItem(FAVOURITES_STORAGE_KEY)!)).toEqual([
-      { port: 4321 },
-    ]);
+    await waitFor(async () => expect(await getSetting("favourites")).toEqual([{ port: 4321 }]));
   });
 
-  it("shows the duplicate message instead of adding twice", () => {
-    seed([{ port: 4321 }]);
+  it("shows the duplicate message instead of adding twice", async () => {
+    await seed([{ port: 4321 }]);
     render(<Ports />);
+    await waitFor(() => expect(screen.getByText("Watched ports · 1")).toBeTruthy());
     fireEvent.change(screen.getByLabelText("Port to watch"), { target: { value: "4321" } });
     fireEvent.click(screen.getByRole("button", { name: "Watch" }));
     expect(screen.getByRole("alert").textContent).toBe("Port 4321 is already watched");
     expect(screen.getByText("Watched ports · 1")).toBeTruthy();
   });
 
-  it("picks up an edit made in the other window", () => {
+  it("picks up an edit made in the other window", async () => {
     render(<Ports />);
-    act(() => {
-      seed([{ port: 5173 }]);
-      window.dispatchEvent(new StorageEvent("storage", { key: FAVOURITES_STORAGE_KEY }));
+    await act(async () => {
+      await seed([{ port: 5173 }]);
     });
     expect(screen.getByText("Watched ports · 1")).toBeTruthy();
   });

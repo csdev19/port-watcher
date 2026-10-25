@@ -2,8 +2,19 @@ import { useEffect, useState } from "react";
 import { getAutostart, registerShortcut, setAutostart } from "../native";
 import { recordKey, shortcutKeys, shortcutText, validateShortcut } from "../shortcut";
 import { useSetting } from "../store";
+import { AlertRuleRow } from "../AlertRuleRow";
 import styles from "../settings.module.css";
-import { Button, Group, Keys, Row, RowNote, SectionHeading, Select, Switch } from "../ui";
+import {
+  Button,
+  Group,
+  Keys,
+  Row,
+  RowNote,
+  SectionHeading,
+  Segmented,
+  Select,
+  Switch,
+} from "../ui";
 
 const REFRESH_OPTIONS = [
   { value: 1000, label: "Every 1s" },
@@ -22,8 +33,43 @@ export default function General() {
       </Group>
       <SectionHeading>Panel</SectionHeading>
       <Group>
+        <AppearanceRow />
         <RefreshRow />
       </Group>
+      <SectionHeading>Alerts</SectionHeading>
+      <Group>
+        <AlertRuleRow
+          rule="thermalPressure"
+          label="Thermal pressure"
+          reason="macOS is slowing the chip down. Waits 30 s, then alerts. Costs nothing: macOS tells chapay."
+        />
+        <AlertRuleRow
+          rule="hotspot"
+          label="CPU hotspot over 95 °C"
+          reason="A minute at 95 °C or more, even if macOS says nominal. Reads the sensors every 30 s while the panel is closed."
+        />
+        <AlertRuleRow
+          rule="memoryPressure"
+          label="Memory pressure"
+          reason="macOS is short on memory. Waits 1 min, then alerts. Costs nothing: macOS tells chapay."
+        />
+        <AlertRuleRow
+          rule="cpuSustained"
+          label="CPU over 80% for 2 min"
+          reason="Checks the load every 30 s while this is on."
+        />
+        <AlertRuleRow
+          rule="gpuSustained"
+          label="GPU over 90% for 2 min"
+          reason="Checks the load every 30 s while this is on."
+        />
+      </Group>
+      <div className={styles.note}>
+        <p className={styles.noteText}>
+          Alerts appear in the Machine tab and as a notification, at most once per 15 minutes per
+          alert. Nothing is posted while the panel is open.
+        </p>
+      </div>
       <SectionHeading>Updates</SectionHeading>
       <Group>
         <AutoCheckUpdatesRow />
@@ -167,6 +213,30 @@ function LaunchAtLoginRow() {
       />
       {note ? <RowNote>{note}</RowNote> : null}
     </>
+  );
+}
+
+const APPEARANCE_OPTIONS = [
+  { value: "system", label: "System" },
+  { value: "dark", label: "Dark" },
+  { value: "light", label: "Light" },
+] as const;
+
+function AppearanceRow() {
+  const [appearance, setAppearance] = useSetting("appearance");
+  return (
+    <Row
+      label="Appearance"
+      reason="System follows your Mac's light or dark mode."
+      control={
+        <Segmented
+          label="Appearance"
+          value={appearance}
+          options={APPEARANCE_OPTIONS}
+          onChange={setAppearance}
+        />
+      }
+    />
   );
 }
 

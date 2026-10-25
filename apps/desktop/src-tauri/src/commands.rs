@@ -1,6 +1,9 @@
 use crate::error::AppError;
+use crate::health::HealthState;
+use crate::machine::dto::{MachineSnapshot, ProcessGroupDto, SeriesDto};
+use crate::machine::history::{Metric, Range};
 use crate::ports::enrich::enrich;
-use crate::ports::kill::kill_port_impl;
+use crate::ports::kill::{kill_port_impl, kill_process_impl};
 use crate::ports::models::{KillResult, PortEntry};
 use crate::ports::source::raw_ports;
 
@@ -22,6 +25,64 @@ pub async fn kill_port(pid: u32, port: u16, started_at: u64) -> Result<KillResul
         .map_err(|e| AppError::Internal(e.to_string()))?
 }
 
+/// One process, by PID plus start time, for the Machine tab's kill button. Same guard chain
+/// and escalation as `kill_port` minus the port check (ADR 0006); blocks up to ~3 s.
+#[tauri::command]
+pub async fn kill_process(pid: u32, started_at: u64) -> Result<KillResult, AppError> {
+    tauri::async_runtime::spawn_blocking(move || kill_process_impl(pid, started_at))
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?
+}
+
+/// Gauges, verdict and the last `window_s` seconds of history (default 60, at most 3600).
+/// Takes a new sample only when the cached one is at least 900 ms old.
+#[tauri::command]
+pub async fn machine_snapshot(
+    app: tauri::AppHandle,
+    window_s: Option<u32>,
+) -> Result<MachineSnapshot, AppError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        use tauri::Manager;
+        let snapshot = app.state::<HealthState>().machine_snapshot(window_s);
+        // The alert rules see every panel sample, so they never sample a second time.
+        crate::alerts::app::forward_readings(&app);
+        snapshot
+    })
+    .await
+    .map_err(|e| AppError::Internal(e.to_string()))?
+}
+
+/// One metric over 1 min, 10 min or 1 h in fixed buckets (`null` = not sampled), for the full
+/// window's chart. Shares the 900 ms throttle with `machine_snapshot`.
+#[tauri::command]
+pub async fn machine_history(
+    app: tauri::AppHandle,
+    metric: Metric,
+    range: Range,
+) -> Result<SeriesDto, AppError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        use tauri::Manager;
+        app.state::<HealthState>().machine_history(metric, range)
+    })
+    .await
+    .map_err(|e| AppError::Internal(e.to_string()))?
+}
+
+/// Top processes by CPU, grouped by app bundle (default 5, at most 50). Walks every process
+/// once, so the renderer polls it only while the Machine tab is open.
+#[tauri::command]
+pub async fn top_processes(
+    app: tauri::AppHandle,
+    limit: Option<u8>,
+) -> Result<Vec<ProcessGroupDto>, AppError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        use tauri::Manager;
+        app.state::<HealthState>().top_processes(limit)
+    })
+    .await
+    .map_err(|e| AppError::Internal(e.to_string()))?
+}
+
 /// Probes Full Disk Access right now (no prompt is ever triggered) and
 /// refreshes the cache that port enrichment reads.
 #[tauri::command]
@@ -35,6 +96,13 @@ pub async fn check_full_disk_access() -> Result<bool, AppError> {
 #[tauri::command]
 pub fn open_full_disk_access_settings() -> Result<(), AppError> {
     crate::setup::open_fda_settings().map_err(|e| AppError::Internal(e.to_string()))
+}
+
+/// Opens System Settings at Notifications. chapay cannot read whether macOS lets it post, so
+/// Settings › Permissions only links there.
+#[tauri::command]
+pub fn open_notification_settings() -> Result<(), AppError> {
+    crate::setup::open_notification_settings().map_err(|e| AppError::Internal(e.to_string()))
 }
 
 /// "Open chapay" on the final setup screen: close the setup window, then
@@ -125,4 +193,53 @@ pub fn set_shortcut(app: tauri::AppHandle, shortcut: String) -> Result<(), AppEr
 #[tauri::command]
 pub fn open_settings(app: tauri::AppHandle) -> Result<(), AppError> {
     crate::settings::open_settings(&app).map_err(|e| AppError::Internal(e.to_string()))
+}
+
+/// Opens the full window from the panel's ⤢ button or ⌘↩.
+#[tauri::command]
+pub fn open_full_window(app: tauri::AppHandle) -> Result<(), AppError> {
+    crate::full_window::open_full_window(&app).map_err(|e| AppError::Internal(e.to_string()))
+}
+
+/// The full window's "Mini" button: close it and show the panel under the tray icon.
+#[tauri::command]
+pub fn close_full_window_to_mini(app: tauri::AppHandle) {
+    crate::full_window::close_full_to_mini(&app);
+}
+
+/// What this Mac can report to the System health context (read-only; Phase 3 shows it).
+#[tauri::command]
+pub fn system_health_capabilities(
+    state: tauri::State<'_, crate::health::HealthState>,
+) -> system_health::Capabilities {
+    state.capabilities()
+}
+
+/// The panel footer's Quit, same effect as the tray menu's Quit item.
+#[tauri::command]
+pub fn quit_app(app: tauri::AppHandle) {
+    app.exit(0);
+}
+
+/// The fixed alert rules with their switches and whether each is firing now.
+#[tauri::command]
+pub fn list_alert_rules(app: tauri::AppHandle) -> Vec<crate::alerts::AlertRule> {
+    crate::alerts::app::list_rules(&app)
+}
+
+/// Turns a rule on or off in the engine. The renderer saves the setting only after this
+/// succeeds (apply-then-save, like `set_shortcut`).
+#[tauri::command]
+pub fn set_alert_rule_enabled(
+    app: tauri::AppHandle,
+    rule: crate::alerts::AlertRuleId,
+    enabled: bool,
+) -> Result<(), AppError> {
+    crate::alerts::app::set_rule_enabled(&app, rule, enabled)
+}
+
+/// What is firing right now, for a window that just opened.
+#[tauri::command]
+pub fn get_active_alerts(app: tauri::AppHandle) -> Vec<crate::alerts::ActiveAlert> {
+    crate::alerts::app::active_alerts(&app)
 }

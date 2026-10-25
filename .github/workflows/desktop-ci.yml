@@ -2,7 +2,8 @@ name: Desktop CI
 
 # Runs the Rust core of the Tauri app (apps/desktop/src-tauri) on macOS: the
 # kill guards in ports/kill.rs and ports/classify.rs, and everything else
-# `cargo test` covers. pr-validation.yml only runs the TypeScript side.
+# `cargo test` covers. A second job checks crates/system-health, which the app
+# depends on by path. pr-validation.yml only runs the TypeScript side.
 #
 # Path-filtered, so a PR that does not touch the desktop app skips it. If you
 # make this check required in branch protection, note that a skipped workflow
@@ -14,12 +15,14 @@ on:
       - main
     paths:
       - "apps/desktop/**"
+      - "crates/**"
       - ".github/workflows/desktop-ci.yml"
   push:
     branches:
       - main
     paths:
       - "apps/desktop/**"
+      - "crates/**"
       - ".github/workflows/desktop-ci.yml"
 
 concurrency:
@@ -75,4 +78,40 @@ jobs:
         run: cargo clippy --locked --all-targets -- -D warnings
 
       - name: Test
+        run: cargo test --locked
+
+  system-health:
+    name: system-health (fmt, clippy, test)
+    runs-on: macos-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: crates/system-health
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Install the pinned Rust toolchain
+        # Reads crates/system-health/rust-toolchain.toml (kept in lockstep
+        # with the desktop crate's).
+        run: |
+          rustup toolchain install
+          rustc --version
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: crates/system-health -> target
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy --locked --all-targets -- -D warnings
+
+      - name: Test
+        # Hardware tests stay off: they need CHAPAY_HW_TESTS=1 and a real
+        # Mac, and runner VMs have no SMC sensors.
         run: cargo test --locked

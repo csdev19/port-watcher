@@ -13,6 +13,10 @@ import {
   TriangleAlert,
   Eye,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
+  Shield,
+  StarOff,
   Star,
   Trash2,
   Pencil,
@@ -20,6 +24,7 @@ import {
   Command,
   Wifi,
   LoaderCircle,
+  Maximize2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -41,6 +46,10 @@ const ICONS: Record<string, LucideIcon> = {
   "triangle-alert": TriangleAlert,
   eye: Eye,
   "chevron-right": ChevronRight,
+  "chevron-up": ChevronUp,
+  "chevron-down": ChevronDown,
+  shield: Shield,
+  "star-off": StarOff,
   star: Star,
   "trash-2": Trash2,
   pencil: Pencil,
@@ -48,6 +57,7 @@ const ICONS: Record<string, LucideIcon> = {
   command: Command,
   wifi: Wifi,
   "loader-circle": LoaderCircle,
+  "maximize-2": Maximize2,
 };
 
 export type IconName = keyof typeof ICONS;

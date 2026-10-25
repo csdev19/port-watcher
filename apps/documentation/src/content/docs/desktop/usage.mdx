@@ -70,6 +70,30 @@ release:
 - System services could be killed from the panel (**Kill system?**); the core now refuses them.
   :::
 
+## Machine tab
+
+The panel has two tabs, **Ports** and **Machine** (`⌘1` and `⌘2`). The panel always opens on
+Ports.
+
+Machine shows four gauges: CPU, GPU, Heat and Memory. Each one has the current value, what is
+driving it, the reference band in words, and the last 60 seconds as a small chart with the warn
+and stop lines. The pill in the header shows the overall verdict (OK, Watch or Stop).
+
+- **Heat** shows the CPU hotspot in degrees next to macOS's thermal pressure word. The hotspot
+  can pass 95 °C while macOS still says "Nominal", so the gauge turns red on the temperature
+  alone.
+- **Memory** is coloured by macOS memory pressure, not by how much is used, because macOS keeps
+  most memory in use on purpose.
+- **Top by CPU** lists the busiest apps. Helpers of one app are grouped (for example "Cursor ·
+  4 processes"), and the percentage is a share of the whole machine.
+
+The ✕ on a row stops **one** process: the app's main process when it is running, otherwise the
+busiest one. It always takes two steps (click or `⌘⌫`, then confirm within two seconds), and
+system processes, other users' processes and chapay itself show a lock instead.
+
+The Machine tab reads the machine once a second, only while it is the active tab and the panel is
+open. With the panel closed chapay does not sample anything.
+
 ## Favourites
 
 Favourites are ports you want to keep an eye on, even when nothing is running on them.

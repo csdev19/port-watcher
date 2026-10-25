@@ -1,4 +1,4 @@
-/* Settings window: 600px wide, solid #141018, macOS-style toolbar. */
+/* Settings window: 600px wide, solid surface colour, macOS-style toolbar. */
 .window {
   display: flex;
   flex-direction: column;
@@ -329,4 +329,36 @@
 .recording {
   color: var(--pw-muted);
   font-size: 12.5px;
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--radius-md);
+  background: var(--pw-plum);
+}
+
+.segment {
+  padding: 4px 12px;
+  border: 0;
+  border-radius: calc(var(--radius-md) - 2px);
+  background: transparent;
+  color: var(--pw-fg-2);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.segment:hover {
+  color: var(--pw-fg);
+}
+
+.segment[aria-checked="true"] {
+  background: var(--pw-accent);
+  color: #0b1416;
+}
+
+.segment:focus-visible {
+  outline: 2px solid var(--pw-accent-ring);
+  outline-offset: 1px;
 }

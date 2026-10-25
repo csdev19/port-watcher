@@ -1,6 +1,11 @@
+mod alerts;
+mod appearance;
 mod commands;
 mod error;
 mod fda;
+mod full_window;
+mod health;
+mod machine;
 mod panel;
 mod ports;
 mod settings;
@@ -45,6 +50,20 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_positioner::init())
         .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_notification::init())
+        // Remembers the full window's frame. Runtime-created windows are covered (the plugin
+        // hooks every window as it becomes ready); the other windows are denied, and only
+        // size and position are kept so it never shows or hides anything. The frame reaches
+        // disk when the app exits.
+        .plugin(
+            tauri_plugin_window_state::Builder::new()
+                .with_denylist(&["main", "settings", "setup"])
+                .with_state_flags(
+                    tauri_plugin_window_state::StateFlags::SIZE
+                        | tauri_plugin_window_state::StateFlags::POSITION,
+                )
+                .build(),
+        )
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
@@ -56,6 +75,11 @@ pub fn run() {
             app.manage(LastBlurHide(Mutex::new(None)));
             app.manage(TrayRect(Mutex::new(None)));
             update::init(app.handle());
+            // Click handler first (the plugin tracks only notifications shown after it exists),
+            // then the engine, then the pressure subscriptions that feed it.
+            alerts::notifier::init(app.handle());
+            alerts::app::start(app.handle());
+            health::init(app.handle());
 
             #[cfg(target_os = "macos")]
             if let Some(window) = app.get_webview_window("main") {
@@ -193,6 +217,12 @@ pub fn run() {
             // Note for development: opening the inspector steals focus and
             // closes the panel — use the browser dev loop for UI work.
             // Only the panel does this; the setup window must stay put.
+            if window.label() == full_window::FULL_LABEL {
+                if let tauri::WindowEvent::Destroyed = event {
+                    full_window::on_destroyed(window.app_handle());
+                }
+                return;
+            }
             if window.label() != "main" {
                 return;
             }
@@ -206,8 +236,13 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::list_ports,
             commands::kill_port,
+            commands::kill_process,
+            commands::machine_snapshot,
+            commands::top_processes,
+            commands::machine_history,
             commands::check_full_disk_access,
             commands::open_full_disk_access_settings,
+            commands::open_notification_settings,
             commands::finish_setup,
             commands::show_setup_window,
             commands::app_arch,
@@ -216,7 +251,14 @@ pub fn run() {
             commands::update_install,
             commands::update_restart,
             commands::open_settings,
-            commands::set_shortcut
+            commands::open_full_window,
+            commands::close_full_window_to_mini,
+            commands::quit_app,
+            commands::set_shortcut,
+            commands::system_health_capabilities,
+            commands::list_alert_rules,
+            commands::set_alert_rule_enabled,
+            commands::get_active_alerts
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

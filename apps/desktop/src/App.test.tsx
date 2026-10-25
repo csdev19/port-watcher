@@ -4,7 +4,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { MOCK_PORTS } from "@/lib/mock-ports";
 import * as portsModule from "@/lib/ports";
+import * as storeModule from "@/settings/store";
 import { resetMemorySettings, setSetting } from "@/settings/store";
+import { resetFavouritesMigration } from "@/lib/favourites-migration";
 
 /** jsdom has no __TAURI_INTERNALS__, so `inTauri` is false and the app
  * renders MOCK_PORTS with zero Tauri mocking — this is the whole point
@@ -57,6 +59,7 @@ describe("App", () => {
     vi.restoreAllMocks();
     window.localStorage.clear();
     resetMemorySettings();
+    resetFavouritesMigration();
   });
 
   it("opens Settings from the footer's gear button and from ⌘,", async () => {
@@ -160,6 +163,20 @@ describe("App", () => {
     expect(killSpy).not.toHaveBeenCalledWith(expect.objectContaining({ port: 7000 }));
   });
 
+  it("the Apps & system fold shows 'x of N' while a search is active", async () => {
+    renderApp();
+    await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+    expect(screen.getByRole("button", { name: /apps & system · 2/i }).textContent).toContain(
+      "Apps & system · 2",
+    );
+
+    fireEvent.change(screen.getByLabelText("Search port, app or folder"), {
+      target: { value: "control" },
+    });
+    const fold = screen.getByRole("button", { name: /expanded for search results/i });
+    expect(fold.textContent).toContain("Apps & system · 1 of 2");
+  });
+
   it("a nonempty search with only secondary matches forces the section open and disables collapsing", async () => {
     renderApp();
     await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
@@ -190,14 +207,14 @@ describe("App", () => {
     await waitFor(() => expect(screen.getByText("7000")).toBeTruthy());
   });
 
-  it("footer counts filtered listener rows and dev rows, not only expanded ones", async () => {
+  it("footer counts the filtered dev rows, not only expanded ones", async () => {
     renderApp();
     await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
-    expect(screen.getByText(/6 ports · 4 dev/)).toBeTruthy();
+    expect(screen.getByText(/4 dev · \d+s/)).toBeTruthy();
 
     const search = screen.getByLabelText("Search port, app or folder");
     fireEvent.change(search, { target: { value: "control" } });
-    expect(screen.getByText(/1 ports · 0 dev/)).toBeTruthy();
+    expect(screen.getByText(/0 dev · \d+s/)).toBeTruthy();
   });
 
   it("only-secondary search results are shown, not the empty state", async () => {
@@ -272,6 +289,28 @@ describe("App", () => {
     await waitFor(() => {
       expect(screen.getByRole("status").textContent).toContain("stopped");
     });
+  });
+
+  it("veils the row while its kill is in flight and lifts the veil when it settles", async () => {
+    let resolveKill!: (r: "terminated") => void;
+    vi.spyOn(portsModule, "killPort").mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveKill = resolve as typeof resolveKill;
+        }),
+    );
+    renderApp();
+    await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+    const li = screen.getByText("3000").closest("li")!;
+    expect(li.getAttribute("data-killing")).toBeNull();
+
+    killShortcut();
+    await waitFor(() => expect(li.getAttribute("data-killing")).toBe("true"));
+
+    resolveKill("terminated");
+    await waitFor(() => expect(li.getAttribute("data-killing")).toBeNull());
+    expect(screen.getByRole("status").textContent).toContain("stopped");
+    expect(screen.getByRole("button", { name: "Copy command" })).toBeTruthy();
   });
 
   it("⌘⌫ with the search input focused never kills the selected row", async () => {
@@ -579,7 +618,7 @@ describe("App", () => {
       const notPrevented = fireEvent.keyDown(star, { key: "Enter" });
       expect(notPrevented).toBe(true);
       // Global Enter must not have expanded the row's detail panel.
-      expect(screen.queryByText("PID")).toBeNull();
+      expect(screen.queryByText("pid")).toBeNull();
       expect(screen.getByRole("button", { name: "Watch port 3000" })).toBeTruthy();
 
       fireEvent.click(star);
@@ -650,10 +689,7 @@ describe("App", () => {
     // that never resolved, or resolved with an error and no prior data,
     // must never show the free/in-use presentation at all.
     it("an empty successful snapshot shows free; loading/error-with-no-data never shows free or in-use", async () => {
-      window.localStorage.setItem(
-        "chapay.favourites",
-        JSON.stringify([{ port: 3000, name: "API" }]),
-      );
+      await setSetting("favourites", [{ port: 3000, name: "API" }]);
       let resolveList!: (v: typeof MOCK_PORTS) => void;
       const listSpy = vi
         .spyOn(portsModule, "listPorts")
@@ -662,8 +698,9 @@ describe("App", () => {
       renderApp();
       fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
 
-      // Still loading: neither free nor in-use presentation is shown.
-      expect(screen.getByText("checking…")).toBeTruthy();
+      // Still loading: neither free nor in-use presentation is shown. (The saved list itself
+      // arrives from the store a tick after the first render.)
+      expect(await screen.findByText("checking…")).toBeTruthy();
       expect(screen.queryByText("nothing listening")).toBeNull();
       expect(screen.queryByText("in use")).toBeNull();
 
@@ -676,9 +713,9 @@ describe("App", () => {
     // Case 4: free -> in use -> free across successive polls, with no
     // localStorage write anywhere in that sequence (only a mutation, never
     // a live-status change, may write the favourites key).
-    it("free/in-use/free transitions across polls never touch localStorage", async () => {
-      window.localStorage.setItem("chapay.favourites", JSON.stringify([{ port: 3000 }]));
-      const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
+    it("free/in-use/free transitions across polls never rewrite the saved list", async () => {
+      await setSetting("favourites", [{ port: 3000 }]);
+      const setItemSpy = vi.spyOn(storeModule, "setSetting");
       const listSpy = vi.spyOn(portsModule, "listPorts").mockResolvedValue([]);
 
       renderApp();
@@ -753,13 +790,16 @@ describe("App", () => {
       };
       listSpy.mockResolvedValue([...MOCK_PORTS, second]);
 
-      window.localStorage.setItem("chapay.favourites", JSON.stringify([{ port: 3000 }]));
+      await setSetting("favourites", [{ port: 3000 }]);
       renderApp();
       fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
       await waitFor(() => expect(screen.getByText("Next.js dev (2)")).toBeTruthy());
 
-      // One "in use" watch — not two.
+      // One "in use" watch — not two. Its two listeners sit behind one
+      // collapsed row until it is expanded.
       expect(screen.getByText(/^1 watched · 1 in use$/)).toBeTruthy();
+      expect(screen.queryAllByLabelText(/^Kill Next\.js dev.*on port 3000$/).length).toBe(0);
+      fireEvent.click(screen.getByRole("button", { name: "Show 2 listeners on port 3000" }));
 
       const killBtns = screen.getAllByLabelText(/^Kill Next\.js dev.*on port 3000$/);
       expect(killBtns.length).toBe(2);
@@ -777,7 +817,7 @@ describe("App", () => {
     // locked-row guard, both hold inside Favourites too.
     it("a locked watched row never invokes killPort, pointer or keyboard, inside Favourites", async () => {
       const killSpy = vi.spyOn(portsModule, "killPort");
-      window.localStorage.setItem("chapay.favourites", JSON.stringify([{ port: 631 }]));
+      await setSetting("favourites", [{ port: 631 }]);
       renderApp();
       await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
       fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
@@ -803,17 +843,14 @@ describe("App", () => {
       fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
       await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
 
-      const setItemSpy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
-        throw new Error("quota exceeded");
-      });
+      vi.spyOn(storeModule, "setSetting").mockRejectedValueOnce(new Error("disk full"));
 
       fireEvent.click(screen.getByRole("button", { name: "Remove watched port 3000" }));
 
-      expect(screen.getByText("Could not save watched ports")).toBeTruthy();
-      // The record survives: still rendered, not reverted to the empty
+      await waitFor(() => expect(screen.getByText("Could not save watched ports")).toBeTruthy());
+      // The record survives: put back and rendered, not left in the empty
       // state.
-      expect(screen.getByText("in use")).toBeTruthy();
-      setItemSpy.mockRestore();
+      await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
     });
 
     // Case 9: the inline form is an excluded keyboard scope end-to-end —
@@ -821,7 +858,7 @@ describe("App", () => {
     // keys/⌘⌫ typed while the form is focused never reach row navigation.
     it("Escape in the watch form only closes the form; arrows/⌘⌫ inside it never reach row navigation", async () => {
       const killSpy = vi.spyOn(portsModule, "killPort");
-      window.localStorage.setItem("chapay.favourites", JSON.stringify([{ port: 3000 }]));
+      await setSetting("favourites", [{ port: 3000 }]);
       renderApp();
       await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
       fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
@@ -853,15 +890,15 @@ describe("App", () => {
         label: "Next.js dev (2)",
       };
       listSpy.mockResolvedValue([...MOCK_PORTS, second]);
-      window.localStorage.setItem(
-        "chapay.favourites",
-        JSON.stringify([{ port: 3000, name: "Frontend" }, { port: 5432 }]),
-      );
+      await setSetting("favourites", [{ port: 3000, name: "Frontend" }, { port: 5432 }]);
 
       renderApp();
       await waitFor(() => expect(screen.getByText("Next.js dev")).toBeTruthy());
       fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
-      await waitFor(() => expect(screen.getByText("Next.js dev (2)")).toBeTruthy());
+      // The named two-listener watch is one collapsed row: "Frontend (2)".
+      await waitFor(() => expect(screen.getByText("Frontend (2)")).toBeTruthy());
+      fireEvent.click(screen.getByRole("button", { name: "Show 2 listeners on port 3000" }));
+      expect(screen.getByText("Next.js dev (2)")).toBeTruthy();
 
       const search = screen.getByLabelText("Search port, app or folder");
 

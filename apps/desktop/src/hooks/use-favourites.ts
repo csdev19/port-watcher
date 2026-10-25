@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { migrateLegacyFavourites } from "@/lib/favourites-migration";
+import {
+  getSetting,
+  readCachedSetting,
+  setSetting,
+  subscribeSetting,
+  writeCachedSetting,
+} from "@/settings/store";
 import {
   duplicatePortMessage,
-  FAVOURITES_STORAGE_KEY,
   normalizeName,
   parsePortInput,
   sanitizeFavourites,
@@ -14,70 +21,84 @@ const INVALID_PORT_MESSAGE = "Enter a port number between 1 and 65535";
 const LOAD_ERROR_MESSAGE = "Could not load watched ports";
 const WRITE_ERROR_MESSAGE = "Could not save watched ports";
 
-function readStoredFavourites(): { items: FavouritePort[]; error: string | null } {
-  try {
-    const raw = window.localStorage.getItem(FAVOURITES_STORAGE_KEY);
-    if (raw === null) return { items: [], error: null };
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      return { items: [], error: LOAD_ERROR_MESSAGE };
-    }
-
-    const { items, changed } = sanitizeFavourites(parsed);
-    return { items, error: changed ? LOAD_ERROR_MESSAGE : null };
-  } catch {
-    // Storage getter/getItem threw (e.g. unavailable/blocked). Read
-    // failure must leave the rest of the app usable — empty list, no
-    // write attempted here.
-    return { items: [], error: LOAD_ERROR_MESSAGE };
-  }
+function sanitizeStored(raw: unknown): { items: FavouritePort[]; error: string | null } {
+  const { items, changed } = sanitizeFavourites(raw);
+  return { items, error: changed ? LOAD_ERROR_MESSAGE : null };
 }
 
-function writeStoredFavourites(items: FavouritePort[]): boolean {
-  try {
-    window.localStorage.setItem(FAVOURITES_STORAGE_KEY, JSON.stringify(items));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/** F7 Slice 1: owns the validated, persisted favourites list. Mirrors the
- * `use-kill-confirm` pattern of keeping a ref in sync with state so
- * back-to-back actions (e.g. two `add` calls before a re-render) read the
- * latest list rather than a stale closure.
+/** Owns the validated, persisted watched-ports list. It lives in `settings.json` (key
+ * `favourites`, ADR 0013) so Rust can read it for the "watched port taken" alert and every
+ * window shares it through the store's change event. The first run after the upgrade imports the
+ * old `chapay.favourites` localStorage list once.
  *
- * Mutations compute the next array, synchronously serialize+write once,
- * then set state — never inside a state-updater callback or an
- * unconditional effect — so a failed write never leaves the UI showing a
- * "watched" port that won't survive restart. */
+ * Mutations keep the synchronous result the UI needs: they validate against a ref of the latest
+ * list, show the new list at once, and save in the background. A failed save puts the previous
+ * list back and reports it, so the UI never keeps a "watched" port that will not survive a
+ * restart. */
 export function useFavourites() {
-  const [{ items: initialItems, error: initialError }] = useState(readStoredFavourites);
+  const [{ items: initialItems, error: initialError }] = useState(() =>
+    sanitizeStored(readCachedSetting("favourites")),
+  );
   const [items, setItemsState] = useState<FavouritePort[]>(initialItems);
   const [error, setError] = useState<string | null>(initialError);
   const itemsRef = useRef<FavouritePort[]>(initialItems);
+  // Saves in flight. While any is, store updates are our own echoes and must not overwrite the
+  // newer list shown on screen.
+  const saving = useRef(0);
+  // Set by the first edit: the first read of the store started before it and is out of date.
+  const edited = useRef(false);
 
   const setItems = useCallback((next: FavouritePort[]) => {
     itemsRef.current = next;
     setItemsState(next);
   }, []);
 
-  // The panel and the Settings window are separate webviews on the same
-  // origin, so they share localStorage. The `storage` event fires in the
-  // *other* window when one writes; re-read so an edit shows up in both.
+  // The store is the source of truth: the first read (after the one-time import), and a change
+  // made in the other window, both land here.
   useEffect(() => {
-    function onStorage(event: StorageEvent) {
-      if (event.key !== null && event.key !== FAVOURITES_STORAGE_KEY) return;
-      const { items: next, error: nextError } = readStoredFavourites();
+    let alive = true;
+    const apply = (raw: unknown) => {
+      const { items: next, error: nextError } = sanitizeStored(raw);
+      writeCachedSetting("favourites", next);
       setItems(next);
-      setError(nextError);
-    }
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+      if (nextError) setError(nextError);
+    };
+    void migrateLegacyFavourites()
+      .then(({ changed }) => {
+        if (alive && changed) setError(LOAD_ERROR_MESSAGE);
+        return getSetting("favourites");
+      })
+      .then((raw) => {
+        if (alive && !edited.current) apply(raw);
+      })
+      .catch(() => {});
+    const unsubscribe = subscribeSetting("favourites", (raw) => {
+      if (alive && saving.current === 0) apply(raw);
+    });
+    return () => {
+      alive = false;
+      unsubscribe();
+    };
   }, [setItems]);
+
+  const save = useCallback(
+    (previous: FavouritePort[], next: FavouritePort[]) => {
+      edited.current = true;
+      setItems(next);
+      writeCachedSetting("favourites", next);
+      saving.current += 1;
+      setSetting("favourites", next)
+        .catch(() => {
+          // Only undo when nothing newer was saved in the meantime.
+          if (itemsRef.current === next) setItems(previous);
+          setError(WRITE_ERROR_MESSAGE);
+        })
+        .finally(() => {
+          saving.current -= 1;
+        });
+    },
+    [setItems],
+  );
 
   const clearError = useCallback(() => setError(null), []);
 
@@ -102,14 +123,10 @@ export function useFavourites() {
         normalizedName === undefined ? { port } : { port, name: normalizedName };
       const next = [...current, record];
 
-      if (!writeStoredFavourites(next)) {
-        return { ok: false, message: WRITE_ERROR_MESSAGE };
-      }
-
-      setItems(next);
+      save(current, next);
       return { ok: true };
     },
-    [setItems],
+    [save],
   );
 
   const remove = useCallback(
@@ -118,14 +135,10 @@ export function useFavourites() {
       const next = current.filter((f) => f.port !== port);
       if (next.length === current.length) return { ok: true };
 
-      if (!writeStoredFavourites(next)) {
-        return { ok: false, message: WRITE_ERROR_MESSAGE };
-      }
-
-      setItems(next);
+      save(current, next);
       return { ok: true };
     },
-    [setItems],
+    [save],
   );
 
   const rename = useCallback(
@@ -144,14 +157,10 @@ export function useFavourites() {
           : f,
       );
 
-      if (!writeStoredFavourites(next)) {
-        return { ok: false, message: WRITE_ERROR_MESSAGE };
-      }
-
-      setItems(next);
+      save(current, next);
       return { ok: true };
     },
-    [setItems],
+    [save],
   );
 
   return { items, error, add, remove, rename, clearError };

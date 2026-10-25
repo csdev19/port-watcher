@@ -14,6 +14,8 @@ pub fn open_settings(app: &AppHandle) -> tauri::Result<()> {
         return window.set_focus();
     }
 
+    let appearance = crate::appearance::stored_appearance(app);
+    let theme = crate::appearance::effective_theme(app, appearance);
     let builder = WebviewWindowBuilder::new(
         app,
         SETTINGS_LABEL,
@@ -25,11 +27,11 @@ pub fn open_settings(app: &AppHandle) -> tauri::Result<()> {
     .resizable(false)
     .maximizable(false)
     .center()
-    .theme(Some(tauri::Theme::Dark))
-    .background_color(tauri::window::Color(0x14, 0x10, 0x18, 0xff));
+    .theme(crate::appearance::window_theme(appearance))
+    .background_color(crate::appearance::background(theme));
 
     // Transparent title bar: the traffic lights and title sit on the
-    // window's own #141018 instead of the system's grey title bar.
+    // window's own background instead of the system's grey title bar.
     #[cfg(target_os = "macos")]
     let builder = builder.title_bar_style(tauri::TitleBarStyle::Transparent);
 

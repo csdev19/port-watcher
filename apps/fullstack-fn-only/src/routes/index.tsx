@@ -239,10 +239,11 @@ const HOW_IT_WORKS = [
   },
   {
     num: "03",
-    title: "Costs nothing idle",
+    title: "Almost nothing idle",
     body: (
       <>
-        Polls only while the panel is open. Closed, it does nothing at all. <kbd>⌥⌘P</kbd> brings it
+        Polls only while the panel is open. Closed, it listens for macOS thermal and memory pressure
+        events and reads the CPU temperature every 30 s; nothing else runs. <kbd>⌥⌘P</kbd> brings it
         back.
       </>
     ),
