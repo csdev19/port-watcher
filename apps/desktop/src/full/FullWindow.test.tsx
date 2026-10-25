@@ -24,13 +24,13 @@ describe("FullWindow", () => {
     resetMemorySettings();
   });
 
-  it("has exactly Overview, Ports and Settings in the sidebar", async () => {
+  it("has exactly Overview, Ports, Alerts and Settings in the sidebar", async () => {
     renderFull();
     const nav = await screen.findByRole("navigation", { name: "Full window" });
     const labels = [...nav.querySelectorAll("button")].map((b) =>
       b.textContent?.replace(/\d+$/, ""),
     );
-    expect(labels).toEqual(["Overview", "Ports", "Settings"]);
+    expect(labels).toEqual(["Overview", "Ports", "Alerts", "Settings"]);
   });
 
   it("opens on Overview with the chart, Right now and the process table", async () => {
