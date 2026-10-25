@@ -1,10 +1,11 @@
 # chapay v2 — Machine mode next to Ports
 
-Date: 2026-10-24 · Status: approved by the owner; implementation in phases on `feat/chapay-v2` ·
+Date: 2026-10-24 · Status: approved by the owner; implemented on `feat/chapay-v2` ·
 Owner: csdev19 · Issue: #55
 
-Implementation status: nothing of v2 is on `main`. Phase 0 (this document, ADRs 0008–0012, the
-research note and the `examples/thermal-probe` spike) is the first PR into `feat/chapay-v2`.
+Implementation status: all phases (0–6) are implemented on `feat/chapay-v2` (PRs #56–#66) and reach
+`main` when that branch merges. Nothing has been run in a bundled app yet; the manual checks are in
+the merge PR.
 
 ## Summary (one minute)
 
@@ -88,8 +89,8 @@ anything that needs sudo.
 | 5     | Alerts: event-driven defaults, optional rules, in-panel band, notifications, tray signal                                      | 2, 3, 4    |
 | 6     | Full window (10b), minimal scope                                                                                              | 3, 5       |
 
-Each phase has a working plan in `docs/plans/` while it is in flight; the PR that ships a phase
-deletes its plan.
+The phase plans were working documents kept outside the repository; each phase PR describes what
+it shipped.
 
 ### Where the canvas and this spec differ
 

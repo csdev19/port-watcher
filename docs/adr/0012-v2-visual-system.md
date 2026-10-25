@@ -1,6 +1,7 @@
 # ADR 0012: the v2 visual system — solid "chicha" sheet, light theme, chapay wordmark
 
-**Status:** Accepted by the owner (2026-10-24). Not implemented: Phase 1 on `feat/chapay-v2`.
+**Status:** Accepted by the owner (2026-10-24). Implemented by Phases 1 and 4 on `feat/chapay-v2`; on
+`main` once that branch merges.
 Amends [ADR 0002](0002-shared-panel-ui-and-stylex.md) where it lists a light theme as a non-goal.
 **Date:** 2026-10-24.
 **Source of truth for visuals:** the "Chapaq Panel v2" canvas in Claude Design (sections 7a, 7b, 8a,

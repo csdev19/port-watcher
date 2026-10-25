@@ -1,7 +1,7 @@
 # ADR 0008: one app, two bounded contexts — Ports and System health
 
-**Status:** Accepted by the owner (2026-10-24). Not implemented: the work runs in phases on
-`feat/chapay-v2` (issue #55); nothing of it is on `main`.
+**Status:** Accepted by the owner (2026-10-24). Implemented on `feat/chapay-v2` (issue #55,
+phases 1–6); on `main` once that branch merges.
 **Date:** 2026-10-24.
 **Spec:** [docs/specs/2026-10-24-chapay-v2-design.md](../specs/2026-10-24-chapay-v2-design.md).
 
