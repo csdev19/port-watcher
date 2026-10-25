@@ -46,6 +46,7 @@ tempfile = "3"
 # System health sensors, pressure events and the chapay CLI (ADR 0009). Path dependency:
 # there is no Cargo workspace.
 system-health = { path = "../../../crates/system-health" }
+tauri-plugin-window-state = "2"
 
 
 [target.'cfg(target_os = "macos")'.dependencies]

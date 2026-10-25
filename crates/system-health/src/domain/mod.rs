@@ -12,7 +12,7 @@ pub mod thermal;
 pub mod threshold;
 pub mod verdict;
 
-pub use attribution::{ProcessCounters, ProcessUsage, Sort, rank};
+pub use attribution::{ProcessCounters, ProcessUsage, Sort, gpu_pct_by_pid, rank};
 pub use cpu::{CoreKind, CoreLoad, CoreTicks, CpuLoad, CpuTicks};
 pub use heat::{Heat, aggregate};
 pub use machine::MachineInfo;

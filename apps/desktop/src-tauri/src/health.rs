@@ -5,7 +5,8 @@
 
 use crate::alerts::{AlertsState, EngineMsg};
 use crate::error::AppError;
-use crate::machine::dto::{MachineSnapshot, ProcessGroupDto};
+use crate::machine::dto::{MachineSnapshot, ProcessGroupDto, SeriesDto};
+use crate::machine::history::{Metric, Range};
 use crate::machine::runtime::{Rank, Runtime, TopEnv};
 use std::sync::{Condvar, Mutex};
 use std::time::{Duration, Instant};
@@ -69,6 +70,14 @@ impl HealthState {
         self.with_runtime(|rt| rt.snapshot(Instant::now(), window_s))
     }
 
+    /// Adds a pressure-event point to the history (see `Runtime::record_pressure`).
+    pub fn record_pressure(&self) {
+        let at_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_millis() as u64);
+        let _ = self.with_runtime(|rt| rt.record_pressure(at_ms));
+    }
+
     /// The readings of the newest panel sample, for the alert engine.
     pub fn last_readings(&self) -> Option<Readings> {
         self.with_runtime(|rt| rt.last_readings()).ok().flatten()
@@ -96,6 +105,14 @@ impl HealthState {
         self.with_runtime(|rt| rt.attribute(rank, &env))
             .ok()
             .flatten()
+    }
+
+    /// One metric over a range, for the full window's chart.
+    pub fn machine_history(&self, metric: Metric, range: Range) -> Result<SeriesDto, AppError> {
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_millis() as u64);
+        self.with_runtime(|rt| rt.history_series(Instant::now(), now_ms, metric, range))
     }
 
     /// Top processes grouped by app bundle. One full process walk per call.
@@ -164,6 +181,7 @@ pub fn init(app: &AppHandle) {
                 }
             }
             let thermal_tx = tx.clone();
+            let thermal_app = handle.clone();
             match events::subscribe_thermal(move |level, raw| {
                 log::info!(
                     "system-health: thermal pressure -> {} (raw {raw})",
@@ -172,6 +190,7 @@ pub fn init(app: &AppHandle) {
                 if let Some(tx) = &thermal_tx {
                     let _ = tx.send(EngineMsg::Thermal(level));
                 }
+                thermal_app.state::<HealthState>().record_pressure();
             }) {
                 Ok(s) => subs.push(s),
                 Err(e) => log::warn!("system-health: thermal subscription unavailable: {e}"),
@@ -183,11 +202,13 @@ pub fn init(app: &AppHandle) {
                 }
             }
             let memory_tx = tx.clone();
+            let memory_app = handle.clone();
             match events::subscribe_memory(move |level| {
                 log::info!("system-health: memory pressure -> {}", level.label());
                 if let Some(tx) = &memory_tx {
                     let _ = tx.send(EngineMsg::Memory(level));
                 }
+                memory_app.state::<HealthState>().record_pressure();
             }) {
                 Ok(s) => subs.push(s),
                 Err(e) => log::warn!("system-health: memory subscription unavailable: {e}"),
@@ -241,6 +262,7 @@ mod tests {
         state.publish(caps(), Vec::new(), None);
         assert!(state.machine_snapshot(None).is_err());
         assert!(state.top_processes(None).is_err());
+        assert!(state.machine_history(Metric::Cpu, Range::OneMin).is_err());
     }
 
     #[test]

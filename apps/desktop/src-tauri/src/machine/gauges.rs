@@ -9,7 +9,8 @@
 
 use super::dto::{GaugeDto, GaugeId, GaugeUnit, HistoryPoint, VerdictDto};
 use system_health::{
-    Capabilities, Gauge, Level, MemoryPressure, Sample, ThermalPressure, Thresholds, Verdict,
+    Capabilities, Gauge, Level, Memory, MemoryPressure, Sample, ThermalPressure, Thresholds,
+    Verdict,
 };
 
 /// The process driving CPU load right now, as a share of the whole machine.
@@ -246,6 +247,29 @@ pub fn history_point(sample: &Sample) -> HistoryPoint {
     }
 }
 
+/// A history point for a pressure event: only the levels the OS just reported (thermal pressure
+/// and memory used), so those two series stay continuous while nothing samples. CPU, GPU and the
+/// hotspot are unknown and stay gaps.
+pub fn pressure_point(
+    at_ms: u64,
+    thermal: Option<ThermalPressure>,
+    memory: &Memory,
+) -> HistoryPoint {
+    let used_pct = if memory.total_bytes == 0 {
+        0.0
+    } else {
+        (100.0 * memory.used_bytes as f64 / memory.total_bytes as f64) as f32
+    };
+    HistoryPoint {
+        at_ms,
+        cpu: None,
+        gpu: None,
+        heat: None,
+        heat_level: thermal.map(pressure_index),
+        mem_used_pct: used_pct,
+    }
+}
+
 pub fn verdict_dto(v: &Verdict) -> VerdictDto {
     VerdictDto {
         level: v.level,
@@ -472,6 +496,17 @@ mod tests {
         assert_eq!(p.heat, Some(71.0));
         assert_eq!(p.heat_level, Some(0));
         assert_eq!(p.mem_used_pct, 75.0);
+    }
+
+    #[test]
+    fn a_pressure_point_has_only_the_levels() {
+        let s = sample();
+        let p = pressure_point(5000, Some(ThermalPressure::Serious), &s.memory);
+        assert_eq!(p.at_ms, 5000);
+        assert_eq!((p.cpu, p.gpu, p.heat), (None, None, None));
+        assert_eq!(p.heat_level, Some(2));
+        assert_eq!(p.mem_used_pct, 75.0);
+        assert_eq!(pressure_point(1, None, &s.memory).heat_level, None);
     }
 
     #[test]

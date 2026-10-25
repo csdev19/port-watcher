@@ -1,0 +1,122 @@
+/* Hand-rolled history chart. Classes only: the production CSP blocks style strings.
+ * Colours are panel tokens; level colours follow the gauge's level decided in Rust. */
+
+.chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  --line: var(--pw-muted);
+}
+.chart[data-level="watch"] {
+  --line: var(--pw-warn);
+}
+.chart[data-level="stop"] {
+  --line: var(--status-danger);
+}
+
+.empty {
+  padding: 40px 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--pw-muted);
+}
+
+.plot {
+  fill: none;
+}
+.grid {
+  stroke: var(--pw-line-row);
+  stroke-width: 1;
+}
+.tick {
+  font-size: 10px;
+  fill: var(--pw-muted-2);
+  font-family: var(--font-mono);
+}
+
+.line {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1.75;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.area {
+  fill: var(--line);
+  opacity: 0.12;
+}
+
+.warnBand {
+  fill: var(--pw-warn);
+  opacity: 0.07;
+}
+.stopBand {
+  fill: var(--status-danger);
+  opacity: 0.07;
+}
+.warnLine,
+.stopLine {
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+.warnLine {
+  stroke: var(--pw-warn);
+  opacity: 0.55;
+}
+.stopLine {
+  stroke: var(--status-danger);
+  opacity: 0.6;
+}
+
+.gap {
+  fill: var(--pw-muted-2);
+  opacity: 0.08;
+}
+.gapLabel {
+  font-size: 11px;
+  fill: var(--pw-muted-2);
+  font-style: italic;
+}
+
+.peakDot {
+  fill: var(--line);
+  stroke: var(--pw-surface);
+  stroke-width: 1.5;
+}
+.peakLabel {
+  font-size: 11px;
+  fill: var(--pw-fg-2);
+  font-family: var(--font-mono);
+}
+
+.stripCell {
+  fill: var(--pw-muted-2);
+  opacity: 0.55;
+}
+.stripCell[data-level="ok"] {
+  fill: var(--pw-accent);
+  opacity: 0.5;
+}
+.stripCell[data-level="watch"] {
+  fill: var(--pw-warn);
+  opacity: 0.85;
+}
+.stripCell[data-level="stop"] {
+  fill: var(--status-danger);
+  opacity: 0.9;
+}
+
+.rule {
+  stroke: var(--pw-fg-2);
+  stroke-width: 1;
+  opacity: 0.5;
+}
+.hoverDot {
+  fill: var(--pw-fg);
+}
+.readout {
+  font-size: 11px;
+  fill: var(--pw-fg);
+  font-family: var(--font-mono);
+}

@@ -6,12 +6,12 @@ use std::time::{Duration, Instant};
 
 use system_health::{
     aggregate, evaluate, Capabilities, MachineInfo, Needs, Readings, Sample, Sampler, Sort,
-    Sources, Thresholds, Verdict,
+    Sources, ThermalPressure, Thresholds, Verdict,
 };
 
-use super::dto::{MachineSnapshot, MachineSummary, ProcessGroupDto};
-use super::gauges::{gauges, history_point, verdict_dto, Culprit};
-use super::history::{History, HISTORY_CAPACITY};
+use super::dto::{MachineSnapshot, MachineSummary, ProcessGroupDto, SeriesDto};
+use super::gauges::{gauges, history_point, pressure_point, verdict_dto, Culprit};
+use super::history::{History, Metric, Range, TopProc, HISTORY_CAPACITY};
 use super::top::{group, GroupContext};
 
 /// A second request inside this window gets the cached sample, so two windows or a retry
@@ -38,7 +38,7 @@ pub enum Rank {
 pub const DEFAULT_WINDOW_S: u32 = 60;
 pub const MAX_WINDOW_S: u32 = 3600;
 pub const DEFAULT_TOP: usize = 5;
-pub const MAX_TOP: usize = 20;
+pub const MAX_TOP: usize = 50;
 pub const INTERVAL_MS: u32 = 1000;
 
 pub struct Runtime<S: Sources> {
@@ -96,7 +96,11 @@ impl<S: Sources> Runtime<S> {
             }
             self.sampler_at = Some(now);
             let verdict = evaluate(&sample, &self.thresholds);
-            self.history.push(history_point(&sample));
+            let top = self.culprit.as_ref().map(|c| TopProc {
+                name: c.name.clone(),
+                cpu_pct: c.cpu_pct,
+            });
+            self.history.push_with_top(history_point(&sample), top);
             self.last = Some((now, sample, verdict));
         }
         let (_, sample, verdict) = self.last.as_ref().expect("sampled above");
@@ -120,7 +124,22 @@ impl<S: Sources> Runtime<S> {
             ),
             verdict: verdict_dto(verdict),
             sampled_at_ms: sample.taken_at_ms,
+            system_watts: sample.power.as_ref().map(|p| p.system_w),
         }
+    }
+
+    /// Appends a point for a pressure event: the thermal level and memory used as the OS reports
+    /// them now, nothing sampled. The Machine history keeps those two series continuous while
+    /// the panel is closed. Cheap: one notify read and one memory read, no process walk.
+    pub fn record_pressure(&mut self, at_ms: u64) {
+        let thermal = self
+            .sampler
+            .sources()
+            .thermal_level()
+            .map(|raw| ThermalPressure::from_notify_level(u64::from(raw)));
+        let memory = self.sampler.sources().memory();
+        self.history
+            .push_with_top(pressure_point(at_ms, thermal, &memory), None);
     }
 
     /// The readings of the newest panel sample, if any.
@@ -187,6 +206,22 @@ impl<S: Sources> Runtime<S> {
             },
         );
         pick_culprit(rows, rank)
+    }
+
+    /// One metric over a range for the full window's chart. Takes a sample first when the
+    /// cached one is at least `MIN_SAMPLE_AGE` old (the same throttle as `snapshot`), so the
+    /// chart's right edge is current. `now_ms` is wall-clock epoch milliseconds.
+    pub fn history_series(
+        &mut self,
+        now: Instant,
+        now_ms: u64,
+        metric: Metric,
+        range: Range,
+    ) -> SeriesDto {
+        let snap = self.snapshot(now, Some(1));
+        // The series ends after the newest sample even if `now_ms` was read just before it.
+        let end_ms = now_ms.max(snap.sampled_at_ms + 1);
+        self.history.series(metric, range, end_ms).into()
     }
 
     /// One full process walk, grouped. After a pause the first call only sets the baseline and
@@ -426,6 +461,8 @@ mod tests {
             target_name: name.into(),
             killable: true,
             lock_reason: None,
+            gpu_pct: None,
+            members: Vec::new(),
         }
     }
 
@@ -488,5 +525,57 @@ mod tests {
         let r =
             rt.background_readings(t0 + Duration::from_secs(230), both, Duration::from_secs(30));
         assert!(r.cpu_pct.is_some());
+    }
+
+    #[test]
+    fn a_pressure_event_appends_a_levels_only_point_without_sampling() {
+        let (mut rt, samples, walks) = runtime();
+        let now_ms = system_health_now_ms();
+        rt.record_pressure(now_ms);
+        assert_eq!((samples.get(), walks.get()), (0, 0));
+        let s = rt.history_series(
+            Instant::now(),
+            now_ms + 1000,
+            Metric::ThermalLevel,
+            Range::OneMin,
+        );
+        // history_series samples once (the snapshot it takes), so the event point is one of two.
+        assert!(s.buckets.iter().flatten().count() >= 1);
+        let snap = rt.snapshot(Instant::now() + Duration::from_secs(5), Some(3600));
+        let first = snap.history.first().unwrap();
+        assert_eq!(first.at_ms, now_ms);
+        assert_eq!((first.cpu, first.gpu, first.heat), (None, None, None));
+        assert_eq!(first.heat_level, Some(0));
+    }
+
+    #[test]
+    fn history_series_shares_the_snapshot_throttle() {
+        let (mut rt, samples, _) = runtime();
+        let t0 = Instant::now();
+        rt.snapshot(t0, None);
+        let now_ms = system_health_now_ms();
+        let s = rt.history_series(
+            t0 + Duration::from_millis(100),
+            now_ms,
+            Metric::MemoryUsed,
+            Range::OneMin,
+        );
+        assert_eq!(samples.get(), 1, "inside 900 ms: cached");
+        assert_eq!(s.buckets.len(), 60);
+        assert!(s.buckets.iter().any(Option::is_some));
+        rt.history_series(
+            t0 + Duration::from_millis(1000),
+            now_ms,
+            Metric::Cpu,
+            Range::OneMin,
+        );
+        assert_eq!(samples.get(), 2);
+    }
+
+    fn system_health_now_ms() -> u64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64
     }
 }

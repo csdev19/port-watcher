@@ -5,9 +5,10 @@
 
 use crate::domain::{
     CpuTicks, Fan, MachineInfo, Memory, Power, ProcessCounters, ProcessUsage, Reading, Sample,
-    Sort, ThermalPressure, aggregate, cpu, rank,
+    Sort, ThermalPressure, aggregate, cpu, gpu_pct_by_pid, rank,
 };
 use serde::Serialize;
+use std::collections::HashMap;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 /// What this machine and OS version can report. Probed once.
@@ -52,6 +53,11 @@ pub trait Sources {
     fn thermal_level(&mut self) -> Option<u8>;
     fn memory(&mut self) -> Memory;
     fn processes(&mut self) -> Vec<ProcessCounters>;
+    /// Cumulative GPU time per PID in nanoseconds, or `None` when the OS does not report it.
+    /// Optional: the default reports nothing.
+    fn gpu_time_by_pid(&mut self) -> Option<HashMap<u32, u64>> {
+        None
+    }
     fn machine(&self) -> MachineInfo;
     fn capabilities(&self) -> Capabilities;
 }
@@ -61,6 +67,7 @@ pub struct Sampler<S: Sources> {
     sources: S,
     prev_cpu: Option<CpuTicks>,
     prev_procs: Option<(Vec<ProcessCounters>, Instant)>,
+    prev_gpu: Option<(HashMap<u32, u64>, Instant)>,
 }
 
 impl<S: Sources> Sampler<S> {
@@ -69,6 +76,7 @@ impl<S: Sources> Sampler<S> {
             sources,
             prev_cpu: None,
             prev_procs: None,
+            prev_gpu: None,
         }
     }
 
@@ -119,6 +127,22 @@ impl<S: Sources> Sampler<S> {
         self.top_at(sort, n, Instant::now())
     }
 
+    /// Fills `gpu_pct` from the GPU-time counters, measured over the time since the last walk.
+    fn attach_gpu(&mut self, rows: &mut [ProcessUsage], now: Instant) {
+        let Some(curr) = self.sources.gpu_time_by_pid() else {
+            self.prev_gpu = None;
+            return;
+        };
+        if let Some((prev, at)) = &self.prev_gpu {
+            let dt_ns = now.saturating_duration_since(*at).as_nanos() as f64;
+            let shares = gpu_pct_by_pid(prev, &curr, dt_ns);
+            for row in rows {
+                row.gpu_pct = shares.get(&row.pid).copied();
+            }
+        }
+        self.prev_gpu = Some((curr, now));
+    }
+
     pub(crate) fn top_at(&mut self, sort: Sort, n: usize, now: Instant) -> Vec<ProcessUsage> {
         let curr = self.sources.processes();
         let (prev, dt_ms) = match &self.prev_procs {
@@ -128,8 +152,9 @@ impl<S: Sources> Sampler<S> {
             ),
             None => (&[][..], 0),
         };
-        let rows = rank(prev, &curr, dt_ms, sort, n);
+        let mut rows = rank(prev, &curr, dt_ms, sort, n);
         self.prev_procs = Some((curr, now));
+        self.attach_gpu(&mut rows, now);
         rows
     }
 }
@@ -149,9 +174,17 @@ mod tests {
         readings: Option<Vec<Reading>>,
         thermal: Option<u8>,
         procs: Vec<Vec<ProcessCounters>>,
+        gpu_times: Vec<HashMap<u32, u64>>,
     }
 
     impl Sources for FakeSources {
+        fn gpu_time_by_pid(&mut self) -> Option<HashMap<u32, u64>> {
+            if self.gpu_times.is_empty() {
+                None
+            } else {
+                Some(self.gpu_times.remove(0))
+            }
+        }
         fn heat_readings(&mut self) -> Option<Vec<Reading>> {
             self.readings.clone()
         }
@@ -304,5 +337,35 @@ mod tests {
         assert_eq!(s.top_at(Sort::Cpu, 5, t0)[0].cpu_pct, 0.0);
         let second = s.top_at(Sort::Cpu, 5, t0 + Duration::from_secs(1));
         assert_eq!(second[0].cpu_pct, 50.0);
+    }
+
+    #[test]
+    fn top_attaches_gpu_share_after_the_second_walk() {
+        let counters = |cpu_ms| vec![proc(cpu_ms)];
+        let pid = counters(0)[0].pid;
+        let mut s = Sampler::new(FakeSources {
+            procs: vec![counters(0), counters(500)],
+            gpu_times: vec![
+                HashMap::from([(pid, 1_000_000_000)]),
+                HashMap::from([(pid, 1_250_000_000)]),
+            ],
+            ..Default::default()
+        });
+        let t0 = Instant::now();
+        assert_eq!(s.top_at(Sort::Cpu, 5, t0)[0].gpu_pct, None);
+        let second = s.top_at(Sort::Cpu, 5, t0 + Duration::from_secs(1));
+        assert!((second[0].gpu_pct.unwrap() - 25.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn top_has_no_gpu_share_when_the_source_reports_nothing() {
+        let mut s = Sampler::new(FakeSources {
+            procs: vec![vec![proc(0)], vec![proc(500)]],
+            ..Default::default()
+        });
+        let t0 = Instant::now();
+        s.top_at(Sort::Cpu, 5, t0);
+        let second = s.top_at(Sort::Cpu, 5, t0 + Duration::from_secs(1));
+        assert_eq!(second[0].gpu_pct, None);
     }
 }

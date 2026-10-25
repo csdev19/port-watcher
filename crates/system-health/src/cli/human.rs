@@ -175,6 +175,7 @@ mod tests {
             energy_mw: None,
             path: None,
             uid: None,
+            gpu_pct: None,
         };
         let t = top_table(&[u], "cpu");
         assert!(t.contains("sudo"));

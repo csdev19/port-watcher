@@ -1,6 +1,7 @@
 use crate::error::AppError;
 use crate::health::HealthState;
-use crate::machine::dto::{MachineSnapshot, ProcessGroupDto};
+use crate::machine::dto::{MachineSnapshot, ProcessGroupDto, SeriesDto};
+use crate::machine::history::{Metric, Range};
 use crate::ports::enrich::enrich;
 use crate::ports::kill::{kill_port_impl, kill_process_impl};
 use crate::ports::models::{KillResult, PortEntry};
@@ -51,7 +52,23 @@ pub async fn machine_snapshot(
     .map_err(|e| AppError::Internal(e.to_string()))?
 }
 
-/// Top processes by CPU, grouped by app bundle (default 5, at most 20). Walks every process
+/// One metric over 1 min, 10 min or 1 h in fixed buckets (`null` = not sampled), for the full
+/// window's chart. Shares the 900 ms throttle with `machine_snapshot`.
+#[tauri::command]
+pub async fn machine_history(
+    app: tauri::AppHandle,
+    metric: Metric,
+    range: Range,
+) -> Result<SeriesDto, AppError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        use tauri::Manager;
+        app.state::<HealthState>().machine_history(metric, range)
+    })
+    .await
+    .map_err(|e| AppError::Internal(e.to_string()))?
+}
+
+/// Top processes by CPU, grouped by app bundle (default 5, at most 50). Walks every process
 /// once, so the renderer polls it only while the Machine tab is open.
 #[tauri::command]
 pub async fn top_processes(
@@ -176,6 +193,18 @@ pub fn set_shortcut(app: tauri::AppHandle, shortcut: String) -> Result<(), AppEr
 #[tauri::command]
 pub fn open_settings(app: tauri::AppHandle) -> Result<(), AppError> {
     crate::settings::open_settings(&app).map_err(|e| AppError::Internal(e.to_string()))
+}
+
+/// Opens the full window from the panel's ⤢ button or ⌘↩.
+#[tauri::command]
+pub fn open_full_window(app: tauri::AppHandle) -> Result<(), AppError> {
+    crate::full_window::open_full_window(&app).map_err(|e| AppError::Internal(e.to_string()))
+}
+
+/// The full window's "Mini" button: close it and show the panel under the tray icon.
+#[tauri::command]
+pub fn close_full_window_to_mini(app: tauri::AppHandle) {
+    crate::full_window::close_full_to_mini(&app);
 }
 
 /// What this Mac can report to the System health context (read-only; Phase 3 shows it).

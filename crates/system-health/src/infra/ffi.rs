@@ -26,6 +26,11 @@ unsafe extern "C" {
         output: *mut c_void,
         output_size: *mut usize,
     ) -> i32;
+    pub fn IORegistryEntryGetChildIterator(
+        entry: MachPort,
+        plane: *const c_char,
+        it: *mut MachPort,
+    ) -> i32;
     pub fn IORegistryEntryCreateCFProperty(
         entry: MachPort,
         key: CFTypeRef,
@@ -42,6 +47,18 @@ unsafe extern "C" {
         encoding: u32,
     ) -> CFTypeRef;
     pub fn CFDictionaryGetValue(dict: CFTypeRef, key: CFTypeRef) -> CFTypeRef;
+    pub fn CFGetTypeID(obj: CFTypeRef) -> usize;
+    pub fn CFStringGetTypeID() -> usize;
+    pub fn CFArrayGetTypeID() -> usize;
+    pub fn CFDictionaryGetTypeID() -> usize;
+    pub fn CFArrayGetCount(array: CFTypeRef) -> isize;
+    pub fn CFArrayGetValueAtIndex(array: CFTypeRef, idx: isize) -> CFTypeRef;
+    pub fn CFStringGetCString(
+        s: CFTypeRef,
+        buffer: *mut c_char,
+        size: isize,
+        encoding: u32,
+    ) -> bool;
     pub fn CFNumberGetValue(num: CFTypeRef, kind: i32, out: *mut c_void) -> bool;
     pub fn CFRelease(obj: CFTypeRef);
 }

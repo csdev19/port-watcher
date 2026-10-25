@@ -29,6 +29,7 @@ import { Tabs } from "@/components/Tabs";
 import { PanelHeader } from "@/components/PanelHeader";
 import { UpdateBanner } from "@/components/UpdateBanner";
 import { MachineView } from "@/components/MachineView";
+import { openFullWindow } from "@/lib/machine";
 import { pendingVersion, useUpdate } from "@/lib/update";
 import styles from "@/app.module.css";
 
@@ -302,6 +303,11 @@ export default function App() {
       // touch ports. The process list owns ↑/↓/⌘⌫ itself; Esc still hides the panel.
       if (topTabRef.current === "machine") {
         if (e.key === "Escape") void hidePanel();
+        // ⌘↩ opens the full window, as the ⤢ button does.
+        if (e.key === "Enter" && e.metaKey) {
+          e.preventDefault();
+          void openFullWindow();
+        }
         return;
       }
 
