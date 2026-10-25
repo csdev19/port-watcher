@@ -17,17 +17,17 @@ pressure) instead of polling. Sensor data is read without sudo by our own Rust c
 `crates/system-health` crate that also ships a `chapay` CLI. The visual source is the "Chapaq Panel v2"
 Claude Design canvas, with the name kept as **chapay**.
 
-| #   | Decision                                                                                                  | Why                                                                    | ADR                     |
-| --- | --------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ----------------------- |
-| 1   | One app with two tabs, two bounded contexts (Ports, System health), no shared kernel                      | Same user, same moment, same kill flow; one release pipeline           | 0008 (new)              |
-| 2   | System health in `crates/system-health` + `chapay` CLI; Ports stays in the desktop crate                  | System health has two consumers now, Ports has one                     | 0009 (new)              |
-| 3   | Sensors from sudoless sources (SMC, IORegistry, mach, libproc, notify), our own code                      | Measured readable without a helper on M4 Pro                           | 0010 (new)              |
-| 4   | Default alerts are event-driven (thermal, memory pressure); optional CPU/GPU rules poll ≥ 30 s            | Owner: alerts at optimal cost; CPU % and swap are bad default triggers | 0011 (new), amends 0001 |
-| 5   | STOP comes from thermal pressure; CPU/GPU % reach WATCH at most                                           | 12 cores at 100 % stayed at nominal pressure, 77 °C                    | 0011                    |
-| 6   | v2 palette, light theme, `chapay.` wordmark; sweep visible "chapaq" to "chapay"                           | Owner: the name is chapay everywhere                                   | 0012 (new), amends 0002 |
-| 7   | Kill policy unchanged: ADR 0006 still decides; Machine kills go through the same Rust guard               | One policy, enforced in Rust                                           | reuses 0006             |
-| 8   | Full window minimal: Overview, Ports, Alerts (+ Settings opens the existing window); Dock icon while open | Product rule: only what leads to an action                             | none                    |
-| 9   | Delivery in waves: 1+2, then 3+4, then 5, then 6; one PR per phase into `feat/chapay-v2`                  | Phases share files; parallel only where independent                    | none                    |
+| #   | Decision                                                                                                               | Why                                                                                   | ADR                     |
+| --- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ----------------------- |
+| 1   | One app with two tabs, two bounded contexts (Ports, System health), no shared kernel                                   | Same user, same moment, same kill flow; one release pipeline                          | 0008 (new)              |
+| 2   | System health in `crates/system-health` + `chapay` CLI; Ports stays in the desktop crate                               | System health has two consumers now, Ports has one                                    | 0009 (new)              |
+| 3   | Sensors from sudoless sources (SMC, IORegistry, mach, libproc, notify), our own code                                   | Measured readable without a helper on M4 Pro                                          | 0010 (new)              |
+| 4   | Default alerts: thermal and memory pressure event-driven, plus a 30 s hotspot read; optional CPU/GPU rules poll ≥ 30 s | Owner: alerts at optimal cost; CPU % and swap are bad default triggers                | 0011 (new), amends 0001 |
+| 5   | STOP comes from thermal pressure **or a CPU hotspot ≥ 95 °C**; CPU/GPU % reach WATCH at most                           | A 5-minute stress reached 115 °C with pressure still nominal; CPU % alone is not heat | 0011                    |
+| 6   | v2 palette, light theme, `chapay.` wordmark; sweep visible "chapaq" to "chapay"                                        | Owner: the name is chapay everywhere                                                  | 0012 (new), amends 0002 |
+| 7   | Kill policy unchanged: ADR 0006 still decides; Machine kills go through the same Rust guard                            | One policy, enforced in Rust                                                          | reuses 0006             |
+| 8   | Full window minimal: Overview, Ports, Alerts (+ Settings opens the existing window); Dock icon while open              | Product rule: only what leads to an action                                            | none                    |
+| 9   | Delivery in waves: 1+2, then 3+4, then 5, then 6; one PR per phase into `feat/chapay-v2`                               | Phases share files; parallel only where independent                                   | none                    |
 
 ### Open questions
 
