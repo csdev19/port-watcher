@@ -5,7 +5,8 @@ import { joinFavourites, parsePortInput, type MutationResult } from "../../lib/f
 import { listPorts } from "../../lib/ports";
 import type { PortEntry } from "../../lib/types";
 import { useSetting } from "../store";
-import { Button, Group, Pill, Row, SectionHeading, Status, Switch } from "../ui";
+import { AlertRuleRow } from "../AlertRuleRow";
+import { Button, Group, Row, SectionHeading, Status, Switch } from "../ui";
 import styles from "./ports.module.css";
 
 /**
@@ -72,18 +73,10 @@ export default function Ports() {
             />
           }
         />
-        <Row
+        <AlertRuleRow
+          rule="watchedPortTaken"
           label="Notify when a watched port is taken"
-          badge={<Pill>v0.2</Pill>}
-          reason="“5173 taken · Vite”. Click it to open the panel on that row."
-          control={
-            <Switch
-              label="Notify when a watched port is taken"
-              checked={false}
-              onChange={() => {}}
-              disabled
-            />
-          }
+          reason="“5173 taken · Vite”. Click it to open the panel on that row. Scans every 30 s while this is on."
         />
       </Group>
 

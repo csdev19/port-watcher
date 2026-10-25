@@ -75,6 +75,26 @@ pub fn open_fda_settings() -> io::Result<()> {
         .map(|_| ())
 }
 
+/// The Notifications pane of System Settings (unverified deep link on every macOS version;
+/// `open_notification_settings` falls back to System Settings itself).
+const NOTIFICATION_SETTINGS_URL: &str =
+    "x-apple.systempreferences:com.apple.Notifications-Settings.extension";
+const SYSTEM_SETTINGS_URL: &str = "x-apple.systempreferences:";
+
+/// Opens System Settings at Notifications, or at its first page when the pane's link is refused.
+pub fn open_notification_settings() -> io::Result<()> {
+    for url in [NOTIFICATION_SETTINGS_URL, SYSTEM_SETTINGS_URL] {
+        if Command::new("open")
+            .arg(url)
+            .status()
+            .is_ok_and(|status| status.success())
+        {
+            return Ok(());
+        }
+    }
+    Err(io::Error::other("could not open System Settings"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

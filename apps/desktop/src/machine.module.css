@@ -304,3 +304,50 @@
     transition: none;
   }
 }
+
+/* The alert band above the gauges (design 10a): severity dot, what fired and who caused it,
+ * and the kill button right there. Tinted by level with the same tokens as the gauges. */
+.alertBand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 10px 7px 12px;
+  border-bottom: 1px solid var(--pw-line-row);
+  background: color-mix(in srgb, var(--pw-warn) 10%, transparent);
+}
+.alertBand[data-level="stop"] {
+  background: color-mix(in srgb, var(--status-danger) 10%, transparent);
+}
+.alertLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--pw-fg);
+}
+.alertDot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--pw-warn);
+}
+.alertBand[data-level="stop"] .alertDot {
+  background: var(--status-danger);
+}
+.alertText {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.alertCulprit {
+  color: var(--pw-fg-2);
+}
+.alertMore {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--pw-muted);
+}

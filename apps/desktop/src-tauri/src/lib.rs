@@ -1,3 +1,4 @@
+mod alerts;
 mod appearance;
 mod commands;
 mod error;
@@ -49,6 +50,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_positioner::init())
         .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_notification::init())
         // Remembers the full window's frame. Runtime-created windows are covered (the plugin
         // hooks every window as it becomes ready); the other windows are denied, and only
         // size and position are kept so it never shows or hides anything. The frame reaches
@@ -73,6 +75,10 @@ pub fn run() {
             app.manage(LastBlurHide(Mutex::new(None)));
             app.manage(TrayRect(Mutex::new(None)));
             update::init(app.handle());
+            // Click handler first (the plugin tracks only notifications shown after it exists),
+            // then the engine, then the pressure subscriptions that feed it.
+            alerts::notifier::init(app.handle());
+            alerts::app::start(app.handle());
             health::init(app.handle());
 
             #[cfg(target_os = "macos")]
@@ -236,6 +242,7 @@ pub fn run() {
             commands::machine_history,
             commands::check_full_disk_access,
             commands::open_full_disk_access_settings,
+            commands::open_notification_settings,
             commands::finish_setup,
             commands::show_setup_window,
             commands::app_arch,
@@ -248,7 +255,10 @@ pub fn run() {
             commands::close_full_window_to_mini,
             commands::quit_app,
             commands::set_shortcut,
-            commands::system_health_capabilities
+            commands::system_health_capabilities,
+            commands::list_alert_rules,
+            commands::set_alert_rule_enabled,
+            commands::get_active_alerts
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

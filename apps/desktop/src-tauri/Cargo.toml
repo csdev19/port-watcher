@@ -32,6 +32,8 @@ thiserror = "2"
 nix = { version = "0.29", features = ["signal", "user", "fs"] }
 log = "0.4"
 tauri-plugin-store = "2"
+# Native notifications for alerts (ADR 0011). A desktop click reaches `on_action` from 2.6.
+tauri-plugin-notification = "2.7"
 semver = "1"
 tauri-plugin-autostart = "2"
 # In-app updates (ADR 0007), driven from Rust only. 2.13.2 is the first

@@ -28,6 +28,19 @@ pub fn toggle_panel(app: &AppHandle) {
             }
         }
     }
+    show_panel(app);
+}
+
+/// Shows the panel and never hides it: the entry point for a notification click. Same
+/// placement and `panel-shown` event as the show branch of `toggle_panel`.
+pub fn show_panel(app: &AppHandle) {
+    let Some(window) = app.get_webview_window("main") else {
+        log::warn!("show_panel: no window labeled 'main'");
+        return;
+    };
+    if window.is_visible().unwrap_or(false) {
+        return;
+    }
     if !place_under_tray(app, &window) {
         // The tray icon's rect is unknown: no tray on this platform, or
         // AppKit has not laid the icon out yet.

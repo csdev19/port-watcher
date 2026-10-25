@@ -10,6 +10,8 @@ import { MOCK_PORTS } from "@/lib/mock-ports";
 // so it's simplest (and matches how the rest of the suite mocks the
 // Tauri boundary) to mock `@/lib/ports` directly rather than fight
 // module load order.
+const stored = vi.hoisted(() => ({ favourites: [] as unknown[] }));
+
 vi.mock("@/lib/ports", () => ({
   inTauri: true,
   listPorts: vi.fn(async () => MOCK_PORTS),
@@ -29,7 +31,21 @@ vi.mock("@/settings/store", () => ({
     )[key],
     vi.fn(),
   ],
+  // The watched-ports list lives in the store (ADR 0013); these tests start with none.
+  readCachedSetting: () => stored.favourites,
+  getSetting: async () => stored.favourites,
+  setSetting: async () => {},
+  subscribeSetting: () => () => {},
+  writeCachedSetting: () => {},
 }));
+
+vi.mock("@/lib/favourites-migration", () => ({
+  migrateLegacyFavourites: async () => ({ changed: false }),
+}));
+
+// The alert hooks have their own `listen()` calls and their own tests.
+vi.mock("@/hooks/use-active-alerts", () => ({ useActiveAlerts: () => [] }));
+vi.mock("@/hooks/use-alert-focus", () => ({ useAlertFocus: () => {} }));
 
 // The update banner subscribes to `update-status` with its own `listen()`;
 // stub its hook so the only listener here is `panel-shown`.
@@ -81,6 +97,7 @@ function renderApp() {
 
 describe("App panel-shown lifecycle", () => {
   afterEach(() => {
+    stored.favourites = [];
     vi.clearAllMocks();
     pendingListenResolvers = [];
     unlistenMocks.length = 0;
@@ -150,7 +167,7 @@ describe("App panel-shown lifecycle", () => {
   // refetches exactly once through the existing panel-shown listener —
   // no second, parallel poll is started.
   it("panel-shown resets tab/query/form/confirmation, keeps favourites, and refetches once", async () => {
-    window.localStorage.setItem("chapay.favourites", JSON.stringify([{ port: 3000 }]));
+    stored.favourites = [{ port: 3000 }];
     renderApp();
     await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
     resolveNextListen();

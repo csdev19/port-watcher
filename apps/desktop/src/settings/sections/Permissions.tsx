@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { ExternalLink, RotateCcw } from "lucide-react";
-import { checkFullDiskAccess, openFullDiskAccessSettings, showSetupWindow } from "@/lib/setup";
+import {
+  checkFullDiskAccess,
+  openFullDiskAccessSettings,
+  openNotificationSettings,
+  showSetupWindow,
+} from "@/lib/setup";
 import { Button, Group, Row, SectionHeading, Status } from "../ui";
 import styles from "../settings.module.css";
 
@@ -40,6 +45,7 @@ export default function Permissions() {
   }, [recheck]);
 
   const open = () => void openFullDiskAccessSettings().catch(() => {});
+  const openNotifications = () => void openNotificationSettings().catch(() => {});
 
   return (
     <>
@@ -61,6 +67,15 @@ export default function Permissions() {
                 Turn on
               </Button>
             )
+          }
+        />
+        <Row
+          label="Notifications"
+          reason="Alerts post a notification when something runs hot or a watched port is taken. macOS decides whether it shows: chapay can't read or change that, so check it in System Settings."
+          control={
+            <Button variant="plain" icon={ExternalLink} onClick={openNotifications}>
+              Open
+            </Button>
           }
         />
       </Group>

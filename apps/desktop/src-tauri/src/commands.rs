@@ -43,7 +43,10 @@ pub async fn machine_snapshot(
 ) -> Result<MachineSnapshot, AppError> {
     tauri::async_runtime::spawn_blocking(move || {
         use tauri::Manager;
-        app.state::<HealthState>().machine_snapshot(window_s)
+        let snapshot = app.state::<HealthState>().machine_snapshot(window_s);
+        // The alert rules see every panel sample, so they never sample a second time.
+        crate::alerts::app::forward_readings(&app);
+        snapshot
     })
     .await
     .map_err(|e| AppError::Internal(e.to_string()))?
@@ -93,6 +96,13 @@ pub async fn check_full_disk_access() -> Result<bool, AppError> {
 #[tauri::command]
 pub fn open_full_disk_access_settings() -> Result<(), AppError> {
     crate::setup::open_fda_settings().map_err(|e| AppError::Internal(e.to_string()))
+}
+
+/// Opens System Settings at Notifications. chapay cannot read whether macOS lets it post, so
+/// Settings › Permissions only links there.
+#[tauri::command]
+pub fn open_notification_settings() -> Result<(), AppError> {
+    crate::setup::open_notification_settings().map_err(|e| AppError::Internal(e.to_string()))
 }
 
 /// "Open chapay" on the final setup screen: close the setup window, then
@@ -209,4 +219,27 @@ pub fn system_health_capabilities(
 #[tauri::command]
 pub fn quit_app(app: tauri::AppHandle) {
     app.exit(0);
+}
+
+/// The fixed alert rules with their switches and whether each is firing now.
+#[tauri::command]
+pub fn list_alert_rules(app: tauri::AppHandle) -> Vec<crate::alerts::AlertRule> {
+    crate::alerts::app::list_rules(&app)
+}
+
+/// Turns a rule on or off in the engine. The renderer saves the setting only after this
+/// succeeds (apply-then-save, like `set_shortcut`).
+#[tauri::command]
+pub fn set_alert_rule_enabled(
+    app: tauri::AppHandle,
+    rule: crate::alerts::AlertRuleId,
+    enabled: bool,
+) -> Result<(), AppError> {
+    crate::alerts::app::set_rule_enabled(&app, rule, enabled)
+}
+
+/// What is firing right now, for a window that just opened.
+#[tauri::command]
+pub fn get_active_alerts(app: tauri::AppHandle) -> Vec<crate::alerts::ActiveAlert> {
+    crate::alerts::app::active_alerts(&app)
 }

@@ -14,7 +14,14 @@ function renderView(snapshot: MachineSnapshot) {
   });
   return render(
     <QueryClientProvider client={client}>
-      <MachineView snapshot={snapshot} error={null} onToast={() => {}} />
+      <MachineView
+        snapshot={snapshot}
+        error={null}
+        onToast={() => {}}
+        alerts={[]}
+        focus={null}
+        onFocusHandled={() => {}}
+      />
     </QueryClientProvider>,
   );
 }

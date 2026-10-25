@@ -67,15 +67,24 @@ at a wrapper or edit those calls to `chapay sensors` / `chapay heat --watch 5 --
 
 ## Verdict
 
-STOP comes only from pressure signals: thermal pressure serious or critical, or memory pressure
-critical. Temperature alone raises at most WATCH (hotspot at 80 C). A hotspot at 95 C is STOP only
-when thermal pressure is unavailable. Swap at 4 GB and a fan above 50% while the machine is idle
-are WATCH. CPU and GPU load never change the verdict. Thresholds are fixed defaults.
+STOP comes from thermal pressure serious or critical, memory pressure critical, or a CPU hotspot at
+95 C or more, even when macOS still reports nominal pressure (a 12-core stress put the hotspot at
+115 C at nominal pressure). A hotspot from 80 C up to 95 C is WATCH. Swap at 4 GB and a fan above 50%
+while the machine is idle are WATCH. CPU and GPU load never change the verdict. Thresholds are fixed
+defaults.
 
 ## Library
 
 - `domain`: pure types and rules (sensor classification, heat aggregation, thresholds, verdict,
   pressure mapping, attribution). No I/O, no `unsafe`.
+- `domain::rules`: `HealthRules`, the alert state machine. It is fed `HealthInput`s (thermal and
+  memory pressure events, or `Readings` of CPU load, GPU load and hotspot) with an injected clock
+  and returns `Pending`, `Fired` and `Cleared` transitions. Event rules expose a one-shot
+  `next_deadline()`; polled rules fire on the first reading at or after their window. Fixed rules:
+  thermal pressure Serious for 30 s (STOP), CPU hotspot at 95 C for 60 s (STOP), memory pressure
+  Warning for 60 s (WATCH), CPU at 80 % for 2 min and GPU at 90 % for 2 min (WATCH). A gap between
+  readings longer than 100 s restarts the polled windows. `tests/rules_replay.rs` replays the
+  thermal-probe captures: idle gives no firing, the CPU stress capture fires the hotspot rule.
 - `sampler`: the `Sources` trait and `Sampler`. `Sampler::sample()` never sleeps; the first call
   has `cpu: None` because a load needs two snapshots. `Sampler::top()` ranks processes since the
   previous call; each row carries the executable `path` and owner `uid` (cached per process

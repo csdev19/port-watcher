@@ -6,6 +6,7 @@ import * as setupLib from "@/lib/setup";
 vi.mock("@/lib/setup", () => ({
   checkFullDiskAccess: vi.fn(async () => false),
   openFullDiskAccessSettings: vi.fn(async () => {}),
+  openNotificationSettings: vi.fn(async () => {}),
   showSetupWindow: vi.fn(async () => {}),
 }));
 
@@ -46,10 +47,14 @@ describe("Permissions", () => {
     expect(setupLib.openFullDiskAccessSettings).toHaveBeenCalledTimes(1);
   });
 
-  it("does not render a Notifications row", async () => {
+  it("has a Notifications row that only opens System Settings (the state cannot be read)", async () => {
     render(<Permissions />);
     await flush();
-    expect(screen.queryByText("Notifications")).toBeNull();
+    expect(screen.getByText("Notifications")).toBeTruthy();
+    // No On/Off badge for it: chapay cannot read that permission.
+    expect(screen.getAllByText(/^(On|Off)$/)).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+    expect(setupLib.openNotificationSettings).toHaveBeenCalledTimes(1);
   });
 
   it("re-checks when the window regains focus", async () => {

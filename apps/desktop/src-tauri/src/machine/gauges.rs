@@ -1,15 +1,16 @@
 //! Turns one `Sample` into the four gauges. Levels come from the crate's `Thresholds`; the
-//! renderer never compares numbers. Two deliberate differences from `evaluate`:
+//! renderer never compares numbers.
 //!
-//! - Heat also goes to Stop when the hotspot passes its stop line, even if macOS still reports
-//!   nominal thermal pressure. Measured on an M4 Pro: a 12-core stress put the hotspot at 115 C
-//!   while pressure stayed nominal. The crate's verdict keeps its own rule (Watch only); the
-//!   gauge shows the temperature honestly.
+//! - Heat goes to Stop when the hotspot passes its stop line even if macOS still reports nominal
+//!   thermal pressure (measured on an M4 Pro: a 12-core stress put the hotspot at 115 C while
+//!   pressure stayed nominal). The crate's `evaluate` follows the same rule since 2026-10-24, so
+//!   the header pill and this gauge agree; a test below pins that.
 //! - Memory is coloured by macOS memory pressure, not by used percent (75 % used is normal).
 
 use super::dto::{GaugeDto, GaugeId, GaugeUnit, HistoryPoint, VerdictDto};
 use system_health::{
-    Capabilities, Gauge, Level, MemoryPressure, Sample, ThermalPressure, Thresholds, Verdict,
+    Capabilities, Gauge, Level, Memory, MemoryPressure, Sample, ThermalPressure, Thresholds,
+    Verdict,
 };
 
 /// The process driving CPU load right now, as a share of the whole machine.
@@ -246,6 +247,29 @@ pub fn history_point(sample: &Sample) -> HistoryPoint {
     }
 }
 
+/// A history point for a pressure event: only the levels the OS just reported (thermal pressure
+/// and memory used), so those two series stay continuous while nothing samples. CPU, GPU and the
+/// hotspot are unknown and stay gaps.
+pub fn pressure_point(
+    at_ms: u64,
+    thermal: Option<ThermalPressure>,
+    memory: &Memory,
+) -> HistoryPoint {
+    let used_pct = if memory.total_bytes == 0 {
+        0.0
+    } else {
+        (100.0 * memory.used_bytes as f64 / memory.total_bytes as f64) as f32
+    };
+    HistoryPoint {
+        at_ms,
+        cpu: None,
+        gpu: None,
+        heat: None,
+        heat_level: thermal.map(pressure_index),
+        mem_used_pct: used_pct,
+    }
+}
+
 pub fn verdict_dto(v: &Verdict) -> VerdictDto {
     VerdictDto {
         level: v.level,
@@ -387,8 +411,8 @@ mod tests {
     fn hotspot_past_95_is_stop_even_when_pressure_is_nominal() {
         let mut s = sample();
         s.heat.as_mut().unwrap().cpu_max_c = 115.0;
-        // The crate's verdict stays at Watch for this sample; the gauge must not.
-        assert_eq!(evaluate(&s, &Thresholds::default()).level, Level::Watch);
+        // The header pill (crate verdict) and the gauge agree.
+        assert_eq!(evaluate(&s, &Thresholds::default()).level, Level::Stop);
         let g = run(&s, &caps(true, true));
         let heat = by(GaugeId::Heat, &g);
         assert_eq!(heat.level, Level::Stop);
@@ -472,6 +496,17 @@ mod tests {
         assert_eq!(p.heat, Some(71.0));
         assert_eq!(p.heat_level, Some(0));
         assert_eq!(p.mem_used_pct, 75.0);
+    }
+
+    #[test]
+    fn a_pressure_point_has_only_the_levels() {
+        let s = sample();
+        let p = pressure_point(5000, Some(ThermalPressure::Serious), &s.memory);
+        assert_eq!(p.at_ms, 5000);
+        assert_eq!((p.cpu, p.gpu, p.heat), (None, None, None));
+        assert_eq!(p.heat_level, Some(2));
+        assert_eq!(p.mem_used_pct, 75.0);
+        assert_eq!(pressure_point(1, None, &s.memory).heat_level, None);
     }
 
     #[test]
