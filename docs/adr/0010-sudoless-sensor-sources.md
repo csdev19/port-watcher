@@ -15,17 +15,23 @@ root (setup and permissions copy).
 
 ## Decision
 
-| Metric                          | Source (no sudo)                                                                                                                                                       |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Temperatures, fan, system power | SMC through the `AppleSMC` IOKit user client; cache the key list, read only `Tp*`/`Te*`/`Tg*`, `F0Ac`/`F0Mx`, `PSTR`                                                   |
-| GPU utilisation                 | IORegistry `IOAccelerator › PerformanceStatistics › Device Utilization %`                                                                                              |
-| Per-process GPU                 | IORegistry GPU clients: `IOUserClientCreator` + `AppUsage.accumulatedGPUTime` (undocumented; column shows "—" when absent)                                             |
-| CPU total / per core            | mach `host_statistics` / `host_processor_info`; P/E mapping from the device tree `cluster-type`                                                                        |
-| Per-process CPU, memory, energy | `proc_pid_rusage` (V6)                                                                                                                                                 |
-| Memory                          | `host_statistics64` + memory pressure level                                                                                                                            |
-| Thermal pressure                | `notify(3)` on `com.apple.system.thermalpressurelevel`, mapped moderate → Fair, heavy → Serious, trapping/sleeping → Critical (mapping inferred, to verify under load) |
+| Metric                            | Source (no sudo)                                                                                                                                                       |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Temperatures, fan, system power   | SMC through the `AppleSMC` IOKit user client; cache the key list, read only `Tp*`/`Te*`/`Tg*`, `F0Ac`/`F0Mx`, `PSTR`                                                   |
+| GPU utilisation                   | IORegistry `IOAccelerator › PerformanceStatistics › Device Utilization %`                                                                                              |
+| Per-process GPU                   | IORegistry GPU clients: `IOUserClientCreator` + `AppUsage.accumulatedGPUTime` (undocumented; column shows "—" when absent)                                             |
+| CPU total / per core              | mach `host_statistics` / `host_processor_info`; P/E mapping from the device tree `cluster-type`                                                                        |
+| Per-process CPU, memory, energy   | `proc_pid_rusage` (V6) for the user's own processes                                                                                                                    |
+| Root's and other users' processes | `/bin/ps -Axo ...` (setuid root, Apple-entitled): CPU time and RSS only; the one external binary, on demand, never in a background loop                                |
+| Memory                            | `host_statistics64` + memory pressure level                                                                                                                            |
+| Thermal pressure                  | `notify(3)` on `com.apple.system.thermalpressurelevel`, mapped moderate → Fair, heavy → Serious, trapping/sleeping → Critical (mapping inferred, to verify under load) |
 
-- **Our own code**, ported from the spike. No privileged helper.
+- **Our own code**, ported from the spike. No privileged helper. One exception, added
+  2026-10-24: `proc_pid_rusage` and `proc_pidinfo` fail with `EPERM` for every process of
+  another user, so without `ps` the "top processes" list would hide `WindowServer`,
+  `mds_stores` and every root daemon, which are real heat sources. `ps` is on every Mac, its
+  columns are stable, and it needs no password. `kernel_task` stays hidden: `ps` skips PID 0 and
+  `top -l 1` costs 0.6 s per call.
 - **IOReport** (CPU/GPU package power) is deferred; if needed, use the `macmon` crate rather than
   writing it.
 

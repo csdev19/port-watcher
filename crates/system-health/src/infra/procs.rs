@@ -114,11 +114,12 @@ impl ProcessReader {
             ),
             footprint_bytes: info.phys_footprint,
             energy_nj,
+            cpu_pct_hint: None,
         })
     }
 
-    /// Counters for every process readable by the current user. Other users' processes are
-    /// invisible without sudo and are skipped.
+    /// Counters for every process readable by the current user. Other users' processes fail
+    /// with `EPERM` without sudo and are skipped here; `super::ps` fills them in.
     pub fn read_all(&mut self) -> Vec<ProcessCounters> {
         list_pids()
             .into_iter()

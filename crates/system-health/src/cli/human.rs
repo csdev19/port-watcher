@@ -119,7 +119,7 @@ pub fn top_table(rows: &[ProcessUsage], sort_label: &str) -> String {
         ));
     }
     out.push_str(&format!(
-        "sorted by {sort_label}. CPU% is per core (200 = two cores busy); energy is an impact estimate, not watts.\nOnly your own processes are listed: other users' and root's are invisible without sudo.\n"
+        "sorted by {sort_label}. CPU% is per core (200 = two cores busy); energy is an impact estimate, not watts.\nSystem and other users' processes come from ps: their MEM is RSS and their energy is unknown (-). kernel_task is not listed.\n"
     ));
     out
 }
@@ -175,7 +175,7 @@ mod tests {
             energy_mw: None,
         };
         let t = top_table(&[u], "cpu");
-        assert!(t.contains("sudo"));
+        assert!(t.contains("come from ps"));
         assert!(t.lines().nth(1).unwrap().contains("-  x"));
     }
 
