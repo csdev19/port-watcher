@@ -8,6 +8,11 @@ authorization" is superseded for the `system` category by
 [ADR 0006](0006-kill-policy-enforced-in-rust.md): the Rust kill path now re-derives the category
 and refuses `system` listeners. Grouping and confirmation friction for `dev` and `app` still live in
 the renderer, as decided here.
+**Amendment (2026-10-24):** where watched ports are persisted is superseded by
+[ADR 0013](0013-watched-ports-in-rust-settings.md) (`settings.json`, readable from Rust, with a
+one-time import of `chapay.favourites`), and the "notifications" non-goal is lifted for alerts by
+[ADR 0011](0011-event-driven-background-signals-and-alerts.md). The record shape `{ port, name? }`,
+the join against the live snapshot and the single confirmation owner are unchanged.
 **Implementation evidence (2026-10-13):** classification is `classify_port` in
 `apps/desktop/src-tauri/src/ports/classify.rs` (category, `executablePath` and `appBundlePath` are
 serialized by `ports/models.rs`); watched ports are `apps/desktop/src/lib/favourites.ts`

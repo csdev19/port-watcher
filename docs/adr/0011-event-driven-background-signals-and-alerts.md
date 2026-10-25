@@ -1,6 +1,8 @@
 # ADR 0011: background signals are event-driven; alerts at near-zero idle cost
 
-**Status:** Accepted by the owner (2026-10-24). Not implemented: Phase 5 on `feat/chapay-v2`.
+**Status:** Accepted by the owner (2026-10-24). Implemented in Phase 5 on `feat/chapay-v2`
+(`crates/system-health/src/domain/rules.rs`, `apps/desktop/src-tauri/src/alerts/`); not on `main` until
+that branch merges.
 Amends the "notifications" and "background monitoring" non-goals of
 [ADR 0001](0001-desktop-categories-and-watched-ports.md) for the cases below.
 **Date:** 2026-10-24. **Revised:** 2026-10-24 after the sustained CPU stress capture met this
@@ -53,8 +55,12 @@ idle, so neither is a good default trigger.
 - History has gaps for CPU/GPU load while nothing is visible; the hotspot has a 30 s series and the
   pressure levels are continuous. Charts draw the gaps as "not sampled".
 - Watched ports must be readable from Rust for the "port taken" rule.
-- The default STOP rule has not been observed firing yet; the local-LLM capture may move the default
-  to a hotspot rule (see the research note).
+- Replaying the captures through `HealthRules` fires the hotspot rule on the CPU stress capture and
+  nothing on the idle captures (`crates/system-health/tests/rules_replay.rs`). The thermal pressure
+  rule has still never been seen firing on this machine; it stays on as the OS's own signal.
+- All six rules (the three defaults, CPU, GPU and watched port taken) share one 15-minute cooldown
+  per alert and the 4-per-hour cap. Watched ports live in `settings.json`
+  ([ADR 0013](0013-watched-ports-in-rust-settings.md)).
 
 ## Non-goals
 
