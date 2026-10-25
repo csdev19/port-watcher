@@ -1,0 +1,337 @@
+/* The full window (design 10b). Solid surface, 38 px title bar under the traffic lights.
+ * Classes and attributes only: the production CSP blocks style strings. */
+
+.window {
+  position: relative;
+  display: grid;
+  grid-template-rows: 38px minmax(0, 1fr);
+  height: 100%;
+  background: var(--pw-surface);
+  color: var(--pw-fg);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.titleBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  /* 78 px keeps clear of the traffic lights. */
+  padding: 0 12px 0 78px;
+  border-bottom: 1px solid var(--pw-line);
+  -webkit-app-region: drag;
+}
+.titleBar > * {
+  pointer-events: none;
+}
+.titleBar > button {
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+}
+.chip {
+  font-size: 12px;
+  color: var(--pw-muted);
+}
+.spacer {
+  flex: 1;
+}
+.miniButton {
+  border: 1px solid var(--pw-border);
+  background: transparent;
+  color: var(--pw-fg-2);
+  border-radius: var(--radius-sm);
+  padding: 3px 10px;
+  font: inherit;
+  font-size: 12px;
+  cursor: default;
+}
+.miniButton:hover {
+  background: var(--pw-raised-hover);
+}
+.miniButton:focus-visible,
+.navItem:focus-visible,
+.segmented button:focus-visible,
+.kill:focus-visible,
+.killArmed:focus-visible {
+  outline: 2px solid var(--pw-accent-ring);
+  outline-offset: 1px;
+}
+
+.body {
+  display: grid;
+  grid-template-columns: 176px minmax(0, 1fr) auto;
+  min-height: 0;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 8px;
+  border-right: 1px solid var(--pw-line);
+}
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--pw-muted);
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+.navItem:hover {
+  color: var(--pw-fg-2);
+  background: var(--pw-raised-hover);
+}
+.navItem[aria-current="page"] {
+  background: var(--pw-accent-soft);
+  color: var(--pw-fg);
+}
+.navCount {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--pw-muted-2);
+}
+
+.main {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 16px 16px;
+}
+
+.aside {
+  width: 224px;
+  padding: 14px 16px;
+  border-left: 1px solid var(--pw-line);
+  overflow-y: auto;
+}
+.asideTitle {
+  margin: 0 0 8px;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pw-muted-2);
+}
+.nowList {
+  margin: 0;
+}
+.nowRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--pw-line-row);
+}
+.nowRow dt {
+  color: var(--pw-muted);
+  font-size: 12px;
+}
+.nowRow dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.nowRow[data-level="watch"] dd {
+  color: var(--pw-warn-text);
+}
+.nowRow[data-level="stop"] dd {
+  color: var(--pw-stop-text);
+}
+
+.overview {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.card {
+  border: 1px solid var(--pw-line);
+  border-radius: var(--radius-md);
+  padding: 10px 12px 8px;
+}
+.chartBar {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--pw-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.segmented button {
+  border: 0;
+  background: transparent;
+  color: var(--pw-muted);
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 10px;
+  cursor: default;
+}
+.segmented button + button {
+  border-left: 1px solid var(--pw-border);
+}
+.segmented button[aria-pressed="true"] {
+  background: var(--pw-accent-soft);
+  color: var(--pw-fg);
+}
+.note {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: var(--pw-muted-2);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.table th,
+.table td {
+  padding: 5px 8px;
+  text-align: left;
+  font-weight: 400;
+  border-top: 1px solid var(--pw-line-row);
+  white-space: nowrap;
+}
+.table thead th {
+  border-top: 0;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pw-muted-2);
+}
+.num {
+  text-align: right !important;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+td.num[data-level="watch"] {
+  color: var(--pw-warn-text);
+}
+.procCell {
+  display: flex;
+  flex-direction: column;
+  max-width: 280px;
+  overflow: hidden;
+}
+.procName {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pw-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.procSub {
+  font-size: 11px;
+  color: var(--pw-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.muted {
+  color: var(--pw-muted-2);
+}
+.ports {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+.portChip {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--pw-accent-soft);
+  color: var(--pw-fg-2);
+}
+.tableEmpty {
+  margin: 0;
+  padding: 14px 4px;
+  font-size: 12px;
+  color: var(--pw-muted);
+}
+.actionCell {
+  text-align: right !important;
+  width: 1%;
+}
+.kill,
+.killArmed {
+  border: none;
+  background: transparent;
+  color: var(--pw-muted-2);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 13px;
+}
+.kill:hover {
+  color: var(--status-danger);
+  background: var(--pw-raised-hover);
+}
+.killArmed {
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--pw-on-action);
+  background: var(--status-danger);
+  font-weight: 600;
+  font-size: 11px;
+  padding: 4px 8px;
+}
+.lock {
+  position: relative;
+  display: inline-block;
+  color: var(--pw-muted-2);
+  padding: 4px 6px;
+}
+/* CSS-only tooltip, as in the panel. */
+.lock[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--pw-toast-bg);
+  border: 1px solid var(--pw-border);
+  color: var(--pw-toast-fg);
+  font-size: 11px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Ports page: the panel's list at full width. */
+.portsPage {
+  display: flex;
+  flex-direction: column;
+  max-width: 720px;
+  min-height: 100%;
+}

@@ -8,7 +8,8 @@ use std::collections::HashMap;
 pub struct ProcessCounters {
     pub pid: u32,
     pub name: String,
-    /// Process start, in nanoseconds on the machine clock. Distinguishes a reused PID.
+    /// Process start in epoch seconds (the BSD start time, the same value the ports list and
+    /// the kill guard use). Distinguishes a reused PID.
     pub started_at: u64,
     /// User + system CPU time, in nanoseconds.
     pub cpu_time_ns: u64,
@@ -35,6 +36,10 @@ pub struct ProcessUsage {
     /// Executable path, so a caller can group helpers under their app bundle.
     pub path: Option<String>,
     pub uid: Option<u32>,
+    /// Share of the GPU's time this process used over the interval (0 to 100), summed over all
+    /// its GPU clients. `None` when the OS does not report it for this process, or on the first
+    /// reading. Undocumented IORegistry source; treat "no figure" as normal.
+    pub gpu_pct: Option<f32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -53,6 +58,27 @@ pub fn ticks_to_ns(ticks: u64, numer: u32, denom: u32) -> u64 {
         return ticks;
     }
     ((ticks as u128 * numer as u128) / denom as u128).min(u64::MAX as u128) as u64
+}
+
+/// Per-PID GPU share from two cumulative GPU-time maps (nanoseconds) `dt_ns` apart. A PID
+/// missing from either map, or whose counter went backwards (a client closed or the counter
+/// reset), has no figure. A process can overlap work on several clients, so the share is capped
+/// at 100.
+pub fn gpu_pct_by_pid(
+    prev: &HashMap<u32, u64>,
+    curr: &HashMap<u32, u64>,
+    dt_ns: f64,
+) -> HashMap<u32, f32> {
+    if dt_ns <= 0.0 {
+        return HashMap::new();
+    }
+    curr.iter()
+        .filter_map(|(pid, now)| {
+            let before = prev.get(pid)?;
+            let delta = now.checked_sub(*before)?;
+            Some((*pid, (delta as f64 / dt_ns * 100.0).min(100.0) as f32))
+        })
+        .collect()
 }
 
 /// Ranks processes by `sort`, top `n`. A process missing from `prev`, or whose start time
@@ -94,6 +120,7 @@ pub fn rank(
                 energy_mw,
                 path: c.path.clone(),
                 uid: c.uid,
+                gpu_pct: None,
             }
         })
         .collect();
@@ -224,6 +251,25 @@ mod tests {
         let r = rank(&prev, &curr, 0, Sort::Cpu, 5);
         assert_eq!(r[0].cpu_pct, 0.0);
         assert_eq!(r[0].energy_mw, None);
+    }
+
+    #[test]
+    fn gpu_share_from_two_readings() {
+        let prev = HashMap::from([(1, 1_000_000_000), (2, 0), (3, 500)]);
+        let curr = HashMap::from([(1, 1_100_000_000), (2, 5_000_000_000), (4, 9)]);
+        let r = gpu_pct_by_pid(&prev, &curr, 1_000_000_000.0);
+        assert!((r[&1] - 10.0).abs() < 1e-3);
+        assert_eq!(r[&2], 100.0, "capped");
+        assert!(!r.contains_key(&3), "gone");
+        assert!(!r.contains_key(&4), "no baseline");
+    }
+
+    #[test]
+    fn gpu_counter_reset_and_zero_interval_give_no_figure() {
+        let prev = HashMap::from([(1, 900)]);
+        let curr = HashMap::from([(1, 100)]);
+        assert!(gpu_pct_by_pid(&prev, &curr, 1e9).is_empty());
+        assert!(gpu_pct_by_pid(&curr, &prev, 0.0).is_empty());
     }
 
     #[test]

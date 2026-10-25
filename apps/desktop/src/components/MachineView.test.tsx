@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MachineView } from "./MachineView";
 import { PanelHeader } from "./PanelHeader";
@@ -9,7 +9,9 @@ import type { GaugeDto, MachineSnapshot } from "@/lib/machine-types";
 
 function renderView(snapshot: MachineSnapshot) {
   vi.spyOn(machine, "topProcesses").mockResolvedValue([]);
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   return render(
     <QueryClientProvider client={client}>
       <MachineView snapshot={snapshot} error={null} onToast={() => {}} />
@@ -19,7 +21,10 @@ function renderView(snapshot: MachineSnapshot) {
 
 function withGauge(id: GaugeDto["id"], over: Partial<GaugeDto>): MachineSnapshot {
   const snap = mockMachineSnapshot(1_000_000);
-  return { ...snap, gauges: snap.gauges.map((g) => (g.id === id ? { ...g, ...over } : g)) };
+  return {
+    ...snap,
+    gauges: snap.gauges.map((g) => (g.id === id ? { ...g, ...over } : g)),
+  };
 }
 
 describe("MachineView gauges", () => {
@@ -103,5 +108,16 @@ describe("verdict pill", () => {
   it("keeps the listening count when no verdict is given", () => {
     render(<PanelHeader count={3} />);
     expect(screen.getByText("3 listening")).toBeTruthy();
+  });
+});
+
+describe("MachineView full window button", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("the ⤢ button opens the full window", () => {
+    const open = vi.spyOn(machine, "openFullWindow").mockResolvedValue();
+    renderView(mockMachineSnapshot(1_000_000));
+    fireEvent.click(screen.getByRole("button", { name: "Open full window" }));
+    expect(open).toHaveBeenCalledTimes(1);
   });
 });

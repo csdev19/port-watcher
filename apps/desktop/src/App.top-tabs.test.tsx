@@ -7,7 +7,9 @@ import * as machine from "@/lib/machine";
 import { resetMemorySettings } from "@/settings/store";
 
 function renderApp() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   return render(
     <QueryClientProvider client={client}>
       <App />
@@ -58,6 +60,18 @@ describe("top-level tabs", () => {
     fireEvent.keyDown(window, { key: "1", metaKey: true });
     await screen.findByText("3000");
     expect(screen.queryByRole("group", { name: /^CPU,/ })).toBeNull();
+  });
+
+  it("on Machine, ⌘↩ opens the full window; on Ports it does not", async () => {
+    const open = vi.spyOn(machine, "openFullWindow").mockResolvedValue();
+    renderApp();
+    await screen.findByText("3000");
+    fireEvent.keyDown(window, { key: "Enter", metaKey: true });
+    expect(open).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("tab", { name: /^Machine/ }));
+    await screen.findByRole("group", { name: /^CPU,/ });
+    fireEvent.keyDown(window, { key: "Enter", metaKey: true });
+    expect(open).toHaveBeenCalledTimes(1);
   });
 
   it("on Machine, ⌘⌫ never kills a port", async () => {
