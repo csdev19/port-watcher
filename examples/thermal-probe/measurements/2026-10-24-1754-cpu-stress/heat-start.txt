@@ -1,0 +1,11 @@
+verdict        OK
+thermal        nominal
+memory press.  normal
+cpu load       19.2%  (P 9%  E 40%  of 8P+4E cores)
+gpu load       12%
+cpu temp       avg 59.7 C  max 69.5 C
+gpu temp       max 59.6 C
+sensors        83 sensors (51 gated)
+fan            2323 rpm (30% of 7826)
+system power   8.3 W
+memory         18.8/24 GB used, 7.2 GB compressed, 3.8 GB swap, 54% free

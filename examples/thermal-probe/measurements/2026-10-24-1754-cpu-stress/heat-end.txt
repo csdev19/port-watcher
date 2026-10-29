@@ -1,0 +1,12 @@
+verdict        WATCH
+  - CPU hotspot 115 C (>= 80)
+thermal        nominal
+memory press.  normal
+cpu load       100.0%  (P 100%  E 100%  of 8P+4E cores)
+gpu load       1%
+cpu temp       avg 94.0 C  max 115.5 C
+gpu temp       max 79.6 C
+sensors        134 sensors (0 gated)
+fan            2329 rpm (30% of 7826)
+system power   55.0 W
+memory         17.3/24 GB used, 7.6 GB compressed, 3.7 GB swap, 54% free

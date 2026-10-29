@@ -1,0 +1,209 @@
+=== 17:55:52
+verdict        OK
+thermal        nominal
+memory press.  normal
+cpu load       100.0%  (P 100%  E 100%  of 8P+4E cores)
+gpu load       0%
+cpu temp       avg 57.5 C  max 67.6 C
+gpu temp       max 54.7 C
+sensors        32 sensors (0 gated)
+fan            2318 rpm (30% of 7826)
+thermal_level_sysctl: n/a
+=== 17:56:08
+verdict        WATCH
+  - CPU hotspot 113 C (>= 80)
+thermal        nominal
+memory press.  normal
+cpu load       100.0%  (P 100%  E 100%  of 8P+4E cores)
+gpu load       0%
+cpu temp       avg 90.0 C  max 112.6 C
+gpu temp       max 73.9 C
+sensors        134 sensors (0 gated)
+thermal_level_sysctl: n/a
+=== 17:56:24
+verdict        WATCH
+  - CPU hotspot 115 C (>= 80)
+thermal        nominal
+memory press.  normal
+cpu load       100.0%  (P 100%  E 100%  of 8P+4E cores)
+gpu load       2%
+cpu temp       avg 93.8 C  max 115.2 C
+gpu temp       max 79.4 C
+sensors        134 sensors (0 gated)
+thermal_level_sysctl: n/a
+=== 17:56:41
+verdict        WATCH
+  - CPU hotspot 114 C (>= 80)
+thermal        nominal
+memory press.  normal
+cpu load       100.0%  (P 100%  E 100%  of 8P+4E cores)
+gpu load       2%
+cpu temp       avg 95.0 C  max 114.4 C
+gpu temp       max 81.5 C
+sensors        134 sensors (0 gated)
+thermal_level_sysctl: n/a
+=== 17:56:57
+verdict        WATCH
+  - CPU hotspot 113 C (>= 80)
+thermal        nominal
+memory press.  normal
+cpu load       100.0%  (P 100%  E 100%  of 8P+4E cores)
+gpu load       0%
+cpu temp       avg 94.9 C  max 112.8 C
+gpu temp       max 81.5 C
+sensors        134 sensors (0 gated)
+thermal_level_sysctl: n/a
+=== 17:57:13
+verdict        WATCH
+  - CPU hotspot 111 C (>= 80)
+thermal        nominal
+memory press.  normal
+cpu load       100.0%  (P 100%  E 100%  of 8P+4E cores)
+gpu load       5%
+cpu temp       avg 92.8 C  max 111.0 C
+gpu temp       max 80.3 C
+sensors        134 sensors (0 gated)
+thermal_level_sysctl: n/a
+=== 17:57:29
+verdict        WATCH
+  - CPU hotspot 110 C (>= 80)
+thermal        nominal
+memory press.  normal
+cpu load       100.0%  (P 100%  E 100%  of 8P+4E cores)
+gpu load       0%
+cpu temp       avg 91.8 C  max 110.1 C
+gpu temp       max 79.4 C
+sensors        134 sensors (0 gated)
+thermal_level_sysctl: n/a
+=== 17:57:45
+verdict        WATCH
+  - CPU hotspot 110 C (>= 80)
+thermal        nominal
+memory press.  normal
+cpu load       100.0%  (P 100%  E 100%  of 8P+4E cores)
+gpu load       6%
+cpu temp       avg 91.6 C  max 109.7 C
+gpu temp       max 79.2 C
+sensors        134 sensors (0 gated)
+thermal_level_sysctl: n/a
+=== 17:58:01
+verdict        WATCH
+  - CPU hotspot 109 C (>= 80)
+thermal        nominal
+memory press.  normal
+cpu load       100.0%  (P 100%  E 100%  of 8P+4E cores)
+gpu load       8%
+cpu temp       avg 91.1 C  max 109.5 C
+gpu temp       max 79.1 C
+sensors        134 sensors (0 gated)
+thermal_level_sysctl: n/a
+=== 17:58:17
+verdict        WATCH
+  - CPU hotspot 110 C (>= 80)
+thermal        nominal
+memory press.  normal
+cpu load       100.0%  (P 100%  E 100%  of 8P+4E cores)
+gpu load       3%
+cpu temp       avg 91.4 C  max 110.1 C
+gpu temp       max 78.9 C
+sensors        134 sensors (0 gated)
+thermal_level_sysctl: n/a
+=== 17:58:33
+verdict        WATCH
+  - CPU hotspot 109 C (>= 80)
+thermal        nominal
+memory press.  normal
+cpu load       100.0%  (P 100%  E 100%  of 8P+4E cores)
+gpu load       3%
+cpu temp       avg 90.0 C  max 108.6 C
+gpu temp       max 78.7 C
+sensors        134 sensors (0 gated)
+thermal_level_sysctl: n/a
+=== 17:58:49
+verdict        WATCH
+  - CPU hotspot 113 C (>= 80)
+thermal        nominal
+memory press.  normal
+cpu load       100.0%  (P 100%  E 100%  of 8P+4E cores)
+gpu load       3%
+cpu temp       avg 92.6 C  max 112.8 C
+gpu temp       max 79.3 C
+sensors        134 sensors (0 gated)
+thermal_level_sysctl: n/a
+=== 17:59:05
+verdict        WATCH
+  - CPU hotspot 110 C (>= 80)
+thermal        nominal
+memory press.  normal
+cpu load       100.0%  (P 100%  E 100%  of 8P+4E cores)
+gpu load       4%
+cpu temp       avg 91.8 C  max 109.9 C
+gpu temp       max 79.6 C
+sensors        134 sensors (0 gated)
+thermal_level_sysctl: n/a
+=== 17:59:21
+verdict        WATCH
+  - CPU hotspot 110 C (>= 80)
+thermal        nominal
+memory press.  normal
+cpu load       100.0%  (P 100%  E 100%  of 8P+4E cores)
+gpu load       3%
+cpu temp       avg 90.5 C  max 110.3 C
+gpu temp       max 79.0 C
+sensors        134 sensors (0 gated)
+thermal_level_sysctl: n/a
+=== 17:59:38
+verdict        WATCH
+  - CPU hotspot 110 C (>= 80)
+thermal        nominal
+memory press.  normal
+cpu load       100.0%  (P 100%  E 100%  of 8P+4E cores)
+gpu load       3%
+cpu temp       avg 92.3 C  max 110.1 C
+gpu temp       max 79.8 C
+sensors        134 sensors (0 gated)
+thermal_level_sysctl: n/a
+=== 17:59:54
+verdict        WATCH
+  - CPU hotspot 113 C (>= 80)
+thermal        nominal
+memory press.  normal
+cpu load       100.0%  (P 100%  E 100%  of 8P+4E cores)
+gpu load       3%
+cpu temp       avg 92.5 C  max 112.8 C
+gpu temp       max 79.5 C
+sensors        134 sensors (0 gated)
+thermal_level_sysctl: n/a
+=== 18:00:10
+verdict        WATCH
+  - CPU hotspot 111 C (>= 80)
+thermal        nominal
+memory press.  normal
+cpu load       100.0%  (P 100%  E 100%  of 8P+4E cores)
+gpu load       4%
+cpu temp       avg 92.1 C  max 111.0 C
+gpu temp       max 79.9 C
+sensors        134 sensors (0 gated)
+thermal_level_sysctl: n/a
+=== 18:00:26
+verdict        WATCH
+  - CPU hotspot 110 C (>= 80)
+thermal        nominal
+memory press.  normal
+cpu load       100.0%  (P 100%  E 100%  of 8P+4E cores)
+gpu load       1%
+cpu temp       avg 91.7 C  max 109.9 C
+gpu temp       max 79.3 C
+sensors        134 sensors (0 gated)
+thermal_level_sysctl: n/a
+=== 18:00:42
+verdict        WATCH
+  - CPU hotspot 110 C (>= 80)
+thermal        nominal
+memory press.  normal
+cpu load       100.0%  (P 100%  E 100%  of 8P+4E cores)
+gpu load       5%
+cpu temp       avg 92.0 C  max 110.3 C
+gpu temp       max 79.4 C
+sensors        134 sensors (0 gated)
+thermal_level_sysctl: n/a
