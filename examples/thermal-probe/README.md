@@ -21,9 +21,28 @@ cargo build --release
 ./scripts/hot-capture.sh 10 hot                   # 10-minute capture of an overheating episode
 ```
 
-`hot-capture.sh` writes to `measurements/<date-time>-<label>/`. Only `probe.csv` files are
-committed: the process snapshots and sensor dumps name local paths and installed apps, so
-`.gitignore` keeps them out of this public repository.
+`hot-capture.sh` writes to `measurements/<date-time>-<label>/`. Probe rows (`probe.csv`), event
+logs, `heat` snapshots, sensor dumps and run logs are committed; the process snapshots (`top*.txt`,
+`start.txt`, `end.txt`) name local paths and installed apps, so `.gitignore` keeps them out of this
+public repository.
+
+## Measurements
+
+| Folder                       | What                                                                 |
+| ---------------------------- | -------------------------------------------------------------------- |
+| `2026-10-23-cool-baseline`   | 3 min idle, this spike                                               |
+| `2026-10-23-idle-45min`      | 45 min idle, this spike                                              |
+| `2026-10-24-1754-cpu-stress` | 30 s baseline, 12 busy loops for 300 s, 120 s cooldown, `chapay` CLI |
+
+The 2026-10-24 run was recorded with the `chapay` CLI from `crates/system-health`, not with this
+spike: `chapay heat --watch 5 --csv` (`probe.csv`), `chapay events --json` (`events.jsonl`),
+`chapay heat` snapshots (`heat-*.txt`) and `chapay sensors` dumps (`sensors-*.txt`). The driver
+script that sequenced the phases was a one-off and was not kept; `run.log` records its timestamps.
+To repeat it: start the two observers in the background, wait 30 s, run one `yes > /dev/null` per
+core (12 on an M4 Pro) for the stress window, kill them, and keep observing until the fan is back at
+idle. `crates/system-health/tests/rules_replay.rs` replays these CSVs through the alert rules, so a
+new capture folder is a new test fixture. Findings:
+[docs/research/2026-10-23-thermal-baseline-m4-pro.md](../../docs/research/2026-10-23-thermal-baseline-m4-pro.md).
 
 ## Known sensor behaviour (M4 Pro)
 

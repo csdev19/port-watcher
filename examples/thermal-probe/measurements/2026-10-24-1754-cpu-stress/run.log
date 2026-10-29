@@ -1,0 +1,5 @@
+17:55:22 observers started (events pid 20721, probe pid 20722); baseline 30 s
+17:55:52 stress start: 12 busy loops for 300 s
+18:00:58 stress stop
+18:00:59 cooldown 120 s
+18:03:00 done

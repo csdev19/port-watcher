@@ -35,7 +35,9 @@ Claude Design canvas, with the name kept as **chapay**.
 1. Does SMC/IORegistry/notify reading work inside the Developer ID signed, notarized app? (Phase 2,
    first task; ADR 0010's reopen condition.)
 2. Does thermal pressure leave nominal when the local LLM overheats the laptop, or only the hotspot
-   rises? (Owner's hot capture with `hot-capture.sh`; may change the default STOP rule.)
+   rises? Partly answered on 2026-10-24: five minutes of 12 busy loops held the hotspot at 104–115 °C
+   with pressure nominal throughout, so ADR 0011 added the hotspot STOP rule. GPU and memory were not
+   loaded; the LLM case is still open (research note).
 3. Does `prefers-color-scheme` follow live appearance changes in the panel window? (Phase 1.)
 4. The thermal-pressure-level → Nominal/Fair/Serious/Critical mapping under real heat.
 
@@ -71,12 +73,12 @@ anything that needs sudo.
 
 ### Reference bands (defaults)
 
-| Gauge  | OK                       | WATCH                    | STOP                 |
-| ------ | ------------------------ | ------------------------ | -------------------- |
-| Heat   | thermal pressure nominal | Fair, or hotspot ≥ 80 °C | Serious or Critical  |
-| CPU    | < 50 %                   | ≥ 50 % sustained         | — (never STOP alone) |
-| GPU    | < 60 %                   | ≥ 60 % sustained         | — (never STOP alone) |
-| Memory | pressure normal          | pressure warning         | pressure critical    |
+| Gauge  | OK                       | WATCH                    | STOP                                                        |
+| ------ | ------------------------ | ------------------------ | ----------------------------------------------------------- |
+| Heat   | thermal pressure nominal | Fair, or hotspot ≥ 80 °C | Serious or Critical, or hotspot ≥ 95 °C (ADR 0011, revised) |
+| CPU    | < 50 %                   | ≥ 50 % sustained         | — (never STOP alone)                                        |
+| GPU    | < 60 %                   | ≥ 60 % sustained         | — (never STOP alone)                                        |
+| Memory | pressure normal          | pressure warning         | pressure critical                                           |
 
 ### Phases
 

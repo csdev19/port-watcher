@@ -1,3 +1,6 @@
 target/
-# Process snapshots and sensor dumps name local paths and apps; only probe.csv is shared.
-measurements/**/*.txt
+# Process snapshots (top, ps by app) name local paths and installed apps and stay out of this
+# public repository. Probe rows, sensor dumps and run logs carry no personal data and are shared.
+measurements/**/top*.txt
+measurements/**/start.txt
+measurements/**/end.txt
