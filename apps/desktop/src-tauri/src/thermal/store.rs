@@ -218,7 +218,7 @@ impl Store {
             params![
                 local_day,
                 b.min_c,
-                b.max_c,
+                b.max_avg_c,
                 b.avg_c * b.samples as f64,
                 b.samples,
                 serious_minutes
@@ -502,7 +502,9 @@ mod tests {
         let day = &days[0];
         assert_eq!(day.day, "2026-11-04");
         assert_eq!(day.min_c, 35.0);
-        assert_eq!(day.max_c, 90.0);
+        // The day's Max uses the same measure as its Min and Avg (the average
+        // die temperature), not the hottest single sensor (90).
+        assert_eq!(day.max_c, 71.0);
         // (50*1 + 70*3) / 4 samples
         assert!((day.avg_c - 65.0).abs() < 1e-9);
         assert_eq!(day.serious_minutes, 5);
