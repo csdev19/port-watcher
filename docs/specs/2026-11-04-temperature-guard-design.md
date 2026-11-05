@@ -8,8 +8,10 @@ Implemented on branch `feat/temperature-guard`; not on `main` until that PR merg
 chapay reads the Mac's SoC die temperature, explains what the number means, warns when macOS
 reports thermal pressure, and keeps a local history in SQLite so the owner can see daily trends
 and peaks. A peak records the busiest processes and marks the ones holding a listening port, so a
-hot Mac can be traced to a dev server and killed from chapay. The temperature lives in a new
-**Thermal** tab in Settings; showing it in the panel header is opt-in.
+hot Mac can be traced to a dev server and killed from chapay. The panel's tabs become **Ports**
+(Favourites as a collapsible section above the listening list) and **Thermal** (a compact view);
+Settings gains a full **Thermal** tab with history. Showing the live temperature on the panel's
+tab label is opt-in.
 
 | #   | Decision                                                                                                                                                                                       | Why                                                                                                  | ADR        |
 | --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ---------- |
@@ -54,12 +56,17 @@ hot Mac can be traced to a dev server and killed from chapay. The temperature li
   last seven days on record.
 - The Mac sleeps: the gap shows as missing buckets, not as zero-degree readings.
 - Notification spam during a long hot build: one notification per 15 minutes at most.
-- The panel stays as cheap as before when the header option is off: no thermal command runs.
+- The panel stays as cheap as before while the Ports tab is open and the tab-label option is off:
+  no thermal command runs.
 
 ## Acceptance criteria
 
-- [ ] With `showTemperatureInPanel` on, the panel header shows the current average die
-      temperature; with it off (the default), the panel calls no thermal command and shows none.
+- [ ] The panel's tabs are Ports and Thermal. Ports shows Favourites as a collapsible section
+      (state remembered) above the listening list; arrow keys move through both as one list.
+- [ ] The panel's Thermal tab shows the reading with its band and state, today's chart and today's
+      peaks; clicking a peak's port switches to Ports filtered to that port.
+- [ ] With `showTemperatureInPanel` on, the Thermal tab label shows the current temperature; with
+      it off (the default) and the Ports tab open, the panel calls no thermal command.
 - [ ] The Thermal tab shows the current average die temperature, its band label, the
       `thermalState`, and (once a day of history exists) the difference from the 7-day average.
 - [ ] The Thermal tab shows today's chart from the 5-minute buckets, today's min/avg/max, the
@@ -172,8 +179,9 @@ interface ThermalHistory { available: boolean; buckets: ThermalBucket[]; peaks: 
 ### Settings
 
 `thermalGuardEnabled: true` and `showTemperatureInPanel: false` join `SETTINGS_DEFAULTS`. The
-Thermal tab holds both switches. The panel header polls `thermal_current` every 10 s only while
-the option is on and the panel is visible.
+Thermal tab holds both switches. The panel polls `thermal_current` every 10 s only while its
+Thermal tab is open, or while the option is on (for the tab label) and the panel is visible.
+`favouritesCollapsed: false` remembers the Favourites section's state.
 
 ### UI
 
@@ -181,7 +189,14 @@ the option is on and the panel is visible.
   reading large, band copy and `thermalState` below it, the baseline delta; today's chart as an
   inline SVG (average line, hottest-sensor line, band shading), today's min/avg/max; a 7-day list;
   the peak list (time, temperature, top processes, ports); the two switches.
-- **Panel header** (opt-in): a compact `58°` chip coloured by band, with the band copy as tooltip.
+- **Panel tabs:** `Ports` (count of listening ports) and `Thermal` (with the option on, the
+  current `58°` coloured by band). The search field shows on Ports only.
+- **Panel › Ports:** a `Favourites · N` header with a chevron that collapses the watched-ports
+  section (form and rows), then the listening list. Search filters both; keyboard navigation and
+  the kill shortcuts treat the visible favourite rows and listening rows as one list.
+- **Panel › Thermal:** the reading and its band/state lines, today's chart (the same component as
+  Settings), today's peaks (top processes, port pills). A port pill switches to Ports with the
+  search set to that port. A footer link opens Settings › Thermal.
 
 ### References
 
