@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { MOCK_PORTS } from "@/lib/mock-ports";
 import * as portsModule from "@/lib/ports";
+import * as thermalModule from "@/lib/thermal";
 import { resetMemorySettings, setSetting } from "@/settings/store";
 
 /** jsdom has no __TAURI_INTERNALS__, so `inTauri` is false and the app
@@ -926,5 +927,30 @@ describe("App", () => {
       fireEvent.click(screen.getByRole("button", { name: /copy command/i }));
       expect(writeTextSpy).toHaveBeenCalledWith(expect.stringContaining("next dev"));
     });
+  });
+});
+
+describe("App temperature chip", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    window.localStorage.clear();
+    resetMemorySettings();
+  });
+
+  it("shows no chip and reads no sensor by default", async () => {
+    const current = vi.spyOn(thermalModule, "thermalCurrent");
+    renderApp();
+    await screen.findByText("3000");
+    expect(screen.queryByRole("img", { name: /^Temperature/ })).toBeNull();
+    expect(current).not.toHaveBeenCalled();
+  });
+
+  it("shows the formatted temperature, coloured by band, when the setting is on", async () => {
+    await setSetting("showTemperatureInPanel", true);
+    renderApp();
+    const chip = await screen.findByRole("img", { name: /^Temperature 58°/ });
+    expect(chip.textContent).toBe("58°");
+    expect(chip.getAttribute("data-band")).toBe("normal");
+    expect(chip.getAttribute("data-tooltip")).toBe("Everyday work");
   });
 });

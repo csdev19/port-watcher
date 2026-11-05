@@ -21,6 +21,7 @@ import { SearchInput } from "@/components/SearchInput";
 import { EmptyState, ErrorState, FilteredEmptyState } from "@/components/PanelStates";
 import { Toast, type ToastData } from "@/components/Toast";
 import { Icon } from "@/components/Icon";
+import { ThermalChip } from "@/components/ThermalChip";
 import { UpdateBanner } from "@/components/UpdateBanner";
 import { pendingVersion, useUpdate } from "@/lib/update";
 import styles from "@/app.module.css";
@@ -48,6 +49,7 @@ export default function App() {
   const { data: allPorts, error, refetch, dataUpdatedAt } = usePorts();
   const [confirmBeforeKill] = useSetting("confirmBeforeKill");
   const [showAppsAndSystem] = useSetting("showAppsAndSystem");
+  const [showTemperature] = useSetting("showTemperatureInPanel");
   const [update, updateActions] = useUpdate();
   const [dismissedUpdate, setDismissedUpdate] = useSetting("dismissedUpdateVersion");
   // Settings > Ports > "Show apps & system": when off, app/system rows are
@@ -434,28 +436,31 @@ export default function App() {
         onDismiss={setDismissedUpdate}
       />
       <SearchInput ref={searchRef} value={query} onChange={setQuery} />
-      <div className={styles.tablist} role="tablist" aria-label="Ports" onKeyDown={onTabKeyDown}>
-        {TABS.map((tab) => (
-          <button
-            key={tab}
-            ref={(el) => {
-              tabRefs.current[tab] = el;
-            }}
-            type="button"
-            role="tab"
-            id={`tab-${tab}`}
-            aria-selected={activeTab === tab}
-            aria-controls={`panel-${tab}`}
-            tabIndex={activeTab === tab ? 0 : -1}
-            className={activeTab === tab ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-            onClick={() => switchTab(tab)}
-          >
-            {TAB_LABEL[tab]}
-            <span className={styles.tabCount}>
-              {tab === "listening" ? (data ? data.length : "–") : favourites.items.length}
-            </span>
-          </button>
-        ))}
+      <div className={styles.tabRow}>
+        <div className={styles.tablist} role="tablist" aria-label="Ports" onKeyDown={onTabKeyDown}>
+          {TABS.map((tab) => (
+            <button
+              key={tab}
+              ref={(el) => {
+                tabRefs.current[tab] = el;
+              }}
+              type="button"
+              role="tab"
+              id={`tab-${tab}`}
+              aria-selected={activeTab === tab}
+              aria-controls={`panel-${tab}`}
+              tabIndex={activeTab === tab ? 0 : -1}
+              className={activeTab === tab ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+              onClick={() => switchTab(tab)}
+            >
+              {TAB_LABEL[tab]}
+              <span className={styles.tabCount}>
+                {tab === "listening" ? (data ? data.length : "–") : favourites.items.length}
+              </span>
+            </button>
+          ))}
+        </div>
+        {showTemperature ? <ThermalChip /> : null}
       </div>
 
       {activeTab === "listening" ? (

@@ -1,18 +1,20 @@
 import { useEffect, useState, type ComponentType } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Info, List, Shield, SlidersHorizontal, type LucideIcon } from "lucide-react";
+import { Info, List, Shield, SlidersHorizontal, Thermometer, type LucideIcon } from "lucide-react";
 import { inTauri } from "../lib/ports";
 import General from "./sections/General";
 import Ports from "./sections/Ports";
+import Thermal from "./sections/Thermal";
 import Permissions from "./sections/Permissions";
 import About from "./sections/About";
 import styles from "./settings.module.css";
 
-type SectionId = "general" | "ports" | "permissions" | "about";
+type SectionId = "general" | "ports" | "thermal" | "permissions" | "about";
 
 const SECTIONS: { id: SectionId; title: string; icon: LucideIcon; body: ComponentType }[] = [
   { id: "general", title: "General", icon: SlidersHorizontal, body: General },
   { id: "ports", title: "Ports", icon: List, body: Ports },
+  { id: "thermal", title: "Thermal", icon: Thermometer, body: Thermal },
   { id: "permissions", title: "Permissions", icon: Shield, body: Permissions },
   { id: "about", title: "About", icon: Info, body: About },
 ];
