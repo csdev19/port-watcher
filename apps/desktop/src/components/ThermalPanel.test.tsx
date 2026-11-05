@@ -6,14 +6,13 @@ import * as thermal from "@/lib/thermal";
 
 function renderPanel() {
   const onShowPort = vi.fn();
-  const onOpenSettings = vi.fn();
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <ThermalPanel onShowPort={onShowPort} onOpenSettings={onOpenSettings} />
+      <ThermalPanel onShowPort={onShowPort} />
     </QueryClientProvider>,
   );
-  return { onShowPort, onOpenSettings };
+  return { onShowPort };
 }
 
 describe("ThermalPanel", () => {
@@ -40,10 +39,29 @@ describe("ThermalPanel", () => {
     expect(onShowPort).toHaveBeenCalledWith(5173);
   });
 
-  it("opens Settings from the footer", async () => {
-    const { onOpenSettings } = renderPanel();
-    fireEvent.click(screen.getByRole("button", { name: "Thermal history in Settings" }));
-    expect(onOpenSettings).toHaveBeenCalledTimes(1);
+  it("keeps the three most recent peaks, newest first", async () => {
+    const proc = { pid: 1, name: "node", cpu: 50, ports: [] };
+    const base = thermal.todayRange(new Date()).fromS;
+    // Rust's order: newest first.
+    const peaks = [4, 3, 2, 1].map((h) => ({
+      id: h,
+      atS: base + h * 60,
+      avgC: 80 + h,
+      maxC: 95 + h,
+      state: "nominal" as const,
+      processes: [proc],
+    }));
+    vi.spyOn(thermal, "thermalHistory").mockResolvedValue({
+      available: true,
+      buckets: [],
+      peaks,
+      days: [],
+    });
+    renderPanel();
+    expect(await screen.findByText("84°")).toBeTruthy();
+    expect(screen.getByText("83°")).toBeTruthy();
+    expect(screen.getByText("82°")).toBeTruthy();
+    expect(screen.queryByText("81°")).toBeNull();
   });
 
   it("says so when there are no sensors", async () => {

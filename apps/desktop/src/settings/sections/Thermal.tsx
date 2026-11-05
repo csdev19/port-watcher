@@ -168,7 +168,7 @@ function History({ history }: { history: ThermalHistory | undefined }) {
         {history.peaks.length === 0 ? (
           <p className={styles.empty}>No peaks today.</p>
         ) : (
-          [...history.peaks].reverse().map((peak) => <Peak key={peak.id} peak={peak} />)
+          history.peaks.map((peak) => <Peak key={peak.id} peak={peak} />)
         )}
       </Group>
     </>

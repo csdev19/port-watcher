@@ -394,6 +394,28 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* The Thermal tab's link to Settings, in the footer's text slot; pulled
+ * left by its own padding so its text lines up with the footer text. */
+.footerLink {
+  margin-left: -6px;
+  padding: 3px 6px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--pw-muted);
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.footerLink:hover {
+  color: var(--pw-fg);
+  background: var(--pw-raised-hover);
+}
+.footerLink:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--pw-accent-ring);
+}
+
 .footerButton {
   position: relative;
   display: grid;

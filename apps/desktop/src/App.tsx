@@ -621,12 +621,23 @@ export default function App() {
           aria-labelledby="tab-thermal"
           className={styles.tabPanel}
         >
-          <ThermalPanel onShowPort={showPort} onOpenSettings={() => void openSettings("thermal")} />
+          <ThermalPanel onShowPort={showPort} />
         </div>
       )}
 
       <footer className={styles.footer}>
-        <span>{footerText}</span>
+        {activeTab === "thermal" ? (
+          // One footer strip: the Thermal tab's link takes the text slot.
+          <button
+            type="button"
+            className={styles.footerLink}
+            onClick={() => void openSettings("thermal")}
+          >
+            Thermal history in Settings
+          </button>
+        ) : (
+          <span>{footerText}</span>
+        )}
         <button
           type="button"
           className={styles.footerButton}

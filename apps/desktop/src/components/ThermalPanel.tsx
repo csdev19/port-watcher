@@ -17,12 +17,11 @@ const MAX_PROCESSES = 3;
 interface Props {
   /** Switches to Ports with the search set to this port. */
   onShowPort: (port: number) => void;
-  onOpenSettings: () => void;
 }
 
 /** The panel's Thermal tab: the reading, today's chart and today's peaks.
  * Owns its polling, so it only calls Rust while it is mounted. */
-export function ThermalPanel({ onShowPort, onOpenSettings }: Props) {
+export function ThermalPanel({ onShowPort }: Props) {
   const current = useThermalCurrent();
   const today = useThermalToday();
 
@@ -31,11 +30,6 @@ export function ThermalPanel({ onShowPort, onOpenSettings }: Props) {
       <div className={styles.scroll}>
         <Current reading={current.data} />
         <History history={today.data} fetchedAt={today.dataUpdatedAt} onShowPort={onShowPort} />
-      </div>
-      <div className={styles.footer}>
-        <button type="button" className={styles.link} onClick={onOpenSettings}>
-          Thermal history in Settings
-        </button>
       </div>
     </div>
   );
@@ -73,7 +67,8 @@ function History({
   if (history === undefined) return null;
   if (!history.available) return <p className={styles.quiet}>History is unavailable right now.</p>;
   const stats = summarize(history.buckets);
-  const peaks = [...history.peaks].reverse().slice(0, MAX_PEAKS);
+  // Rust returns peaks newest first; the panel keeps the most recent ones.
+  const peaks = history.peaks.slice(0, MAX_PEAKS);
   return (
     <>
       <section className={styles.section}>

@@ -162,32 +162,7 @@
   background: var(--pw-plum-hover);
   color: var(--pw-fg);
 }
-.portPill:focus-visible,
-.link:focus-visible {
+.portPill:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px var(--pw-accent-ring);
-}
-
-.footer {
-  display: flex;
-  align-items: center;
-  min-height: 30px;
-  padding: 4px 6px;
-  border-top: 1px solid var(--pw-line);
-  background: var(--pw-footer);
-}
-
-.link {
-  padding: 3px 6px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--pw-muted);
-  font-family: inherit;
-  font-size: 11px;
-  cursor: pointer;
-}
-.link:hover {
-  color: var(--pw-fg);
-  background: var(--pw-raised-hover);
 }
