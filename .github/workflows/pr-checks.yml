@@ -1,0 +1,171 @@
+name: PR checks
+
+# Tier: pull request. Ordinary PRs get one seconds-long check; only release candidates are
+# verified in full. Policy: docs/adr/0014-verify-release-candidates-not-every-pr.md, applying
+# https://github.com/csdev19/general-knowledge/blob/main/monorepos/release-gated-verification.md
+# and the draft/ready shape in
+# https://github.com/csdev19/general-knowledge/blob/main/monorepos/pr-checks.md
+#
+# 1. `Quick checks` — every non-draft PR: install, lint, format check. The pre-push hook
+#    (`bun run verify`, plus `verify:rust` when src-tauri changes) is the real per-PR check;
+#    this only catches a push made with the hook bypassed or not installed.
+# 2. `Classify the change` — every non-draft revision and every manual dispatch. No checkout.
+#    `release=true` for a release-please branch (`release-please--branches--*`) or a dispatch.
+# 3. Candidates only: `verify.yml` (bun run verify + web build, Linux), `desktop-ci.yml`
+#    (bun run verify:rust, macOS) and `security-audit.yml` (cargo audit fails, bun audit
+#    reports). An ordinary PR starts none of them.
+#
+# READINESS — draft means "still accumulating", ready means "verify this". release-please
+# opens its PRs as drafts (`draft-pull-request` in release-please-config.json) and rewrites
+# them on every releasable merge; a draft starts no runner. Marking the release PR **Ready for
+# review** runs the full verification; every later revision is re-verified and the superseded
+# run cancelled. Eligibility is decided at the job level, so no runner boots just to refuse.
+# Forgetting to mark it ready is not dangerous: release-desktop.yml and release-web.yml run the
+# same verification in front of every publish step.
+#
+# NO REQUIRED CHECK, NO GATE JOB. `main` has no branch protection and one owner merges (agents
+# push on the owner's behalf), so a "Merge requirements" job would be a status icon that bills
+# a minute per PR. The hub's tier table puts this case at "hook + candidate, PR-time cloud
+# checks off". Reopen when branch protection or a ruleset requires a check, or a second person
+# merges: then add the classify-and-pass gate from the hub page and require it.
+
+on:
+  pull_request:
+    # No `branches:` filter: a stacked PR targets the branch below it, and a filter on `main`
+    # would silently skip it. Running on every base costs one short job.
+    #
+    #   ready_for_review   — THE trigger: "this candidate is the one I am publishing".
+    #   synchronize        — a new revision; re-verify it and cancel the superseded run.
+    #   converted_to_draft — back to accumulating; cancel in-flight verification.
+    #   opened/reopened    — a PR opened as ready gets its quick check from the start.
+    # `labeled`/`unlabeled` are ABSENT: release-please's own `autorelease: *` labels would start
+    # verifications, one of them after the merge. `edited` is ABSENT: release-please edits the
+    # PR body in the same second it force-pushes, so it would start a twin run that verifies
+    # nothing. Both measured on kaipu; see the hub page.
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+      - converted_to_draft
+  workflow_dispatch:
+
+# No workflow-level `concurrency` on purpose: an irrelevant event would cancel an in-flight
+# verification before the new run's job conditions skip it. Each job owns its group instead.
+
+permissions:
+  contents: read
+
+jobs:
+  quick:
+    name: Quick checks (lint, format)
+    if: >-
+      ${{
+        github.event_name == 'pull_request' &&
+        github.event.pull_request.state == 'open' &&
+        github.event.pull_request.draft == false
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: quick-pr-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.3.4
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Check formatting
+        run: bunx oxfmt --check .
+
+  classify:
+    name: Classify the change
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event.pull_request.state == 'open' &&
+          github.event.pull_request.draft == false
+        )
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      release: ${{ steps.classify.outputs.release }}
+    steps:
+      - name: Classify the change
+        id: classify
+        env:
+          EVENT: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          release=false
+          case "$EVENT:$HEAD_REF" in
+            workflow_dispatch:* | pull_request:release-please--branches--*) release=true ;;
+          esac
+          echo "release=$release" >> "$GITHUB_OUTPUT"
+          echo "event=$EVENT head_ref=${HEAD_REF:-<none>} release=$release"
+
+  verify:
+    name: Candidate - verify
+    needs: [classify]
+    # Release candidates only: an ordinary pull request starts no runner here.
+    if: ${{ needs.classify.result == 'success' && needs.classify.outputs.release == 'true' }}
+    concurrency:
+      group: verify-pr-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
+    uses: ./.github/workflows/verify.yml
+
+  rust:
+    name: Candidate - desktop
+    needs: [classify]
+    # Release candidates only. macOS bills about ten times Linux; see desktop-ci.yml.
+    if: ${{ needs.classify.result == 'success' && needs.classify.outputs.release == 'true' }}
+    concurrency:
+      group: rust-pr-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
+    uses: ./.github/workflows/desktop-ci.yml
+
+  audit:
+    name: Candidate - audit
+    needs: [classify]
+    # Release candidates only. cargo audit fails this job on a vulnerability.
+    if: ${{ needs.classify.result == 'success' && needs.classify.outputs.release == 'true' }}
+    concurrency:
+      group: audit-pr-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
+    uses: ./.github/workflows/security-audit.yml
+
+  # Joins each candidate job's concurrency group, which cancels that job's in-flight run.
+  # One matrix entry per group, so the macOS run is cancelled too, not only the Linux one.
+  cancel-superseded:
+    name: Cancel ${{ matrix.group }} when returned to draft
+    if: ${{ github.event.action == 'converted_to_draft' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    strategy:
+      matrix:
+        group: [verify, rust, audit]
+    concurrency:
+      group: ${{ matrix.group }}-pr-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      - name: Explain cancellation after returning to draft
+        run: |
+          echo "Returned to draft; any in-flight ${MATRIX_GROUP} verification for this PR is cancelled."
+          echo "Mark the pull request ready for review again to verify the current revision."
+        env:
+          MATRIX_GROUP: ${{ matrix.group }}

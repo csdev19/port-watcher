@@ -47,7 +47,7 @@ To re-enable, undo these together (each disabled line carries a comment naming i
    must also exist in `fullstackServerEnvSchema` (`packages/infra-env/src/fullstack-server.ts`).
 5. CI and deploy: restore the commented lines in `.github/workflows/release-web.yml` (the secrets
    env, the "Write Worker secrets file" step, `deploy --secrets-file worker-secrets.json`, the
-   cleanup step), the placeholders in `.github/workflows/pr-validation.yml`, and the variables in
+   cleanup step), the placeholders in `.github/workflows/verify.yml`, and the variables in
    `scripts/production-env.sh`. Set `DATABASE_URL`, `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` in
    the `production` GitHub environment.
 6. Install `dotenvx` (the root `db:*` scripts call it), then `bun run db:push`. Tables still use the

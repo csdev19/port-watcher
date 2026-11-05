@@ -1,5 +1,15 @@
 name: Release Desktop
 
+# Tier: release. Gate first (hub rule R1): `verify` (verify.yml, Linux) and `verify-rust`
+# (desktop-ci.yml, macOS) run on the tagged SHA, and the build/sign/publish job `needs:`
+# both, so nothing is built, signed or uploaded from a commit that fails `bun run verify`
+# or `bun run verify:rust`. The release PR already ran the same checks once marked Ready for
+# review; they run again here because the tag points at the merge commit, not the PR head.
+# Policy: docs/adr/0014-verify-release-candidates-not-every-pr.md, applying
+# https://github.com/csdev19/general-knowledge/blob/main/monorepos/release-gated-verification.md
+# Reopen only to add checks (for example a macOS E2E against the built bundle); the gate
+# itself is not optional.
+#
 # Builds the chapay Tauri app for macOS (arm64 + x64), signs it with the
 # Developer ID certificate and notarizes it, uploads the DMGs and the in-app
 # update archives to Cloudflare R2, attaches them to the GitHub Release, and
@@ -69,9 +79,27 @@ permissions:
   contents: write # upload assets to the GitHub Release
 
 jobs:
+  # The release gate. Same eligibility as release-mac, so a skipped manual run on
+  # another branch skips the gate too. Neither needs a secret: no `secrets: inherit`.
+  verify:
+    name: Gate - verify
+    if: github.event_name == 'push' || github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/verify.yml
+
+  verify-rust:
+    name: Gate - desktop
+    if: github.event_name == 'push' || github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/desktop-ci.yml
+
   release-mac:
     name: Build, sign & notarize (macOS)
-    # Tag pushes always run; manual runs only from `main`.
+    needs: [verify, verify-rust]
+    # Tag pushes always run; manual runs only from `main`. `needs:` already skips
+    # this job when the gate is skipped and stops it when the gate fails.
     if: github.event_name == 'push' || github.ref == 'refs/heads/main'
     runs-on: macos-latest
     timeout-minutes: 60

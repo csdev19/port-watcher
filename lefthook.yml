@@ -28,10 +28,19 @@ commit-msg:
         echo "release-please derives versions and changelogs from these prefixes."
         exit 1
 
+# Tier: local push. This hook is the per-PR check (docs/adr/0014-verify-release-candidates-not-every-pr.md):
+# ordinary PRs get only a seconds-long lint/format run in the cloud, so `verify` here is what
+# "green" means before a release candidate. Measured on the owner's M5 Pro (2026-11-05):
+# verify 27 s cold, 4-5 s warm; verify:rust (Rust pushes only) 103 s cold, 4-10 s warm.
+# Reopen: if warm `verify` exceeds a minute, move its slowest part to the candidate tier.
 pre-push:
   parallel: true
   jobs:
-    - name: lint
-      run: bunx oxlint
-    - name: format-check
-      run: bunx oxfmt --check .
+    - name: verify
+      run: bun run verify
+    # `glob` filters the push files (what HEAD adds over its upstream, or over origin/HEAD
+    # for a new branch), so a push that does not touch the Rust core skips cargo entirely.
+    # Checked against lefthook 2.1.12: skipped on docs-only pushes, run on src-tauri pushes.
+    - name: verify-rust
+      glob: "apps/desktop/src-tauri/**"
+      run: bun run verify:rust
