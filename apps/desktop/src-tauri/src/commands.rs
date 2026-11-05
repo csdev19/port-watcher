@@ -151,7 +151,10 @@ pub async fn thermal_current(
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .as_ref()
-            .and_then(|store| store.baseline(7).ok().flatten());
+            .and_then(|store| {
+                let since = crate::thermal::sampler::window_start_day(reading.at_s, 7);
+                store.baseline(&since).ok().flatten()
+            });
         Ok(Some(ThermalReadingDto::new(&reading, baseline)))
     })
     .await
@@ -192,7 +195,12 @@ pub async fn thermal_history(
                 .into_iter()
                 .map(Into::into)
                 .collect(),
-            days: store.days(days).map_err(internal)?,
+            days: store
+                .days(&crate::thermal::sampler::window_start_day(
+                    chrono::Utc::now().timestamp(),
+                    days,
+                ))
+                .map_err(internal)?,
         })
     })
     .await

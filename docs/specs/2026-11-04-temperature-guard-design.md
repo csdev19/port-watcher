@@ -48,7 +48,10 @@ hot Mac can be traced to a dev server and killed from chapay. The temperature li
   notification until it is turned on. (The Thermal tab and the opt-in chip still read the current
   temperature while they are open.)
 - A dev build and the installed app run at once (same bundle id, same database): only the process
-  holding `thermal.sampler.lock` samples, so nothing is written twice.
+  holding `thermal.sampler.lock` samples, so nothing is written twice; the other retries the lock
+  every tick and takes over when the holder quits.
+- Weeks without data: the baseline and "last 7 days" use a calendar window ending today, not the
+  last seven days on record.
 - The Mac sleeps: the gap shows as missing buckets, not as zero-degree readings.
 - Notification spam during a long hot build: one notification per 15 minutes at most.
 - The panel stays as cheap as before when the header option is off: no thermal command runs.

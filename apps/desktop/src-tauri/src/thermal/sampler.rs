@@ -305,29 +305,26 @@ pub fn init(app: &AppHandle) {
     });
     prune(app);
 
-    // A dev build and the installed app share the bundle id, so they share
-    // thermal.sqlite. Only the process holding this lock samples; otherwise
-    // every peak, notification and daily total would be written twice.
-    let Some(lock) = data_dir.as_deref().and_then(sampler_lock) else {
-        log::info!("thermal: another chapay is sampling; this one only reads");
-        return;
-    };
-
     let app = app.clone();
     let spawned = std::thread::Builder::new()
         .name("thermal-sampler".into())
-        .spawn(move || {
-            // Held for the thread's life; the OS releases it if chapay dies.
-            let _lock = lock;
-            run_loop(&app)
-        });
+        .spawn(move || run_loop(&app, data_dir));
     if let Err(e) = spawned {
         log::error!("thermal: could not start the sampler ({e})");
     }
 }
 
-/// An exclusive, non-blocking `flock` on `thermal.sampler.lock`; `None` when
-/// another process holds it (or the file cannot be opened).
+/// The first local day of a window of `days` calendar days ending today.
+pub fn window_start_day(now_s: i64, days: i64) -> String {
+    local_day(now_s - (days.max(1) - 1) * 86_400)
+}
+
+/// An exclusive, non-blocking `flock` on `thermal.sampler.lock`. `None` when
+/// another process holds it, or when the file cannot be locked at all (logged).
+///
+/// A dev build and the installed app share the bundle id, so they share
+/// thermal.sqlite; only the holder samples, or every peak, notification and
+/// daily total would be written twice.
 fn sampler_lock(dir: &std::path::Path) -> Option<nix::fcntl::Flock<std::fs::File>> {
     use nix::fcntl::{Flock, FlockArg};
     let file = std::fs::OpenOptions::new()
@@ -335,9 +332,16 @@ fn sampler_lock(dir: &std::path::Path) -> Option<nix::fcntl::Flock<std::fs::File
         .truncate(false)
         .write(true)
         .open(dir.join("thermal.sampler.lock"))
-        .map_err(|e| log::warn!("thermal: cannot open the sampler lock ({e})"))
+        .map_err(|e| log::error!("thermal: cannot open the sampler lock ({e})"))
         .ok()?;
-    Flock::lock(file, FlockArg::LockExclusiveNonblock).ok()
+    match Flock::lock(file, FlockArg::LockExclusiveNonblock) {
+        Ok(lock) => Some(lock),
+        Err((_, nix::errno::Errno::EWOULDBLOCK)) => None,
+        Err((_, e)) => {
+            log::error!("thermal: cannot lock the sampler lock ({e})");
+            None
+        }
+    }
 }
 
 fn refresh_cpu(system: &mut System) {
@@ -348,7 +352,11 @@ fn refresh_cpu(system: &mut System) {
     );
 }
 
-fn run_loop(app: &AppHandle) {
+fn run_loop(app: &AppHandle, data_dir: Option<std::path::PathBuf>) {
+    // Retried every tick, so this process takes over when the holder quits.
+    // Held for the thread's life; the OS releases it if chapay dies.
+    let mut lock = None;
+    let mut waiting_logged = false;
     let mut system = System::new();
     // Prime the CPU counters: usage is measured between two refreshes.
     refresh_cpu(&mut system);
@@ -358,6 +366,20 @@ fn run_loop(app: &AppHandle) {
     let mut day = local_day(now_s());
     loop {
         std::thread::sleep(TICK);
+        if lock.is_none() {
+            lock = data_dir.as_deref().and_then(sampler_lock);
+            match (&lock, waiting_logged) {
+                (None, false) => {
+                    log::info!("thermal: another chapay is sampling; waiting for its lock");
+                    waiting_logged = true;
+                }
+                (Some(_), true) => log::info!("thermal: took over sampling"),
+                _ => {}
+            }
+            if lock.is_none() {
+                continue;
+            }
+        }
         if !guard_wanted(app) {
             // Turned off: write what is open, so the bucket does not linger.
             if let Some(c) = acc.take() {
@@ -614,6 +636,14 @@ mod tests {
             "junk keeps the default"
         );
         assert!(!guard_enabled(Some(&json!(false))));
+    }
+
+    #[test]
+    fn window_start_day_counts_today_as_day_one() {
+        let now = 1_762_300_000;
+        assert_eq!(window_start_day(now, 1), local_day(now));
+        assert_eq!(window_start_day(now, 7), local_day(now - 6 * 86_400));
+        assert_eq!(window_start_day(now, 0), local_day(now));
     }
 
     #[test]

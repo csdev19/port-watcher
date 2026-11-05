@@ -285,13 +285,15 @@ impl Store {
         Ok(out)
     }
 
-    /// The most recent `limit` daily summaries, newest first.
-    pub fn days(&self, limit: i64) -> Result<Vec<Day>, StoreError> {
+    /// Daily summaries from `since_day` (local `YYYY-MM-DD`, inclusive) on,
+    /// newest first. A calendar cutoff, not a row count: after weeks away,
+    /// "the last 7 days" must not reach back to the last days on record.
+    pub fn days(&self, since_day: &str) -> Result<Vec<Day>, StoreError> {
         let mut stmt = self.conn.prepare(
             "SELECT day, min_c, sum_c, samples, max_c, serious_minutes
-             FROM days ORDER BY day DESC LIMIT ?1",
+             FROM days WHERE day >= ?1 ORDER BY day DESC",
         )?;
-        let rows = stmt.query_map([limit], |r| {
+        let rows = stmt.query_map([since_day], |r| {
             let sum: f64 = r.get(2)?;
             let samples: i64 = r.get(3)?;
             Ok(Day {
@@ -309,14 +311,13 @@ impl Store {
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
-    /// Sample-weighted average over the most recent `days` daily rows, so a
-    /// day with few samples (a laptop asleep most of it) counts for less.
-    /// `None` when there is no history yet.
-    pub fn baseline(&self, days: i64) -> Result<Option<f64>, StoreError> {
+    /// Sample-weighted average over the days from `since_day` on, so a day
+    /// with few samples (a laptop asleep most of it) counts for less. `None`
+    /// when that window holds no history.
+    pub fn baseline(&self, since_day: &str) -> Result<Option<f64>, StoreError> {
         let (sum, samples): (Option<f64>, Option<i64>) = self.conn.query_row(
-            "SELECT SUM(sum_c), SUM(samples) FROM
-               (SELECT sum_c, samples FROM days ORDER BY day DESC LIMIT ?1)",
-            [days],
+            "SELECT SUM(sum_c), SUM(samples) FROM days WHERE day >= ?1",
+            [since_day],
             |r| Ok((r.get(0)?, r.get(1)?)),
         )?;
         Ok(match (sum, samples) {
@@ -469,7 +470,7 @@ mod tests {
             .unwrap();
         s.insert_bucket(&bucket(600, 35.0, 70.0, 90.0, 3), "2026-11-04", 5)
             .unwrap();
-        let days = s.days(7).unwrap();
+        let days = s.days("0000-01-01").unwrap();
         assert_eq!(days.len(), 1);
         let day = &days[0];
         assert_eq!(day.day, "2026-11-04");
@@ -520,7 +521,7 @@ mod tests {
         assert_eq!(s.prune(900).unwrap(), 2);
         assert_eq!(s.buckets(0, 10_000).unwrap().len(), 1);
         assert_eq!(s.peaks(0, 10_000).unwrap().len(), 1);
-        assert_eq!(s.days(10).unwrap().len(), 2);
+        assert_eq!(s.days("0000-01-01").unwrap().len(), 2);
     }
 
     #[test]
@@ -577,7 +578,7 @@ mod tests {
     fn baseline_is_sample_weighted_over_recent_days() {
         let d = dir();
         let s = Store::open(&d.path().join("t.sqlite")).unwrap();
-        assert_eq!(s.baseline(7).unwrap(), None);
+        assert_eq!(s.baseline("2026-10-01").unwrap(), None);
         s.insert_bucket(&bucket(300, 30.0, 40.0, 50.0, 1), "2026-11-01", 0)
             .unwrap();
         s.insert_bucket(&bucket(600, 30.0, 60.0, 70.0, 3), "2026-11-02", 0)
@@ -585,9 +586,13 @@ mod tests {
         s.insert_bucket(&bucket(900, 30.0, 100.0, 110.0, 6), "2026-11-03", 0)
             .unwrap();
         // All three days: (40 + 180 + 600) / 10, not the mean of daily means.
-        assert!((s.baseline(7).unwrap().unwrap() - 82.0).abs() < 1e-9);
-        // Only the two most recent days: (180 + 600) / 9.
-        assert!((s.baseline(2).unwrap().unwrap() - 780.0 / 9.0).abs() < 1e-9);
+        assert!((s.baseline("2026-11-01").unwrap().unwrap() - 82.0).abs() < 1e-9);
+        // From the 2nd on: (180 + 600) / 9.
+        assert!((s.baseline("2026-11-02").unwrap().unwrap() - 780.0 / 9.0).abs() < 1e-9);
+        // A window after the last day on record has no baseline, however
+        // many older days exist.
+        assert_eq!(s.baseline("2026-11-04").unwrap(), None);
+        assert!(s.days("2026-11-04").unwrap().is_empty());
     }
 
     #[test]
