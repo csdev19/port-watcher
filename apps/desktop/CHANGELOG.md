@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.3.0](https://github.com/csdev19/port-watcher/compare/desktop-v0.2.0...desktop-v0.3.0) (2026-11-05)
+
+
+### Features
+
+* **desktop:** background thermal sampler, history commands and hot-Mac notification ([81eab32](https://github.com/csdev19/port-watcher/commit/81eab322b39fd95f827d3a7e01907032fb8c7cc6))
+* **desktop:** compact ThermalPanel and a shared ThermalChart ([25abacb](https://github.com/csdev19/port-watcher/commit/25abacbe3b988b516bcfc75a559efd99b25610ce))
+* **desktop:** panel tabs become Ports and Thermal; Favourites collapses into Ports ([c76bb8f](https://github.com/csdev19/port-watcher/commit/c76bb8ff13fb8a6efa030646b642c6da1a5c4da3))
+* **desktop:** read SoC die temperature and macOS thermal state ([c14c176](https://github.com/csdev19/port-watcher/commit/c14c1765453fb9911e55df1698428204b4b1f496))
+* **desktop:** Rust-owned SQLite store for thermal history ([7df85a6](https://github.com/csdev19/port-watcher/commit/7df85a61896d325f814d24c7708c8143da5b3a94))
+* **desktop:** temperature guard — see what your Mac's heat means and trace peaks to the dev server behind them ([36d117c](https://github.com/csdev19/port-watcher/commit/36d117ccffc5c56194a861f3e38c1433c6112ed4))
+* **desktop:** Thermal settings tab and opt-in panel temperature chip ([6c94b94](https://github.com/csdev19/port-watcher/commit/6c94b949d7904334d6bcc4a4626146392f194428))
+
+
+### Bug Fixes
+
+* **deps:** clear the six cargo audit vulnerabilities in the desktop lockfile ([55fc8b5](https://github.com/csdev19/port-watcher/commit/55fc8b5f804fd72ba3d03747a196155124e85c42))
+* **deps:** turn cargo audit green — patch the update feed's TLS crates and the updater's zip ([c57bfd4](https://github.com/csdev19/port-watcher/commit/c57bfd46d5aa9560871a042cbb7cc5e6d862e3a4))
+* **desktop:** a peak's port stays visible when its category is hidden ([10ab75b](https://github.com/csdev19/port-watcher/commit/10ab75b4062ba1ac5d06251b3f8309431ae21b6a))
+* **desktop:** daily thermal Max uses the average, like its Min and Avg ([58ac0dd](https://github.com/csdev19/port-watcher/commit/58ac0dd18a4ed2ab2d55b09dfef2931ab2700bca))
+* **desktop:** one thermal sampler per data dir; draw lone chart buckets ([937b4ea](https://github.com/csdev19/port-watcher/commit/937b4ead0055c6d0f38391b77b248a86f2a5ca8c))
+* **desktop:** retry opening the thermal store while SQLite reports busy ([d7d1d1a](https://github.com/csdev19/port-watcher/commit/d7d1d1a377163017163c15f7b8525e09b4bce007))
+* **desktop:** retry the sampler lock each tick; calendar-window baseline ([bbb9a3d](https://github.com/csdev19/port-watcher/commit/bbb9a3d7e5fa0e6103d44243cc14eadefa52ec56))
+* **desktop:** show the most recent peaks; one footer strip on the Thermal tab ([b1be9ca](https://github.com/csdev19/port-watcher/commit/b1be9caa47fe7a6821123778d6a897c5c737d939))
+
 ## [0.2.0](https://github.com/csdev19/port-watcher/compare/desktop-v0.1.0...desktop-v0.2.0) (2026-10-14)
 
 
