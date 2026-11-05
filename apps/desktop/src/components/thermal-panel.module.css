@@ -1,0 +1,193 @@
+/* The panel's Thermal tab. Matches the Ports list: hairline dividers, 10 px
+ * section headings, no cards. The chart's own styles are in thermal-chart.module.css. */
+.root {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-top: 1px solid var(--pw-line);
+}
+
+/* Scrolls inside the panel like the Ports list does. */
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.current {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 12px 12px;
+}
+
+.reading {
+  font-size: 40px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.currentText {
+  flex: 1;
+  min-width: 0;
+}
+
+.bandCopy {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.stateCopy {
+  margin-top: 2px;
+  color: var(--pw-fg-2);
+  font-size: 11px;
+}
+
+.delta {
+  margin-top: 2px;
+  color: var(--pw-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.quiet {
+  margin: 0;
+  padding: 14px 12px;
+  color: var(--pw-muted);
+  font-size: 12px;
+}
+
+.section {
+  border-top: 1px solid var(--pw-line);
+  padding-bottom: 8px;
+}
+
+.heading {
+  margin: 0;
+  padding: 8px 12px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--pw-muted-2);
+}
+
+.section > figure {
+  padding: 4px 12px 0;
+}
+
+.empty {
+  margin: 0;
+  padding: 4px 12px 4px;
+  color: var(--pw-muted);
+  font-size: 12px;
+}
+
+.stats {
+  display: flex;
+  gap: 16px;
+  margin: 6px 0 0;
+  padding: 0 12px;
+  color: var(--pw-fg-2);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.peak {
+  padding: 6px 12px;
+}
+
+.peak + .peak {
+  border-top: 1px solid var(--pw-line-row);
+}
+
+.peakHead {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.when {
+  color: var(--pw-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.peakTemp {
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.processes {
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.process {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  color: var(--pw-fg-2);
+  font-size: 12px;
+}
+
+.processName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A button, not a label: it takes you to that port. Plum is the token for
+ * every button that is not the main action. */
+.portPill {
+  flex-shrink: 0;
+  padding: 1px 8px;
+  border: none;
+  border-radius: 999px;
+  background: var(--pw-plum);
+  color: var(--pw-fg-2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.portPill:hover {
+  background: var(--pw-plum-hover);
+  color: var(--pw-fg);
+}
+.portPill:focus-visible,
+.link:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--pw-accent-ring);
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 4px 6px;
+  border-top: 1px solid var(--pw-line);
+  background: var(--pw-footer);
+}
+
+.link {
+  padding: 3px 6px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--pw-muted);
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.link:hover {
+  color: var(--pw-fg);
+  background: var(--pw-raised-hover);
+}
