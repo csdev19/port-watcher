@@ -84,3 +84,6 @@ worker-secrets.json
 
 # Owner-only values for scripts/production-env.sh; never commit
 .production.env
+
+# Local evidence captures (cs-capture-evidence); never committed
+.evidence/
