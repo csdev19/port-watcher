@@ -28,8 +28,9 @@ export const SETTINGS_DEFAULTS = {
   dismissedUpdateVersion: "",
   /**
    * Sample the SoC temperature every minute in the background and keep it
-   * 90 days. Read by Rust (src-tauri/src/thermal/sampler.rs); off means no
-   * sensor reads, no writes and no notifications.
+   * 90 days. Read by Rust (src-tauri/src/thermal/sampler.rs); off means the
+   * background sampler reads no sensor, writes nothing and never notifies.
+   * The Thermal tab and the panel chip still read the current temperature.
    */
   thermalGuardEnabled: true,
   /** Show the current temperature as a chip in the panel header. */

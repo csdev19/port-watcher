@@ -299,11 +299,16 @@ function linePath(
   y: (c: number) => number,
 ): string {
   let d = "";
-  let prev: ThermalBucket | null = null;
-  for (const b of buckets) {
-    const connected = prev !== null && b.startS - prev.startS <= GAP_S;
-    d += `${connected ? "L" : "M"}${x(b.startS + 150).toFixed(1)} ${y(value(b)).toFixed(1)}`;
-    prev = b;
+  for (let i = 0; i < buckets.length; i++) {
+    const b = buckets[i];
+    const prev = buckets[i - 1];
+    const next = buckets[i + 1];
+    const fromPrev = prev !== undefined && b.startS - prev.startS <= GAP_S;
+    const toNext = next !== undefined && next.startS - b.startS <= GAP_S;
+    d += `${fromPrev ? "L" : "M"}${x(b.startS + 150).toFixed(1)} ${y(value(b)).toFixed(1)}`;
+    // A bucket with no neighbour on either side would be a lone move, which
+    // draws nothing; a zero-length segment with a round cap draws a dot.
+    if (!fromPrev && !toNext) d += "h0.01";
   }
   return d;
 }

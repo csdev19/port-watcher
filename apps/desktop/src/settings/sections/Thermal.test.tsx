@@ -28,6 +28,22 @@ describe("Settings > Thermal", () => {
     expect(screen.getByRole("img", { name: /Temperature today/ })).toBeTruthy();
   });
 
+  it("draws a lone bucket as a dot instead of nothing", async () => {
+    const startS = thermal.todayRange(new Date()).fromS + 60;
+    vi.spyOn(thermal, "thermalHistory").mockResolvedValue({
+      available: true,
+      buckets: [
+        { startS, minC: 50, avgC: 55, maxAvgC: 56, maxC: 70, worstState: "nominal", samples: 5 },
+      ],
+      peaks: [],
+      days: [],
+    });
+    render(<Thermal />);
+    const chart = await screen.findByRole("img", { name: /Temperature today/ });
+    const paths = [...chart.querySelectorAll("path")].map((p) => p.getAttribute("d") ?? "");
+    expect(paths.some((d) => d.startsWith("M") && d.endsWith("h0.01"))).toBe(true);
+  });
+
   it("says so when there are no sensors", async () => {
     vi.spyOn(thermal, "thermalCurrent").mockResolvedValue(null);
     render(<Thermal />);

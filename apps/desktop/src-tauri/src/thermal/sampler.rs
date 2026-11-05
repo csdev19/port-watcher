@@ -110,7 +110,7 @@ impl BucketAccumulator {
         }
     }
 
-    /// Closes the open bucket on demand (for example before quitting).
+    /// Closes the open bucket on demand (when the guard is turned off).
     pub fn take(&mut self) -> Option<ClosedBucket> {
         self.open.take().map(Open::close)
     }
@@ -287,30 +287,57 @@ fn prune(app: &AppHandle) {
 
 /// Opens the store, manages the state and starts the sampler thread.
 pub fn init(app: &AppHandle) {
-    let store = match app.path().app_data_dir() {
-        Ok(dir) => std::fs::create_dir_all(&dir)
+    let data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| log::error!("thermal: no app data dir; history unavailable ({e})"))
+        .ok();
+    let store = data_dir.as_ref().and_then(|dir| {
+        std::fs::create_dir_all(dir)
             .map_err(|e| e.to_string())
             .and_then(|_| Store::open(&dir.join("thermal.sqlite")).map_err(|e| e.to_string()))
             .map_err(|e| log::error!("thermal: history unavailable ({e})"))
-            .ok(),
-        Err(e) => {
-            log::error!("thermal: no app data dir; history unavailable ({e})");
-            None
-        }
-    };
+            .ok()
+    });
     app.manage(Thermal {
         store: Mutex::new(store),
         sensors: Mutex::new(Sensors::new()),
     });
     prune(app);
 
+    // A dev build and the installed app share the bundle id, so they share
+    // thermal.sqlite. Only the process holding this lock samples; otherwise
+    // every peak, notification and daily total would be written twice.
+    let Some(lock) = data_dir.as_deref().and_then(sampler_lock) else {
+        log::info!("thermal: another chapay is sampling; this one only reads");
+        return;
+    };
+
     let app = app.clone();
     let spawned = std::thread::Builder::new()
         .name("thermal-sampler".into())
-        .spawn(move || run_loop(&app));
+        .spawn(move || {
+            // Held for the thread's life; the OS releases it if chapay dies.
+            let _lock = lock;
+            run_loop(&app)
+        });
     if let Err(e) = spawned {
         log::error!("thermal: could not start the sampler ({e})");
     }
+}
+
+/// An exclusive, non-blocking `flock` on `thermal.sampler.lock`; `None` when
+/// another process holds it (or the file cannot be opened).
+fn sampler_lock(dir: &std::path::Path) -> Option<nix::fcntl::Flock<std::fs::File>> {
+    use nix::fcntl::{Flock, FlockArg};
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(dir.join("thermal.sampler.lock"))
+        .map_err(|e| log::warn!("thermal: cannot open the sampler lock ({e})"))
+        .ok()?;
+    Flock::lock(file, FlockArg::LockExclusiveNonblock).ok()
 }
 
 fn refresh_cpu(system: &mut System) {
@@ -437,6 +464,17 @@ fn tick(
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn only_one_holder_of_the_sampler_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let first = sampler_lock(dir.path());
+        assert!(first.is_some());
+        // A second open file description is refused while the first holds it.
+        assert!(sampler_lock(dir.path()).is_none());
+        drop(first);
+        assert!(sampler_lock(dir.path()).is_some());
+    }
 
     fn reading(at_s: i64, avg_c: f64, max_c: f64, state: ThermalState) -> Reading {
         Reading {

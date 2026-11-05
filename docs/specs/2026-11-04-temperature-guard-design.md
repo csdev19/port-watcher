@@ -11,15 +11,15 @@ and peaks. A peak records the busiest processes and marks the ones holding a lis
 hot Mac can be traced to a dev server and killed from chapay. The temperature lives in a new
 **Thermal** tab in Settings; showing it in the panel header is opt-in.
 
-| # | Decision | Why | ADR |
-| --- | --- | --- | --- |
-| 1 | Read sensors with `sysinfo` `Components` (already a dependency), average the `tdie` sensors, drop implausible values | No sudo, ~60 ms on an M5, same sensors macmon and whirr use; one sensor reports -9201 °C | — |
-| 2 | macOS `thermalState` drives warnings; °C bands are context labelled "community-reported"; a personal baseline appears once history exists | Apple publishes no die thresholds; `thermalState` is the only official pressure signal | 0010 (new) |
-| 3 | Sample every 60 s in the background, also while the panel is hidden, behind an on/off setting | A guard that only measures while the panel is open misses every peak | 0008 (new) |
-| 4 | SQLite owned by Rust (`rusqlite`, bundled), fixed statements behind typed commands; 5-minute buckets, peak rows, daily summaries; buckets and peaks expire after 90 days, daily summaries stay | Rust owns storage as the hub recommends; buckets keep the shape of a day without one row per reading | 0009 (new) |
-| 5 | A peak stores the top 5 processes by CPU over the last minute, with their listening ports | The chapay-specific value: link heat to a killable dev server (absorbs part of NIW2-549) | — |
-| 6 | Notify through `tauri-plugin-notification` when `thermalState` reaches serious or critical, at most once per 15 minutes | The owner asked for a guard, not only a log | — |
-| 7 | Displayed value is the average of the `tdie` sensors; the hottest sensor is stored too | Owner choice (B2); stable number, comparable with other tools | — |
+| #   | Decision                                                                                                                                                                                       | Why                                                                                                  | ADR        |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ---------- |
+| 1   | Read sensors with `sysinfo` `Components` (already a dependency), average the `tdie` sensors, drop implausible values                                                                           | No sudo, ~60 ms on an M5, same sensors macmon and whirr use; one sensor reports -9201 °C             | —          |
+| 2   | macOS `thermalState` drives warnings; °C bands are context labelled "community-reported"; a personal baseline appears once history exists                                                      | Apple publishes no die thresholds; `thermalState` is the only official pressure signal               | 0010 (new) |
+| 3   | Sample every 60 s in the background, also while the panel is hidden, behind an on/off setting                                                                                                  | A guard that only measures while the panel is open misses every peak                                 | 0008 (new) |
+| 4   | SQLite owned by Rust (`rusqlite`, bundled), fixed statements behind typed commands; 5-minute buckets, peak rows, daily summaries; buckets and peaks expire after 90 days, daily summaries stay | Rust owns storage as the hub recommends; buckets keep the shape of a day without one row per reading | 0009 (new) |
+| 5   | A peak stores the top 5 processes by CPU over the last minute, with their listening ports                                                                                                      | The chapay-specific value: link heat to a killable dev server (absorbs part of NIW2-549)             | —          |
+| 6   | Notify through `tauri-plugin-notification` when `thermalState` reaches serious or critical, at most once per 15 minutes                                                                        | The owner asked for a guard, not only a log                                                          | —          |
+| 7   | Displayed value is the average of the `tdie` sensors; the hottest sensor is stored too                                                                                                         | Owner choice (B2); stable number, comparable with other tools                                        | —          |
 
 ## Open questions
 
@@ -44,7 +44,11 @@ hot Mac can be traced to a dev server and killed from chapay. The temperature li
   history for the session without touching the file (hub: local-store-migration rule 6).
 - Two chapay processes (dev build and installed app) open the same file: schema steps run under
   `BEGIN IMMEDIATE` and re-read the version (rule 7).
-- The guard is turned off: no sensor reads, no writes, no notifications until it is turned on.
+- The guard is turned off: the background sampler reads no sensor, writes nothing and sends no
+  notification until it is turned on. (The Thermal tab and the opt-in chip still read the current
+  temperature while they are open.)
+- A dev build and the installed app run at once (same bundle id, same database): only the process
+  holding `thermal.sampler.lock` samples, so nothing is written twice.
 - The Mac sleeps: the gap shows as missing buckets, not as zero-degree readings.
 - Notification spam during a long hot build: one notification per 15 minutes at most.
 - The panel stays as cheap as before when the header option is off: no thermal command runs.
@@ -52,20 +56,20 @@ hot Mac can be traced to a dev server and killed from chapay. The temperature li
 ## Acceptance criteria
 
 - [ ] With `showTemperatureInPanel` on, the panel header shows the current average die
-  temperature; with it off (the default), the panel calls no thermal command and shows none.
+      temperature; with it off (the default), the panel calls no thermal command and shows none.
 - [ ] The Thermal tab shows the current average die temperature, its band label, the
-  `thermalState`, and (once a day of history exists) the difference from the 7-day average.
+      `thermalState`, and (once a day of history exists) the difference from the 7-day average.
 - [ ] The Thermal tab shows today's chart from the 5-minute buckets, today's min/avg/max, the
-  last 7 days' summaries, and the list of peaks with their top processes and ports.
+      last 7 days' summaries, and the list of peaks with their top processes and ports.
 - [ ] Readings outside 1–130 °C are discarded before averaging; a unit test covers -9201 °C.
 - [ ] The sampler records with the panel hidden every 60 s while `thermalGuardEnabled` is on, and
-  reads no sensor while it is off.
+      reads no sensor while it is off.
 - [ ] Bucket and peak rows older than 90 days are deleted at startup and daily; daily summaries
-  are kept. A unit test covers the cutoff.
+      are kept. A unit test covers the cutoff.
 - [ ] A notification fires when `thermalState` reaches serious or critical, at most once per
-  15 minutes; a unit test covers the rate limit.
+      15 minutes; a unit test covers the rate limit.
 - [ ] The renderer reaches the database only through the `thermal_*` commands; no capability
-  grants SQL access.
+      grants SQL access.
 
 ## Detail
 
@@ -80,13 +84,13 @@ the list). A sensor counts when its label contains `tdie` (case-insensitive) and
 
 ### Bands (context only, community-reported, on `avg_c`)
 
-| Band | Range | Copy |
-| --- | --- | --- |
-| `cool` | < 50 °C | Idle or light work |
-| `normal` | 50–70 °C | Everyday work |
-| `warm` | 70–90 °C | Sustained load: builds, video, many tabs |
-| `hot` | 90–100 °C | Heavy load, close to throttling |
-| `throttling` | ≥ 100 °C | macOS slows the chip to cool it |
+| Band         | Range     | Copy                                     |
+| ------------ | --------- | ---------------------------------------- |
+| `cool`       | < 50 °C   | Idle or light work                       |
+| `normal`     | 50–70 °C  | Everyday work                            |
+| `warm`       | 70–90 °C  | Sustained load: builds, video, many tabs |
+| `hot`        | 90–100 °C | Heavy load, close to throttling          |
+| `throttling` | ≥ 100 °C  | macOS slows the chip to cool it          |
 
 Sources: owner measurements on an M5 (44–60 °C idle, 2026-11-04);
 [Wccftech](https://wccftech.com/m5-macbook-pro-can-reach-99-degrees-celsius-when-under-load-but-runs-cooler-than-m4/),
