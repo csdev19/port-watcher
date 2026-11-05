@@ -59,6 +59,14 @@ pub enum StoreError {
 impl StoreError {
     /// Whether the file itself is unusable, the only case where it is moved
     /// aside (rule 6). Busy, permission and I/O errors are not.
+    fn is_busy(&self) -> bool {
+        matches!(
+            self,
+            StoreError::Sqlite(rusqlite::Error::SqliteFailure(e, _))
+                if matches!(e.code, ErrorCode::DatabaseBusy | ErrorCode::DatabaseLocked)
+        )
+    }
+
     fn file_is_unusable(&self) -> bool {
         match self {
             StoreError::FutureVersion { .. } => true,
@@ -128,7 +136,7 @@ impl Store {
     /// siblings), a warning is logged, and a fresh file is opened once. Any
     /// other error is returned and the file is left as it was.
     pub fn open(path: &Path) -> Result<Store, StoreError> {
-        match Self::try_open(path) {
+        match Self::try_open_while_busy(path) {
             Err(e) if e.file_is_unusable() => {
                 let moved = move_aside(path)?;
                 log::warn!(
@@ -136,9 +144,28 @@ impl Store {
                     path.display(),
                     moved.display()
                 );
-                Self::try_open(path)
+                Self::try_open_while_busy(path)
             }
             other => other,
+        }
+    }
+
+    /// `try_open`, retried while another connection holds the lock. SQLite
+    /// returns SQLITE_BUSY without calling the busy handler in some paths
+    /// (switching to WAL, and a read lock that cannot upgrade to write), so
+    /// two chapay processes starting together could otherwise lose history
+    /// for the session. Never retried past `BUSY_TIMEOUT`.
+    fn try_open_while_busy(path: &Path) -> Result<Store, StoreError> {
+        let deadline = std::time::Instant::now() + BUSY_TIMEOUT;
+        let mut wait = Duration::from_millis(10);
+        loop {
+            match Self::try_open(path) {
+                Err(e) if e.is_busy() && std::time::Instant::now() < deadline => {
+                    std::thread::sleep(wait);
+                    wait = (wait * 2).min(Duration::from_millis(200));
+                }
+                other => return other,
+            }
         }
     }
 
@@ -599,7 +626,7 @@ mod tests {
     fn concurrent_opens_both_succeed() {
         let d = dir();
         let path = d.path().join("thermal.sqlite");
-        let handles: Vec<_> = (0..2)
+        let handles: Vec<_> = (0..4)
             .map(|_| {
                 let p = path.clone();
                 std::thread::spawn(move || Store::open(&p).map(|_| ()))
