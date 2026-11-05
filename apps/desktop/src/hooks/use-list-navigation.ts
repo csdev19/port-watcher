@@ -1,47 +1,47 @@
 import { useCallback, useEffect, useState } from "react";
-import { portKey, type PortEntry } from "@/lib/types";
 
 export type NavAction = "expand" | "kill" | "close" | null;
 
 /** ↑↓ move, Enter expand, ⌘⌫ kill, Esc close (spec §5 keyboard).
  * Works while the search input keeps focus.
  *
- * Selection is tracked by identity (`pid:port`), not array index: the
- * list is re-sorted by (port, pid) on every 2s poll, so an index-based
- * selection can silently drift onto a different row after a refetch —
- * with ⌘⌫ having zero confirmation, that drift can kill the wrong
- * process. Arrow-key movement still walks the `entries` array
- * internally to find "next"/"previous", but the key is always resolved
- * fresh against the current `entries` before being written to state. */
-export function useListNavigation(entries: PortEntry[]) {
+ * Selection is tracked by identity (a row key built from `pid:port`), not
+ * array index: the list is re-sorted by (port, pid) on every 2s poll, so
+ * an index-based selection can silently drift onto a different row after
+ * a refetch — with ⌘⌫ having zero confirmation, that drift can kill the
+ * wrong process. `keys` are the visible rows' keys in render order;
+ * arrow-key movement walks them to find "next"/"previous", but the key
+ * is always resolved fresh against the current `keys` before being
+ * written to state. */
+export function useListNavigation(keys: readonly string[]) {
   const [selectedKey, setSelectedKeyState] = useState<string | null>(
-    entries.length > 0 ? portKey(entries[0]) : null,
+    keys.length > 0 ? keys[0] : null,
   );
 
   // If nothing is selected yet (initial empty list, or the panel just
   // opened before the first fetch resolved) and entries show up, pick
   // the first one. We deliberately do NOT do this when a selection
-  // exists but its entry disappeared (filtered out / killed) — in that
+  // exists but its row disappeared (filtered out / killed) — in that
   // case the highlight should simply vanish, never jump to another row.
   useEffect(() => {
-    if (selectedKey === null && entries.length > 0) {
-      setSelectedKeyState(portKey(entries[0]));
+    if (selectedKey === null && keys.length > 0) {
+      setSelectedKeyState(keys[0]);
     }
-  }, [entries, selectedKey]);
+  }, [keys, selectedKey]);
 
   const setSelectedKey = useCallback((k: string | null) => setSelectedKeyState(k), []);
 
   const move = useCallback(
     (delta: number) => {
-      if (entries.length === 0) {
+      if (keys.length === 0) {
         setSelectedKeyState(null);
         return;
       }
-      const currentIndex = entries.findIndex((e) => portKey(e) === selectedKey);
-      const nextIndex = Math.min(Math.max(currentIndex + delta, 0), entries.length - 1);
-      setSelectedKeyState(portKey(entries[nextIndex]));
+      const currentIndex = keys.indexOf(selectedKey ?? "");
+      const nextIndex = Math.min(Math.max(currentIndex + delta, 0), keys.length - 1);
+      setSelectedKeyState(keys[nextIndex]);
     },
-    [entries, selectedKey],
+    [keys, selectedKey],
   );
 
   const onKeyDown = useCallback(

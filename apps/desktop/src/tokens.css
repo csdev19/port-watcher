@@ -33,6 +33,13 @@
   --pw-plum-hover: #352c40;
   --status-danger: #ff5c62; /* kill */
 
+  /* Thermal bands: cool to throttling, reusing the palette; only hot is new. */
+  --pw-band-cool: var(--pw-accent);
+  --pw-band-normal: var(--pw-free);
+  --pw-band-warm: var(--pw-watched);
+  --pw-band-hot: #ff9a3d;
+  --pw-band-throttling: var(--status-danger);
+
   --radius-lg: 12px;
   --radius-md: 8px;
   --radius-sm: 6px;

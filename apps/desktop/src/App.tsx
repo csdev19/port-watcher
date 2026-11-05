@@ -7,27 +7,40 @@ import { useFavourites } from "@/hooks/use-favourites";
 import { useSetting } from "@/settings/store";
 import { filterPorts } from "@/lib/filter";
 import { partitionPorts } from "@/lib/port-groups";
-import {
-  favouritesFooterText,
-  favouritesQueryHealth,
-  filterFavouriteMatches,
-  joinFavourites,
-} from "@/lib/favourites";
+import { favouritesQueryHealth, filterFavouriteMatches, joinFavourites } from "@/lib/favourites";
 import { inTauri, killPort, openSettings } from "@/lib/ports";
-import { portKey, type PortEntry } from "@/lib/types";
+import { formatTemp } from "@/lib/thermal";
+import { portKey, rowKey, type PortEntry, type RowScope } from "@/lib/types";
+import { useThermalCurrent } from "@/hooks/use-thermal";
 import { PortList } from "@/components/PortList";
 import { FavouritesPanel } from "@/components/FavouritesPanel";
 import { SearchInput } from "@/components/SearchInput";
 import { EmptyState, ErrorState, FilteredEmptyState } from "@/components/PanelStates";
 import { Toast, type ToastData } from "@/components/Toast";
 import { Icon } from "@/components/Icon";
+import { ThermalPanel } from "@/components/ThermalPanel";
+import { bandColor } from "@/components/ThermalChart";
 import { UpdateBanner } from "@/components/UpdateBanner";
 import { pendingVersion, useUpdate } from "@/lib/update";
 import styles from "@/app.module.css";
 
-type Tab = "listening" | "favourites";
-const TABS: Tab[] = ["listening", "favourites"];
-const TAB_LABEL: Record<Tab, string> = { listening: "Listening", favourites: "Favourites" };
+type Tab = "ports" | "thermal";
+const TABS: Tab[] = ["ports", "thermal"];
+const TAB_LABEL: Record<Tab, string> = { ports: "Ports", thermal: "Thermal" };
+
+const FAVOURITES_LIST_ID = "port-list-favourites";
+
+/** One keyboard-reachable row on the Ports tab. A port that is both a
+ * favourite and listening yields two items with distinct keys. */
+interface NavItem {
+  key: string;
+  scope: RowScope;
+  entry: PortEntry;
+}
+
+function navItems(scope: RowScope, entries: PortEntry[]): NavItem[] {
+  return entries.map((entry) => ({ key: rowKey(scope, entry), scope, entry }));
+}
 
 async function hidePanel() {
   if (!inTauri) return;
@@ -48,26 +61,43 @@ export default function App() {
   const { data: allPorts, error, refetch, dataUpdatedAt } = usePorts();
   const [confirmBeforeKill] = useSetting("confirmBeforeKill");
   const [showAppsAndSystem] = useSetting("showAppsAndSystem");
+  const [showTemperature] = useSetting("showTemperatureInPanel");
+  const [favouritesCollapsed, setFavouritesCollapsed] = useSetting("favouritesCollapsed");
   const [update, updateActions] = useUpdate();
   const [dismissedUpdate, setDismissedUpdate] = useSetting("dismissedUpdateVersion");
   // Settings > Ports > "Show apps & system": when off, app/system rows are
-  // dropped from the Listening tab (list, counts, search, keyboard). The
-  // Favourites tab keeps the full snapshot: a watched port is watched
+  // dropped from the listening list (list, counts, search, keyboard). The
+  // Favourites section keeps the full snapshot: a watched port is watched
   // whichever process holds it.
-  const data = useMemo(
-    () => (showAppsAndSystem ? allPorts : allPorts?.filter((e) => e.category === "dev")),
-    [allPorts, showAppsAndSystem],
-  );
   const [query, setQuery] = useState("");
+  // A port opened from a Thermal peak stays visible even when its category
+  // is hidden, for as long as the search still names it; otherwise the
+  // jump would land on "No matches" for a port that is listening.
+  const [linkedPort, setLinkedPort] = useState<number | null>(null);
+  const shownPort = linkedPort !== null && query.trim() === String(linkedPort) ? linkedPort : null;
+  const data = useMemo(
+    () =>
+      showAppsAndSystem
+        ? allPorts
+        : allPorts?.filter((e) => e.category === "dev" || e.port === shownPort),
+    [allPorts, showAppsAndSystem, shownPort],
+  );
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [manuallyExpanded, setManuallyExpanded] = useState(false);
   const [toast, setToast] = useState<ToastData | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>("listening");
+  const [activeTab, setActiveTab] = useState<Tab>("ports");
+  // Bumped to focus (and select) the search after the render that shows it:
+  // the field is hidden on the Thermal tab, so focusing in the same handler
+  // that switches to Ports would land on a hidden input.
+  const [searchFocusRequest, setSearchFocusRequest] = useState(0);
+  // Bumped on panel-shown: remounts the Favourites section so its local
+  // watch-form/rename state resets with the rest of the panel.
+  const [panelEpoch, setPanelEpoch] = useState(0);
   const searchRef = useRef<HTMLInputElement>(null);
   const tabRefs = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({});
 
   // F7 Slice 1-3: persisted watched ports, joined against the same live
-  // `usePorts` snapshot both tabs share — no second polling source.
+  // `usePorts` snapshot the listening list uses — no second polling source.
   const favourites = useFavourites();
   const favouritePorts = useMemo(
     () => new Set(favourites.items.map((f) => f.port)),
@@ -92,8 +122,7 @@ export default function App() {
   // F7 Slice 2/4: the same join/health helpers Favourites renders from,
   // lifted here so the shared navigation/kill plumbing below can see them
   // too. `favVisibleMatches` mirrors exactly what `FavouritesPanel` puts
-  // on screen (search-filtered, saved order) — never the raw, unfiltered
-  // `favMatches` used for footer/tab-count totals.
+  // on screen (search-filtered, saved order).
   const favMatches = useMemo(
     () => joinFavourites(favourites.items, allPorts ?? []),
     [favourites.items, allPorts],
@@ -112,43 +141,57 @@ export default function App() {
     () => favVisibleMatches.flatMap((m) => m.listeners),
     [favVisibleMatches],
   );
-  // Kill actions are disabled while the snapshot backing Favourites is
+  // Kill actions on favourite rows are disabled while the snapshot is
   // stale (a background refetch failed and we're showing retained data)
-  // — keyboard ⌘⌫ must respect the same guard as the row's disabled
-  // kill button.
+  // — keyboard ⌘⌫ must respect the same guard as the row's disabled kill
+  // button. Listening rows never carried this guard.
   const favKillDisabled = favHealth === "stale";
 
-  // F7 Slice 4: the active tab decides which live entries are
-  // keyboard-navigable/killable — Listening's grouped rows, or
-  // Favourites' currently visible listener rows. Both route through the
-  // same identity-based `useListNavigation`/`useKillConfirm` plumbing;
-  // neither tab gets a parallel implementation.
-  const activeEntries = activeTab === "favourites" ? favVisibleEntries : visibleEntries;
-  const nav = useListNavigation(activeEntries);
+  // The Favourites section collapses like Apps & System, and the same
+  // search rule applies: a nonempty query with favourite matches forces it
+  // open. A query with no favourite match hides the section entirely (as
+  // an empty Apps & System group is hidden), so no "no match" state stacks
+  // above the listening list's own.
+  const favSearching = query.trim() !== "";
+  const favForcedOpen = favSearching && favVisibleMatches.length > 0;
+  const favOpen = !favouritesCollapsed || favForcedOpen;
+  const favSectionShown = !favSearching || favVisibleMatches.length > 0;
+
+  // The Ports tab's rows as ONE keyboard list: the visible favourite
+  // listener rows (when the section is open), then the visible listening
+  // rows. Keys are scope-qualified (`rowKey`), so a port drawn in both
+  // places is two rows — one highlight, and ↓ from the favourite copy
+  // reaches the listening copy. Thermal has no rows. Both scopes route
+  // through the same identity-based `useListNavigation`/`useKillConfirm`
+  // plumbing; neither gets a parallel implementation.
+  const listeningItems = useMemo(() => navItems("listening", visibleEntries), [visibleEntries]);
+  const activeItems = useMemo(
+    () =>
+      activeTab !== "ports"
+        ? []
+        : favOpen
+          ? [...navItems("favourites", favVisibleEntries), ...listeningItems]
+          : listeningItems,
+    [activeTab, favOpen, favVisibleEntries, listeningItems],
+  );
+  const activeKeys = useMemo(() => activeItems.map((item) => item.key), [activeItems]);
+  const nav = useListNavigation(activeKeys);
 
   // The global keydown listener below is registered once (empty deps) so
-  // it isn't re-attached on every render; it reads `entries`/selectedKey
+  // it isn't re-attached on every render; it reads `items`/selectedKey
   // through this ref instead of closing over them directly. Without
   // this, a keydown that lands in the same tick as a selection update
   // (e.g. the default-selection effect that fires right after the first
   // fetch resolves) could still be handled by a stale listener closure.
-  const latest = useRef({
-    entries: activeEntries,
-    selectedKey: nav.selectedKey,
-    killDisabled: activeTab === "favourites" && favKillDisabled,
-  });
-  latest.current = {
-    entries: activeEntries,
-    selectedKey: nav.selectedKey,
-    killDisabled: activeTab === "favourites" && favKillDisabled,
-  };
+  const latest = useRef({ items: activeItems, selectedKey: nav.selectedKey, favKillDisabled });
+  latest.current = { items: activeItems, selectedKey: nav.selectedKey, favKillDisabled };
 
   // `useListNavigation` is called fresh every render, so `nav.onKeyDown`
-  // is a *new* closure each time (it closes over that render's `entries`
+  // is a *new* closure each time (it closes over that render's `keys`
   // and `selectedKey` via `move`'s useCallback deps). The keydown effect
   // below is registered once (empty deps) so it must never call `nav`
   // directly — that would freeze it on the first render's `onKeyDown`
-  // (closing over `entries = []`), permanently breaking arrow-key
+  // (closing over `keys = []`), permanently breaking arrow-key
   // movement. Route through this ref, updated every render, instead.
   const navRef = useRef(nav);
   navRef.current = nav;
@@ -186,26 +229,27 @@ export default function App() {
 
   // F6 Slice 2: one shared confirmation instance for both pointer and
   // keyboard kill requests — neither path can confirm without the other
-  // seeing the same armed target, timer and invalidation. F7 Slice 3
-  // reuses this same instance for Favourites' listener rows (Slice 4
-  // extends it to a Favourites-aware visible-entries array).
+  // seeing the same armed target, timer and invalidation. Favourite and
+  // listening rows share it; the armed key is the row key, so only the
+  // copy acted on shows "Kill?".
   const confirm = useKillConfirm(
     (entry) => {
       // Resolve the latest entry from the currently visible list and
       // re-validate right before executing: never act on a saved snapshot.
-      const latestEntries = latest.current.entries;
-      const current = latestEntries.find((e) => portKey(e) === portKey(entry));
+      const current = latest.current.items.find(
+        (item) => portKey(item.entry) === portKey(entry),
+      )?.entry;
       if (!current || !current.killable || current.startedAt !== entry.startedAt) return;
       void handleKill(current);
     },
     { confirmBeforeKill },
   );
 
-  function requestKill(entry: PortEntry, source: "pointer" | "keyboard") {
-    confirm.request(entry, source);
+  function requestKill(entry: PortEntry, source: "pointer" | "keyboard", key: string) {
+    confirm.request(entry, source, key);
   }
 
-  // F7 Slice 3: toggling the star on a Listening row. Saves `{ port }`
+  // F7 Slice 3: toggling the star on a listening row. Saves `{ port }`
   // only — no process label baked in, since labels change as processes
   // restart. Failure surfaces through the existing toast rather than a
   // second error UI.
@@ -260,13 +304,16 @@ export default function App() {
       }
 
       const action = navRef.current.onKeyDown(e);
-      const { entries: currentEntries, selectedKey, killDisabled } = latest.current;
-      const current = currentEntries.find((entry) => portKey(entry) === selectedKey);
+      const { items, selectedKey, favKillDisabled: staleFavourites } = latest.current;
+      const current = items.find((item) => item.key === selectedKey);
       if (action === "expand" && current) {
-        const k = portKey(current);
-        setExpandedKey((prev) => (prev === k ? null : k));
-      } else if (action === "kill" && current && !killDisabled) {
-        requestKill(current, "keyboard");
+        setExpandedKey((prev) => (prev === current.key ? null : current.key));
+      } else if (
+        action === "kill" &&
+        current &&
+        !(current.scope === "favourites" && staleFavourites)
+      ) {
+        requestKill(current.entry, "keyboard", current.key);
       } else if (action === "close") {
         void hidePanel();
       }
@@ -279,23 +326,24 @@ export default function App() {
   // Disarm the shared confirmation whenever its armed target stops being
   // valid: it scrolled out of the filtered list, its process incarnation
   // changed (pid/port reused), it became unkillable, its category
-  // changed, or the row selection moved off of it.
+  // changed, the row selection moved off of it, or it is a favourite row
+  // whose snapshot went stale.
   useEffect(() => {
     const armedTarget = confirm.armedTarget;
     if (!armedTarget) return;
-    const current = activeEntries.find((e) => portKey(e) === armedTarget.key);
+    const current = activeItems.find((item) => item.key === armedTarget.key);
     if (
       !current ||
-      current.startedAt !== armedTarget.startedAt ||
-      !current.killable ||
-      current.category !== armedTarget.category ||
-      portKey(current) !== nav.selectedKey ||
-      (activeTab === "favourites" && favKillDisabled)
+      current.entry.startedAt !== armedTarget.startedAt ||
+      !current.entry.killable ||
+      current.entry.category !== armedTarget.category ||
+      current.key !== nav.selectedKey ||
+      (current.scope === "favourites" && favKillDisabled)
     ) {
       confirm.disarm();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeEntries, nav.selectedKey, confirm.armedTarget, activeTab, favKillDisabled]);
+  }, [activeItems, nav.selectedKey, confirm.armedTarget, favKillDisabled]);
 
   // A query change disarms any pending confirmation — the armed row may
   // no longer even be visible.
@@ -318,10 +366,11 @@ export default function App() {
   // to the same defaults the initial mount uses (manual expansion, query,
   // detail key, selection, confirmation and active tab), then refetch and
   // focus main search. Clearing the query on open is deliberate — search
-  // entered after opening still overrides the collapsed default. Resetting
-  // to the Listening tab also unmounts `FavouritesPanel`, which discards
-  // its own local watch-form state — no second competing panel-shown
-  // listener is needed for that.
+  // entered after opening still overrides the collapsed default. The
+  // Favourites section's collapsed state is a saved setting and survives.
+  // Bumping `panelEpoch` remounts `FavouritesPanel`, which discards its own
+  // local watch-form state — no second competing panel-shown listener is
+  // needed for that.
   //
   // `listen()` resolves asynchronously, so a `disposed` flag guards
   // against the effect's cleanup running (unmount, or a second run under
@@ -334,15 +383,15 @@ export default function App() {
     let unlisten: (() => void) | undefined;
     void import("@tauri-apps/api/event").then(async ({ listen }) => {
       const stop = await listen("panel-shown", () => {
-        setActiveTab("listening");
+        setActiveTab("ports");
         setManuallyExpanded(false);
         setQuery("");
         setExpandedKey(null);
         nav.setSelectedKey(null);
         confirm.disarm();
+        setPanelEpoch((n) => n + 1);
         void refetch();
-        searchRef.current?.focus();
-        searchRef.current?.select();
+        setSearchFocusRequest((n) => n + 1);
       });
       if (disposed) {
         stop();
@@ -367,6 +416,12 @@ export default function App() {
     return () => window.removeEventListener("contextmenu", preventContextMenu);
   }, []);
 
+  useEffect(() => {
+    if (searchFocusRequest === 0) return;
+    searchRef.current?.focus();
+    searchRef.current?.select();
+  }, [searchFocusRequest]);
+
   // Toasts self-dismiss; keeping one visible while it has a copy action.
   useEffect(() => {
     if (!toast) return;
@@ -380,12 +435,24 @@ export default function App() {
     if (forcedOpen) return;
     // A collapse must never leave a now-hidden row selected/armed.
     if (manuallyExpanded) {
-      const stillVisibleKey =
-        nav.selectedKey && groups.dev.some((e) => portKey(e) === nav.selectedKey);
-      if (!stillVisibleKey) nav.setSelectedKey(null);
+      const secondaryKeys = new Set(navItems("listening", groups.secondary).map((i) => i.key));
+      if (nav.selectedKey && secondaryKeys.has(nav.selectedKey)) nav.setSelectedKey(null);
       confirm.disarm();
     }
     setManuallyExpanded((prev) => !prev);
+  }
+
+  function toggleFavourites() {
+    if (favForcedOpen) return;
+    // Collapsing drops the favourite rows from navigation: a selection
+    // inside them moves to the first listening row, and nothing stays armed.
+    if (favOpen) {
+      if (nav.selectedKey?.startsWith("favourites:")) {
+        nav.setSelectedKey(listeningItems[0]?.key ?? null);
+      }
+      confirm.disarm();
+    }
+    setFavouritesCollapsed(!favouritesCollapsed);
   }
 
   // F7 Slice 3: switching tabs clears query/detail-expansion/selection/
@@ -398,6 +465,14 @@ export default function App() {
     setExpandedKey(null);
     nav.setSelectedKey(null);
     confirm.disarm();
+  }
+
+  // A peak's port pill on the Thermal tab: back to Ports, filtered to it.
+  function showPort(port: number) {
+    switchTab("ports");
+    setLinkedPort(port);
+    setQuery(String(port));
+    setSearchFocusRequest((n) => n + 1);
   }
 
   // Left/Right move and activate; Home/End jump to first/last. Stops
@@ -419,11 +494,11 @@ export default function App() {
   }
 
   const footerText =
-    activeTab === "listening"
-      ? data
+    activeTab !== "ports"
+      ? ""
+      : data
         ? `${filtered.length} ports · ${groups.dev.length} dev · updated ${updatedSecondsAgo}s ago${error ? " (update failed)" : ""}`
-        : "loading…"
-      : favouritesFooterText(favourites.items.length, favMatches, favHealth);
+        : "loading…";
 
   return (
     <main className={styles.panel}>
@@ -433,8 +508,7 @@ export default function App() {
         dismissedVersion={dismissedUpdate}
         onDismiss={setDismissedUpdate}
       />
-      <SearchInput ref={searchRef} value={query} onChange={setQuery} />
-      <div className={styles.tablist} role="tablist" aria-label="Ports" onKeyDown={onTabKeyDown}>
+      <div className={styles.tablist} role="tablist" aria-label="Panel" onKeyDown={onTabKeyDown}>
         {TABS.map((tab) => (
           <button
             key={tab}
@@ -451,76 +525,128 @@ export default function App() {
             onClick={() => switchTab(tab)}
           >
             {TAB_LABEL[tab]}
-            <span className={styles.tabCount}>
-              {tab === "listening" ? (data ? data.length : "–") : favourites.items.length}
-            </span>
+            {tab === "ports" ? (
+              <span className={styles.tabCount}>{data ? data.length : "–"}</span>
+            ) : showTemperature ? (
+              <TabTemperature />
+            ) : null}
           </button>
         ))}
       </div>
+      {/* Hidden, not unmounted, on Thermal: it keeps its autofocus-on-open
+       * behaviour and the ref the panel-shown reset focuses. */}
+      <div hidden={activeTab !== "ports"}>
+        <SearchInput ref={searchRef} value={query} onChange={setQuery} />
+      </div>
 
-      {activeTab === "listening" ? (
+      {activeTab === "ports" ? (
         <div
-          id="panel-listening"
+          id="panel-ports"
           role="tabpanel"
-          aria-labelledby="tab-listening"
+          aria-labelledby="tab-ports"
           className={styles.tabPanel}
         >
-          {error && !data ? (
-            <ErrorState message={String(error)} onRetry={() => void refetch()} />
-          ) : filtered.length > 0 ? (
-            <PortList
-              groups={groups}
-              secondaryOpen={secondaryOpen}
-              secondaryForcedOpen={forcedOpen}
-              selectedKey={nav.selectedKey}
-              expandedKey={expandedKey}
-              armedKey={confirm.armedTarget?.key ?? null}
-              favouritePorts={favouritePorts}
-              onSelect={nav.setSelectedKey}
-              onToggleExpand={(k) => setExpandedKey((prev) => (prev === k ? null : k))}
-              onRequestKill={(entry) => requestKill(entry, "pointer")}
-              onDisarmKill={confirm.disarm}
-              onToggleSecondary={toggleSecondary}
-              onToggleWatch={toggleWatch}
-            />
-          ) : query.trim() !== "" ? (
-            <FilteredEmptyState query={query} onClear={() => setQuery("")} />
-          ) : (
-            <EmptyState />
-          )}
+          <div className={`${styles.list} ${styles.listStack}`}>
+            {favSectionShown && (
+              <section className={styles.section}>
+                <button
+                  type="button"
+                  className={styles.disclosure}
+                  aria-expanded={favOpen}
+                  aria-controls={favOpen ? FAVOURITES_LIST_ID : undefined}
+                  aria-label={
+                    favForcedOpen ? "Favourites — expanded for search results" : undefined
+                  }
+                  disabled={favForcedOpen}
+                  onClick={toggleFavourites}
+                >
+                  <Icon name="chevron-right" size={12} />
+                  <span className={styles.disclosureLabel}>
+                    FAVOURITES · {favSearching ? favVisibleMatches.length : favourites.items.length}
+                  </span>
+                </button>
+                {favOpen && (
+                  <div id={FAVOURITES_LIST_ID}>
+                    <FavouritesPanel
+                      key={panelEpoch}
+                      favourites={favourites.items}
+                      favouritesError={favourites.error}
+                      onClearFavouritesError={favourites.clearError}
+                      add={favourites.add}
+                      remove={favourites.remove}
+                      rename={favourites.rename}
+                      data={allPorts}
+                      queryError={error}
+                      query={query}
+                      onClearQuery={() => setQuery("")}
+                      onRetry={() => void refetch()}
+                      selectedKey={nav.selectedKey}
+                      expandedKey={expandedKey}
+                      armedKey={confirm.armedTarget?.key ?? null}
+                      onSelect={nav.setSelectedKey}
+                      onToggleExpand={(k) => setExpandedKey((prev) => (prev === k ? null : k))}
+                      onRequestKill={(entry) =>
+                        requestKill(entry, "pointer", rowKey("favourites", entry))
+                      }
+                      onDisarmKill={confirm.disarm}
+                    />
+                  </div>
+                )}
+              </section>
+            )}
+            {error && !data ? (
+              <ErrorState message={String(error)} onRetry={() => void refetch()} />
+            ) : filtered.length > 0 ? (
+              <PortList
+                groups={groups}
+                secondaryOpen={secondaryOpen}
+                secondaryForcedOpen={forcedOpen}
+                selectedKey={nav.selectedKey}
+                expandedKey={expandedKey}
+                armedKey={confirm.armedTarget?.key ?? null}
+                favouritePorts={favouritePorts}
+                onSelect={nav.setSelectedKey}
+                onToggleExpand={(k) => setExpandedKey((prev) => (prev === k ? null : k))}
+                onRequestKill={(entry) => requestKill(entry, "pointer", rowKey("listening", entry))}
+                onDisarmKill={confirm.disarm}
+                onToggleSecondary={toggleSecondary}
+                onToggleWatch={toggleWatch}
+              />
+            ) : favSearching ? (
+              // Favourite matches already answer the search; the listening
+              // list only says "no match" when nothing matched anywhere.
+              favVisibleMatches.length === 0 && (
+                <FilteredEmptyState query={query} onClear={() => setQuery("")} />
+              )
+            ) : (
+              <EmptyState />
+            )}
+          </div>
         </div>
       ) : (
         <div
-          id="panel-favourites"
+          id="panel-thermal"
           role="tabpanel"
-          aria-labelledby="tab-favourites"
+          aria-labelledby="tab-thermal"
           className={styles.tabPanel}
         >
-          <FavouritesPanel
-            favourites={favourites.items}
-            favouritesError={favourites.error}
-            onClearFavouritesError={favourites.clearError}
-            add={favourites.add}
-            remove={favourites.remove}
-            rename={favourites.rename}
-            data={allPorts}
-            queryError={error}
-            query={query}
-            onClearQuery={() => setQuery("")}
-            onRetry={() => void refetch()}
-            selectedKey={nav.selectedKey}
-            expandedKey={expandedKey}
-            armedKey={confirm.armedTarget?.key ?? null}
-            onSelect={nav.setSelectedKey}
-            onToggleExpand={(k) => setExpandedKey((prev) => (prev === k ? null : k))}
-            onRequestKill={(entry) => requestKill(entry, "pointer")}
-            onDisarmKill={confirm.disarm}
-          />
+          <ThermalPanel onShowPort={showPort} />
         </div>
       )}
 
       <footer className={styles.footer}>
-        <span>{footerText}</span>
+        {activeTab === "thermal" ? (
+          // One footer strip: the Thermal tab's link takes the text slot.
+          <button
+            type="button"
+            className={styles.footerLink}
+            onClick={() => void openSettings("thermal")}
+          >
+            Thermal history in Settings
+          </button>
+        ) : (
+          <span>{footerText}</span>
+        )}
         <button
           type="button"
           className={styles.footerButton}
@@ -552,5 +678,17 @@ export default function App() {
         />
       )}
     </main>
+  );
+}
+
+/** The Thermal tab's `58°`, coloured by band. Mounted only while the
+ * setting is on, so with it off the Ports tab polls no thermal command. */
+function TabTemperature() {
+  const { data } = useThermalCurrent();
+  if (!data) return null;
+  return (
+    <span className={styles.tabTemp} style={{ color: bandColor(data.band) }}>
+      {formatTemp(data.avgC)}
+    </span>
   );
 }

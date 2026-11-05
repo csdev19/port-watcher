@@ -4,6 +4,8 @@ import { portKey, type PortEntry } from "@/lib/types";
 const CONFIRM_WINDOW_MS = 2000;
 
 export interface ArmedTarget {
+  /** The row key the request came from (defaults to `portKey`). A port
+   * shown twice on screen arms only the copy that was acted on. */
   key: string;
   /** The armed entry's `startedAt` at request time — doubles as an
    * incarnation guard: a same-key entry with a different `startedAt`
@@ -51,7 +53,7 @@ export function useKillConfirm(
   }, [setArmedTarget]);
 
   const request = useCallback(
-    (entry: PortEntry, source: "pointer" | "keyboard") => {
+    (entry: PortEntry, source: "pointer" | "keyboard", key: string = portKey(entry)) => {
       if (!entry.killable) {
         disarm();
         return;
@@ -63,7 +65,6 @@ export function useKillConfirm(
         return;
       }
 
-      const key = portKey(entry);
       const prev = armedRef.current;
 
       if (prev && prev.key === key && prev.startedAt === entry.startedAt) {

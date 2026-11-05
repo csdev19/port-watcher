@@ -1,18 +1,19 @@
 import { useEffect, useState, type ComponentType } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Info, List, Shield, SlidersHorizontal, type LucideIcon } from "lucide-react";
-import { inTauri } from "../lib/ports";
+import { Info, List, Shield, SlidersHorizontal, Thermometer, type LucideIcon } from "lucide-react";
+import { inTauri, type SettingsSection } from "../lib/ports";
 import General from "./sections/General";
 import Ports from "./sections/Ports";
+import Thermal from "./sections/Thermal";
 import Permissions from "./sections/Permissions";
 import About from "./sections/About";
 import styles from "./settings.module.css";
 
-type SectionId = "general" | "ports" | "permissions" | "about";
-
-const SECTIONS: { id: SectionId; title: string; icon: LucideIcon; body: ComponentType }[] = [
+const SECTIONS: { id: SettingsSection; title: string; icon: LucideIcon; body: ComponentType }[] = [
   { id: "general", title: "General", icon: SlidersHorizontal, body: General },
   { id: "ports", title: "Ports", icon: List, body: Ports },
+  { id: "thermal", title: "Thermal", icon: Thermometer, body: Thermal },
   { id: "permissions", title: "Permissions", icon: Shield, body: Permissions },
   { id: "about", title: "About", icon: Info, body: About },
 ];
@@ -20,9 +21,27 @@ const SECTIONS: { id: SectionId; title: string; icon: LucideIcon; body: Componen
 /** The Settings window: a macOS-style toolbar of sections over a body.
  * The window title follows the selected section, as in System Settings. */
 export default function Settings() {
-  const [selected, setSelected] = useState<SectionId>(() => initialSection());
+  const [selected, setSelected] = useState<SettingsSection>(() => sectionOrGeneral(urlSection()));
   const section = SECTIONS.find((s) => s.id === selected) ?? SECTIONS[0];
   const Body = section.body;
+
+  // Rust sends `settings-section` when the panel opens a section while this
+  // window is already open (src-tauri/src/settings.rs).
+  useEffect(() => {
+    if (!inTauri) return;
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void listen<string>("settings-section", (event) => {
+      setSelected(sectionOrGeneral(event.payload));
+    }).then((stop) => {
+      if (disposed) stop();
+      else unlisten = stop;
+    });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, []);
 
   useEffect(() => {
     document.title = section.title;
@@ -53,7 +72,10 @@ export default function Settings() {
 }
 
 /** `?section=permissions` opens Settings on that section. */
-function initialSection(): SectionId {
-  const wanted = new URLSearchParams(window.location.search).get("section");
-  return SECTIONS.some((s) => s.id === wanted) ? (wanted as SectionId) : "general";
+function urlSection(): string | null {
+  return new URLSearchParams(window.location.search).get("section");
+}
+
+function sectionOrGeneral(wanted: string | null): SettingsSection {
+  return SECTIONS.some((s) => s.id === wanted) ? (wanted as SettingsSection) : "general";
 }

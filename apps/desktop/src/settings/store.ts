@@ -26,6 +26,17 @@ export const SETTINGS_DEFAULTS = {
   autoCheckUpdates: true,
   /** The version whose update banner the user dismissed ("" = none). */
   dismissedUpdateVersion: "",
+  /**
+   * Sample the SoC temperature every minute in the background and keep it
+   * 90 days. Read by Rust (src-tauri/src/thermal/sampler.rs); off means the
+   * background sampler reads no sensor, writes nothing and never notifies.
+   * The Thermal tabs and the panel's tab label still read the current temperature.
+   */
+  thermalGuardEnabled: true,
+  /** Show the current temperature on the panel's Thermal tab label. */
+  showTemperatureInPanel: false,
+  /** The Favourites section on the panel's Ports tab is collapsed. */
+  favouritesCollapsed: false,
 };
 
 export type Settings = typeof SETTINGS_DEFAULTS;

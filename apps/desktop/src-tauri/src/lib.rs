@@ -6,6 +6,7 @@ mod ports;
 mod settings;
 mod setup;
 mod shortcut;
+mod thermal;
 mod update;
 
 use std::sync::Mutex;
@@ -52,10 +53,14 @@ pub fn run() {
         // No window gets an `updater:*` permission: only the `update_*`
         // commands in src/update/ drive the updater (ADR 0007).
         .plugin(tauri_plugin_updater::Builder::new().build())
+        // Rust-side only: the thermal sampler sends the notification, so no
+        // window gets a `notification:*` permission.
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             app.manage(LastBlurHide(Mutex::new(None)));
             app.manage(TrayRect(Mutex::new(None)));
             update::init(app.handle());
+            thermal::sampler::init(app.handle());
 
             #[cfg(target_os = "macos")]
             if let Some(window) = app.get_webview_window("main") {
@@ -112,7 +117,7 @@ pub fn run() {
                 .on_menu_event(|app, event| {
                     match event.id.as_ref() {
                         "settings" => {
-                            if let Err(e) = settings::open_settings(app) {
+                            if let Err(e) = settings::open_settings(app, None) {
                                 log::error!("settings: could not open the window ({e})");
                             }
                         }
@@ -216,7 +221,9 @@ pub fn run() {
             commands::update_install,
             commands::update_restart,
             commands::open_settings,
-            commands::set_shortcut
+            commands::set_shortcut,
+            commands::thermal_current,
+            commands::thermal_history
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

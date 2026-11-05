@@ -29,10 +29,10 @@ function baseProps() {
 }
 
 describe("FavouritesPanel", () => {
-  it("shows the empty state and a Watch a port trigger when nothing is saved", () => {
+  it("shows only the Watch a port trigger when nothing is saved", () => {
     render(<FavouritesPanel {...baseProps()} />);
-    expect(screen.getByText("No watched ports yet")).toBeTruthy();
     expect(screen.getByRole("button", { name: /watch a port/i })).toBeTruthy();
+    expect(screen.queryByRole("listbox")).toBeNull();
   });
 
   it("renders a saved watch with matches: heading, in-use status and its listener rows", () => {
@@ -90,12 +90,6 @@ describe("FavouritesPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /remove watched port 3000/i }));
     expect(remove).toHaveBeenCalledWith(3000);
     expect(onRequestKill).not.toHaveBeenCalled();
-  });
-
-  it("filtered-empty state (saved list nonempty, no search matches) differs from the free empty state", () => {
-    render(<FavouritesPanel {...baseProps()} favourites={[{ port: 3000 }]} query="nomatch" />);
-    expect(screen.getByText(/no watches match/i)).toBeTruthy();
-    expect(screen.queryByText("No watched ports yet")).toBeNull();
   });
 
   it("opens the inline watch form (not window.prompt) and adds via it", () => {

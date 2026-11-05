@@ -120,9 +120,96 @@ pub fn set_shortcut(app: tauri::AppHandle, shortcut: String) -> Result<(), AppEr
     Ok(())
 }
 
-/// Opens Settings from the panel's gear button or ⌘, (the tray menu calls
-/// `settings::open_settings` directly).
+/// Opens Settings from the panel: the gear button and ⌘, with no section,
+/// the Thermal tab's footer link on `thermal` (the tray menu calls
+/// `settings::open_settings` directly). An unknown section is refused.
 #[tauri::command]
-pub fn open_settings(app: tauri::AppHandle) -> Result<(), AppError> {
-    crate::settings::open_settings(&app).map_err(|e| AppError::Internal(e.to_string()))
+pub fn open_settings(app: tauri::AppHandle, section: Option<String>) -> Result<(), AppError> {
+    let section = section
+        .map(|id| {
+            crate::settings::known_section(&id)
+                .ok_or_else(|| AppError::Internal(format!("unknown settings section: {id}")))
+        })
+        .transpose()?;
+    crate::settings::open_settings(&app, section).map_err(|e| AppError::Internal(e.to_string()))
+}
+
+/// A fresh sensor read (not the database), plus the 7-day baseline when
+/// history exists. `None` when the Mac exposes no usable die sensor.
+#[tauri::command]
+pub async fn thermal_current(
+    app: tauri::AppHandle,
+) -> Result<Option<crate::thermal::api::ThermalReadingDto>, AppError> {
+    use crate::thermal::api::ThermalReadingDto;
+    use crate::thermal::sampler::{read_reading, Thermal};
+    use tauri::Manager;
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<Thermal>();
+        let reading = {
+            let mut sensors = state.sensors.lock().unwrap_or_else(|e| e.into_inner());
+            read_reading(&mut sensors, chrono::Utc::now().timestamp())
+        };
+        let Some(reading) = reading else {
+            return Ok(None);
+        };
+        let baseline = state
+            .store
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+            .and_then(|store| {
+                let since = crate::thermal::sampler::window_start_day(reading.at_s, 7);
+                store.baseline(&since).ok().flatten()
+            });
+        Ok(Some(ThermalReadingDto::new(&reading, baseline)))
+    })
+    .await
+    .map_err(|e| AppError::Internal(e.to_string()))?
+}
+
+/// Buckets and peaks in `[from_s, to_s)` plus the last `days` daily
+/// summaries. `available` is false when the store did not open.
+#[tauri::command]
+pub async fn thermal_history(
+    app: tauri::AppHandle,
+    from_s: i64,
+    to_s: i64,
+    days: i64,
+) -> Result<crate::thermal::api::ThermalHistoryDto, AppError> {
+    use crate::thermal::api::ThermalHistoryDto;
+    use crate::thermal::sampler::Thermal;
+    use tauri::Manager;
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<Thermal>();
+        let guard = state.store.lock().unwrap_or_else(|e| e.into_inner());
+        let Some(store) = guard.as_ref() else {
+            return Ok(ThermalHistoryDto::unavailable());
+        };
+        let internal = |e: crate::thermal::store::StoreError| AppError::Internal(e.to_string());
+        Ok(ThermalHistoryDto {
+            available: true,
+            buckets: store
+                .buckets(from_s, to_s)
+                .map_err(internal)?
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+            peaks: store
+                .peaks(from_s, to_s)
+                .map_err(internal)?
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+            days: store
+                .days(&crate::thermal::sampler::window_start_day(
+                    chrono::Utc::now().timestamp(),
+                    days,
+                ))
+                .map_err(internal)?,
+        })
+    })
+    .await
+    .map_err(|e| AppError::Internal(e.to_string()))?
 }

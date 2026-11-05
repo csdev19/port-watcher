@@ -33,7 +33,7 @@
 
 .searchWrap {
   position: relative;
-  margin: 9px 9px 8px;
+  margin: 0 9px 8px;
   display: flex;
   align-items: center;
   color: var(--pw-muted);
@@ -85,6 +85,14 @@
   min-height: 0;
   overflow-y: auto;
   border-top: 1px solid var(--pw-line);
+}
+
+/* The Ports tab's one scroll area: Favourites, then the listening
+ * sections. A column so an empty or error state still fills and centres
+ * in the space left under the sections. */
+.listStack {
+  display: flex;
+  flex-direction: column;
 }
 
 .section + .section {
@@ -386,6 +394,28 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* The Thermal tab's link to Settings, in the footer's text slot; pulled
+ * left by its own padding so its text lines up with the footer text. */
+.footerLink {
+  margin-left: -6px;
+  padding: 3px 6px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--pw-muted);
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.footerLink:hover {
+  color: var(--pw-fg);
+  background: var(--pw-raised-hover);
+}
+.footerLink:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--pw-accent-ring);
+}
+
 .footerButton {
   position: relative;
   display: grid;
@@ -451,12 +481,14 @@
   min-height: 0;
 }
 
-/* F7 Slice 3: tabs */
+/* Panel tabs (Ports, Thermal): the top row, above the Ports-only search,
+ * so switching tabs never moves them. */
 .tablist {
   display: flex;
   gap: 4px;
-  margin: 0 9px 8px;
+  margin: 9px 9px 8px;
 }
+
 .tab {
   flex: 1;
   display: flex;
@@ -486,6 +518,11 @@
 }
 .tabActive .tabCount {
   color: var(--pw-muted);
+}
+/* The opt-in `58°` on the Thermal tab; the colour is the band's, inline. */
+.tabTemp {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 /* F7 Slice 3: Favourites watch groups */
