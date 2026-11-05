@@ -41,12 +41,19 @@ tauri-plugin-updater = "2.13.3"
 flate2 = "1"
 tar = "0.4"
 tempfile = "3"
+# Temperature guard history (ADR 0009): Rust-owned SQLite, compiled in.
+rusqlite = { version = "0.37", features = ["bundled"] }
+# Local calendar day for the daily thermal summary.
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+tauri-plugin-notification = "2"
 
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # Turns the panel window into a non-activating NSPanel: the only kind of
 # window macOS lets another app show over a full-screen Space.
 tauri-nspanel = "2.1"
+# `NSProcessInfo.thermalState` for the temperature guard (ADR 0010).
+objc2-foundation = { version = "0.3", features = ["NSProcessInfo"] }
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
 [profile.release]

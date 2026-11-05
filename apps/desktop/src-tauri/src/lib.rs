@@ -6,6 +6,7 @@ mod ports;
 mod settings;
 mod setup;
 mod shortcut;
+mod thermal;
 mod update;
 
 use std::sync::Mutex;
