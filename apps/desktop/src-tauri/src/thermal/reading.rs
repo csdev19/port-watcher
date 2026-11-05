@@ -3,9 +3,6 @@
 //! average with. The pure parts (filtering, bands, state mapping) are tested;
 //! the live reads are thin wrappers over `sysinfo` and `NSProcessInfo`.
 
-// The sampler (unit 3) consumes these items; until it lands they are unused.
-#![allow(dead_code)]
-
 use serde::Serialize;
 use sysinfo::Components;
 
@@ -132,12 +129,6 @@ fn summarize_components(components: &Components) -> Option<Summary> {
     )
 }
 
-/// Reads the sensors once, enumerating them from scratch. Fine for a one-off
-/// read; a loop should keep a `Sensors` instead.
-pub fn read_sensors() -> Option<Summary> {
-    summarize_components(&Components::new_with_refreshed_list())
-}
-
 /// A long-lived reader: it enumerates the sensors once and later reads only
 /// refresh their values, which is cheaper than listing them every minute.
 pub struct Sensors(Components);
@@ -183,18 +174,6 @@ pub fn thermal_state() -> ThermalState {
 #[cfg(not(target_os = "macos"))]
 pub fn thermal_state() -> ThermalState {
     ThermalState::Nominal
-}
-
-/// Sensors plus pressure level, stamped with `now_s` (epoch seconds).
-pub fn read_now(now_s: i64) -> Option<Reading> {
-    let summary = read_sensors()?;
-    Some(Reading {
-        avg_c: summary.avg_c,
-        max_c: summary.max_c,
-        sensors: summary.sensors,
-        state: thermal_state(),
-        at_s: now_s,
-    })
 }
 
 #[cfg(test)]
@@ -323,12 +302,5 @@ mod tests {
             serde_json::to_string(&ThermalBand::Throttling).unwrap(),
             "\"throttling\""
         );
-    }
-
-    /// Live read; run with `cargo test thermal::reading -- --ignored --nocapture`.
-    #[test]
-    #[ignore]
-    fn smoke_prints_a_live_reading() {
-        println!("{:?}", read_now(0));
     }
 }

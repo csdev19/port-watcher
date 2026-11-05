@@ -8,9 +8,6 @@
 //! file untouched. The schema version is read inside the write transaction,
 //! because two chapay processes (dev build and installed app) can race.
 
-// Unit 3 (the sampler and the commands) consumes these items.
-#![allow(dead_code)]
-
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
