@@ -34,6 +34,8 @@
     "format": "oxfmt --write .",
     "format:tracked": "git ls-files | grep -E '\\.(ts|tsx|js|jsx|json|jsonc|md|mdx)$' | xargs oxfmt --write",
     "check": "bun run lint && bun run format",
+    "verify": "bun run lint && oxfmt --check . && bun run build --filter='@port-watcher/*' && bun run check-types && bun run test",
+    "verify:rust": "bun run --cwd apps/desktop build && cd apps/desktop/src-tauri && cargo fmt --check && cargo clippy --locked --all-targets -- -D warnings && cargo test --locked",
     "dev": "turbo run dev tauri:dev",
     "build": "turbo run build",
     "build:no-cache": "turbo run build --force",

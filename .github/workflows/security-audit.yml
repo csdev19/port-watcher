@@ -1,24 +1,25 @@
 name: Security audit
 
-# Checks the dependency trees against the RustSec and npm advisory databases:
-# weekly (new advisories land on unchanged lockfiles) and on any PR that
-# changes a lockfile.
+# Tier: scheduled, and candidate (reusable). Checks the dependency trees against
+# the RustSec and npm advisory databases: weekly (new advisories land on
+# unchanged lockfiles), on release-please PRs once marked Ready for review
+# (called by pr-checks.yml), and by hand. It no longer runs on lockfile PRs:
+# a lockfile change reaches users only through a release PR, which runs it.
+# Policy: docs/adr/0014-verify-release-candidates-not-every-pr.md, applying
+# https://github.com/csdev19/general-knowledge/blob/main/monorepos/release-gated-verification.md
 #
-# cargo audit fails the run on a vulnerability (unmaintained/unsound crates
-# are warnings only). bun audit is report-only for now: the tree carries a
-# backlog of advisories, mostly in dev tooling (vite, vitest, ws). Drop
-# `continue-on-error` once that backlog is cleared.
+# cargo audit fails the run (and its caller) on a vulnerability
+# (unmaintained/unsound crates are warnings only). bun audit is report-only
+# for now: the tree carries a backlog of advisories, mostly in dev tooling
+# (vite, vitest, ws). Drop `continue-on-error` once that backlog is cleared.
+#
+# Reopen when a second person merges or branch protection is turned on (then
+# lockfile PRs get this check again), or when the bun backlog is cleared.
 
 on:
   schedule:
     - cron: "17 6 * * 1"
-  pull_request:
-    branches:
-      - main
-    paths:
-      - "bun.lock"
-      - "apps/desktop/src-tauri/Cargo.lock"
-      - ".github/workflows/security-audit.yml"
+  workflow_call:
   workflow_dispatch:
 
 permissions:

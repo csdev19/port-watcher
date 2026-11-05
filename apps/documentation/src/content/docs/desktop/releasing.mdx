@@ -15,11 +15,19 @@ This page is the day-to-day flow.
 
 1. Merge feature PRs to `main` with Conventional Commit titles. Only `feat` and
    `fix` under `apps/desktop/` count toward a desktop release.
-2. release-please keeps a PR open titled like `chore(main): release desktop 0.2.0`,
-   with the version bump and changelog. Review it.
-3. Merge it. That creates the `desktop-v0.2.0` tag, which runs
-   `release-desktop.yml`.
-4. release-please has already published the GitHub Release with the
+2. release-please keeps a **draft** PR open titled like
+   `chore(main): release desktop 0.2.0`, with the version bump and changelog. It
+   rewrites the draft on every releasable merge, and a draft runs no checks.
+3. When that candidate is the one to ship, mark the PR **Ready for review**. That
+   runs the full verification on it (`pr-checks.yml`: `bun run verify` and the web
+   build on Linux, `bun run verify:rust` on macOS, `cargo audit`). Every later
+   rewrite is verified again and the superseded run is cancelled; converting the
+   PR back to draft cancels it too.
+4. Merge it once those checks are green. That creates the `desktop-v0.2.0` tag,
+   which runs `release-desktop.yml`. Its build, signing and uploads wait for the
+   same verification to pass again on the tagged commit, so a candidate merged
+   without being marked ready still fails before anything is signed or published.
+5. release-please has already published the GitHub Release with the
    changelog. When the run finishes, the DMGs, the update archives and
    `SHA256SUMS` are in R2 and attached to that release, and the update feed
    (`updates/latest.json`) announces the new version to every installed copy.
@@ -33,13 +41,23 @@ its version from that `package.json`, and release-please owns both.
 
 ## Checks that run before a release
 
-These workflows gate and audit `main`; they do not publish anything.
+Where each check runs, and why ordinary PRs get only the quick one, is decided in
+[ADR 0014](https://github.com/csdev19/port-watcher/blob/main/docs/adr/0014-verify-release-candidates-not-every-pr.md).
+The definition of "verified" is two root scripts: `bun run verify` (lint,
+`oxfmt --check`, package builds, `check-types`, `test`) and `bun run verify:rust`
+(renderer build, `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test --locked`).
 
-| Workflow             | Runs                                                                                                                |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `pr-validation.yml`  | Lint, `oxfmt --check`, package build, `check-types`, `test` and an app build (the TypeScript side)                  |
-| `desktop-ci.yml`     | On macOS, for changes under `apps/desktop/`: `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test --locked` |
-| `security-audit.yml` | `cargo audit` (fails on a vulnerability) and `bun audit` (report-only) weekly and on lockfile changes               |
+| Where                          | Runs                                                                                                |
+| ------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `git push` (Lefthook pre-push) | `bun run verify`, plus `bun run verify:rust` when the push touches `apps/desktop/src-tauri/`        |
+| Any non-draft PR               | `pr-checks.yml` → **Quick checks**: lint and `oxfmt --check` only                                   |
+| Release PR, Ready for review   | `pr-checks.yml` → `verify.yml`, `desktop-ci.yml` (macOS) and `security-audit.yml`                   |
+| `desktop-v*` / `web-v*` tag    | `release-desktop.yml` / `release-web.yml` run `verify.yml` (and `desktop-ci.yml`) before publishing |
+| Weekly and by hand             | `security-audit.yml`: `cargo audit` (fails on a vulnerability) and `bun audit` (report-only)        |
+
+After a risky merge (the lockfile, a workflow, build config), run **PR checks**,
+**Verify** or **Desktop CI** by hand from the Actions tab instead of waiting for
+the release PR.
 
 Every action in the workflows is pinned to a commit SHA, and Dependabot opens one weekly PR to bump
 them. The Rust version is pinned once in `apps/desktop/src-tauri/rust-toolchain.toml` and used by

@@ -9,12 +9,36 @@ name: release-please
 # Token note: the tag MUST be created by a non-default token, otherwise the
 # `on: push: tags` workflows won't fire (GitHub suppresses events raised by the
 # default GITHUB_TOKEN). RELEASE_PLEASE_TOKEN is a fine-grained PAT with
-# Contents + Pull requests read/write.
+# Contents + Pull requests read/write. The PAT also matters for pr-checks.yml: a PR
+# opened or force-pushed with the default GITHUB_TOKEN would start no workflow, so the
+# release PR could never be verified.
+
+# Tier: bot. The release PR is opened as a DRAFT (`draft-pull-request` in
+# release-please-config.json), so its rewrites start no verification; marking it Ready
+# for review runs the full candidate checks in pr-checks.yml. Policy:
+# docs/adr/0014-verify-release-candidates-not-every-pr.md, applying
+# https://github.com/csdev19/general-knowledge/blob/main/monorepos/release-gated-verification.md
+#
+# Path-filtered (hub rule R6): a push to main that touches none of these paths cannot
+# change a release PR, yet would bill a full minute. Skipping a run is safe:
+# release-please reads the whole history on every run, so the next matching push picks
+# up what a skipped one did not see, and merging a release PR always touches the app's
+# package.json, so the tag is never skipped. `workflow_dispatch` is the manual catch-up.
+# Reopen when a new releasable component is added: add its path here.
 
 on:
   push:
     branches:
       - main
+    paths:
+      - "apps/desktop/**"
+      - "apps/fullstack-fn-only/**"
+      - "packages/**"
+      - "bun.lock"
+      - "release-please-config.json"
+      - ".release-please-manifest.json"
+      - ".github/workflows/release-please.yml"
+  workflow_dispatch:
 
 permissions:
   contents: write

@@ -1,30 +1,28 @@
 name: Desktop CI
 
-# Runs the Rust core of the Tauri app (apps/desktop/src-tauri) on macOS: the
-# kill guards in ports/kill.rs and ports/classify.rs, and everything else
-# `cargo test` covers. pr-validation.yml only runs the TypeScript side.
+# Tier: candidate and release (reusable). Runs the Rust core of the Tauri app
+# (apps/desktop/src-tauri) on macOS through `bun run verify:rust`: the renderer build that
+# `tauri::generate_context!` embeds, then `cargo fmt --check`, `cargo clippy -D warnings`
+# and `cargo test --locked` (the kill guards in ports/kill.rs and ports/classify.rs and
+# everything else the crate tests). The pre-push hook runs the same script whenever a push
+# touches src-tauri.
 #
-# Path-filtered, so a PR that does not touch the desktop app skips it. If you
-# make this check required in branch protection, note that a skipped workflow
-# never reports, which blocks PRs that do not touch these paths.
+# Callers: pr-checks.yml (release-please PRs once marked Ready for review, and manual
+# dispatch) and release-desktop.yml (in front of the build/sign/publish job). It no longer
+# runs on every PR or push to main. macOS on purpose: the crate's process and port code is
+# macOS-only, and a Linux runner would compile a different program (hub rule R7).
+# Policy: docs/adr/0014-verify-release-candidates-not-every-pr.md, applying
+# https://github.com/csdev19/general-knowledge/blob/main/monorepos/release-gated-verification.md
+#
+# No workflow-level `concurrency`: in a called workflow it would be evaluated in the
+# caller's context and could cancel a release's gate. The callers own cancellation.
+#
+# Reopen when a second person merges or branch protection is turned on, or when Rust
+# regressions keep surfacing first on the release PR (see the ADR).
 
 on:
-  pull_request:
-    branches:
-      - main
-    paths:
-      - "apps/desktop/**"
-      - ".github/workflows/desktop-ci.yml"
-  push:
-    branches:
-      - main
-    paths:
-      - "apps/desktop/**"
-      - ".github/workflows/desktop-ci.yml"
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  workflow_call:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -34,9 +32,6 @@ jobs:
     name: Rust (fmt, clippy, test)
     runs-on: macos-latest
     timeout-minutes: 30
-    defaults:
-      run:
-        working-directory: apps/desktop/src-tauri
     steps:
       - name: Checkout code
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -46,6 +41,7 @@ jobs:
       - name: Install the pinned Rust toolchain
         # Reads src-tauri/rust-toolchain.toml (version, rustfmt, clippy).
         # rustup ships with the macOS runner image.
+        working-directory: apps/desktop/src-tauri
         run: |
           rustup toolchain install
           rustc --version
@@ -60,19 +56,10 @@ jobs:
         with:
           bun-version: 1.3.4
 
-      - name: Build the renderer
-        # tauri::generate_context! embeds ../dist at compile time, so the
-        # crate does not compile (or test) without it.
-        working-directory: .
-        run: |
-          bun install --frozen-lockfile
-          bun run --cwd apps/desktop build
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
 
-      - name: Check formatting
-        run: cargo fmt --check
-
-      - name: Clippy
-        run: cargo clippy --locked --all-targets -- -D warnings
-
-      - name: Test
-        run: cargo test --locked
+      - name: Verify the Rust core
+        # The script builds the renderer first: tauri::generate_context! embeds
+        # ../dist at compile time, so the crate does not compile (or test) without it.
+        run: bun run verify:rust
