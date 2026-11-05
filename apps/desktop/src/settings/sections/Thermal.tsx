@@ -30,7 +30,11 @@ const HISTORY_DAYS = 7;
 function usePolled<T>(load: () => Promise<T>, intervalMs: number): T | undefined {
   const [value, setValue] = useState<T | undefined>(undefined);
   const loadRef = useRef(load);
-  loadRef.current = load;
+  // Updated after commit, never during render: React may discard a render.
+  // Declared before the polling effect so a tick always sees the latest load.
+  useEffect(() => {
+    loadRef.current = load;
+  });
 
   useEffect(() => {
     let alive = true;
