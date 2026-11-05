@@ -69,11 +69,19 @@ export default function App() {
   // dropped from the listening list (list, counts, search, keyboard). The
   // Favourites section keeps the full snapshot: a watched port is watched
   // whichever process holds it.
-  const data = useMemo(
-    () => (showAppsAndSystem ? allPorts : allPorts?.filter((e) => e.category === "dev")),
-    [allPorts, showAppsAndSystem],
-  );
   const [query, setQuery] = useState("");
+  // A port opened from a Thermal peak stays visible even when its category
+  // is hidden, for as long as the search still names it; otherwise the
+  // jump would land on "No matches" for a port that is listening.
+  const [linkedPort, setLinkedPort] = useState<number | null>(null);
+  const shownPort = linkedPort !== null && query.trim() === String(linkedPort) ? linkedPort : null;
+  const data = useMemo(
+    () =>
+      showAppsAndSystem
+        ? allPorts
+        : allPorts?.filter((e) => e.category === "dev" || e.port === shownPort),
+    [allPorts, showAppsAndSystem, shownPort],
+  );
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [manuallyExpanded, setManuallyExpanded] = useState(false);
   const [toast, setToast] = useState<ToastData | null>(null);
@@ -462,6 +470,7 @@ export default function App() {
   // A peak's port pill on the Thermal tab: back to Ports, filtered to it.
   function showPort(port: number) {
     switchTab("ports");
+    setLinkedPort(port);
     setQuery(String(port));
     setSearchFocusRequest((n) => n + 1);
   }

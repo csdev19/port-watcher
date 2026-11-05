@@ -1138,6 +1138,36 @@ describe("App Thermal tab", () => {
     expect(portsTab().getAttribute("aria-selected")).toBe("true");
   });
 
+  it("a peak's port pill shows a system listener even with Apps & System hidden", async () => {
+    await setSetting("showAppsAndSystem", false);
+    vi.spyOn(thermalModule, "thermalHistory").mockResolvedValue({
+      available: true,
+      buckets: [],
+      days: [],
+      peaks: [
+        {
+          id: 1,
+          atS: Math.floor(Date.now() / 1000),
+          avgC: 92,
+          maxC: 97,
+          state: "fair",
+          processes: [{ pid: 7, name: "ControlCenter", cpu: 90, ports: [7000] }],
+        },
+      ],
+    });
+    renderApp();
+    await screen.findByText("3000");
+    expect(screen.queryByText("7000")).toBeNull();
+
+    fireEvent.click(thermalTab());
+    fireEvent.click(await screen.findByRole("button", { name: "Show port 7000" }));
+    expect(await screen.findByText("7000")).toBeTruthy();
+
+    // Editing the search away from it hides the category again.
+    fireEvent.change(searchField(), { target: { value: "70" } });
+    await waitFor(() => expect(screen.queryByText("7000")).toBeNull());
+  });
+
   it("mounts ThermalPanel, and a peak's port pill switches to Ports with the search set and focused", async () => {
     vi.spyOn(thermalModule, "thermalHistory").mockResolvedValue({
       available: true,
