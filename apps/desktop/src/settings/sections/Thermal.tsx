@@ -83,7 +83,7 @@ export default function Thermal() {
         />
         <Row
           label="Show temperature in the panel"
-          reason="A small chip next to the tabs."
+          reason="On the panel's Thermal tab label."
           control={
             <Switch
               label="Show temperature in the panel"

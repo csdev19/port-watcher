@@ -35,6 +35,17 @@ export function portKey(entry: Pick<PortEntry, "pid" | "port">): string {
   return `${entry.pid}:${entry.port}`;
 }
 
+/** Where a row is drawn on the panel's Ports tab. A port that is both a
+ * favourite and listening is drawn twice, once in each. */
+export type RowScope = "favourites" | "listening";
+
+/** Selection, detail and kill-arm key for one drawn row: its scope plus
+ * `portKey`, so the two copies of one process are two distinct rows to the
+ * keyboard and only the copy acted on highlights or arms. */
+export function rowKey(scope: RowScope, entry: Pick<PortEntry, "pid" | "port">): string {
+  return `${scope}:${portKey(entry)}`;
+}
+
 /** Mirror of the Rust thermal types (serde camelCase); the contract is in
  * docs/specs/2026-11-04-temperature-guard-design.md. Do not add fields here
  * without adding them in src-tauri/src/thermal first. */

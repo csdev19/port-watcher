@@ -7,7 +7,7 @@ import {
   type FavouritePort,
   type MutationResult,
 } from "@/lib/favourites";
-import { portKey, type PortEntry } from "@/lib/types";
+import { rowKey, type PortEntry } from "@/lib/types";
 import { PortRow } from "@/components/PortRow";
 import { WatchPortForm } from "@/components/WatchPortForm";
 import { Icon } from "@/components/Icon";
@@ -28,6 +28,7 @@ interface Props {
   query: string;
   onClearQuery: () => void;
   onRetry: () => void;
+  /** Row keys (`rowKey("favourites", entry)`), as App's navigation uses them. */
   selectedKey: string | null;
   expandedKey: string | null;
   armedKey: string | null;
@@ -37,11 +38,13 @@ interface Props {
   onDisarmKill: () => void;
 }
 
-/** F7 Slice 3: Favourites tab. Renders one flat list of watch groups (no
- * app/system disclosure — unlike Listening, everything here was
- * deliberately saved by the user), each with a heading (saved name/port,
- * live status, remove action) and its live listener rows underneath,
- * reusing F6's `PortRow` — not a second kill UI. */
+/** The body of the Ports tab's Favourites section: one flat list of watch
+ * groups (no app/system disclosure — everything here was deliberately
+ * saved by the user), each with a heading (saved name/port, live status,
+ * remove action) and its live listener rows underneath, reusing F6's
+ * `PortRow` — not a second kill UI — then the watch form. App hides the
+ * whole section while a search matches no watch, so there is no
+ * "no match" state here. */
 export function FavouritesPanel({
   favourites,
   favouritesError,
@@ -68,8 +71,8 @@ export function FavouritesPanel({
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   const health = favouritesQueryHealth(data, queryError);
-  // Pure joins/filters only. `matches` (unfiltered by search) drives the
-  // footer's totals in App; `visibleMatches` drives what's on screen here.
+  // Pure joins/filters only: `visibleMatches` is what's on screen, the same
+  // list App walks for keyboard navigation.
   const matches = useMemo(() => joinFavourites(favourites, data ?? []), [favourites, data]);
   const visibleMatches = useMemo(() => filterFavouriteMatches(matches, query), [matches, query]);
 
@@ -109,7 +112,7 @@ export function FavouritesPanel({
   const stale = health === "stale";
 
   return (
-    <div className={styles.list}>
+    <>
       {favouritesError && (
         <p className={styles.watchError} role="alert">
           {favouritesError}{" "}
@@ -132,137 +135,106 @@ export function FavouritesPanel({
         </p>
       )}
 
-      {favourites.length === 0 ? (
-        <div className={styles.state}>
-          <Icon name="star" size={24} />
-          <p className={styles.stateTitle}>No watched ports yet</p>
-          {formOpen ? (
-            <WatchPortForm add={add} onSuccess={handleAddSuccess} onCancel={closeForm} />
-          ) : (
-            <button
-              type="button"
-              ref={triggerRef}
-              className={styles.stateButton}
-              onClick={openForm}
-            >
-              <Icon name="plus" />
-              Watch a port
-            </button>
-          )}
-        </div>
-      ) : visibleMatches.length === 0 ? (
-        <div className={styles.state}>
-          <Icon name="search-x" size={24} />
-          <p className={styles.stateTitle}>No watches match {query}</p>
-          <button type="button" className={styles.stateButton} onClick={onClearQuery}>
-            <Icon name="x" />
-            Clear search
-          </button>
-        </div>
-      ) : (
-        <>
-          {visibleMatches.map(({ favourite, listeners }) => {
-            const statusLabel =
-              health === "checking"
-                ? "checking…"
-                : health === "unavailable"
-                  ? "status unavailable"
-                  : listeners.length > 0
-                    ? stale
-                      ? "in use · stale"
-                      : "in use"
-                    : stale
-                      ? "nothing listening · stale"
-                      : "nothing listening";
-            const statusClass =
-              health === "fresh" && listeners.length === 0
-                ? styles.watchStatusFree
+      {visibleMatches.map(({ favourite, listeners }) => {
+        const statusLabel =
+          health === "checking"
+            ? "checking…"
+            : health === "unavailable"
+              ? "status unavailable"
+              : listeners.length > 0
+                ? stale
+                  ? "in use · stale"
+                  : "in use"
                 : stale
-                  ? styles.watchStatusStale
-                  : styles.watchStatus;
+                  ? "nothing listening · stale"
+                  : "nothing listening";
+        const statusClass =
+          health === "fresh" && listeners.length === 0
+            ? styles.watchStatusFree
+            : stale
+              ? styles.watchStatusStale
+              : styles.watchStatus;
 
-            return (
-              <div className={styles.watchGroup} key={favourite.port}>
-                <div className={styles.watchHeading}>
-                  {editingPort === favourite.port ? (
-                    <WatchNameField
-                      port={favourite.port}
-                      initialValue={favourite.name ?? liveProcessName(listeners) ?? ""}
-                      onSubmit={handleRenameSubmit}
-                      onCancel={() => setEditingPort(null)}
+        return (
+          <div className={styles.watchGroup} key={favourite.port}>
+            <div className={styles.watchHeading}>
+              {editingPort === favourite.port ? (
+                <WatchNameField
+                  port={favourite.port}
+                  initialValue={favourite.name ?? liveProcessName(listeners) ?? ""}
+                  onSubmit={handleRenameSubmit}
+                  onCancel={() => setEditingPort(null)}
+                />
+              ) : (
+                <button
+                  type="button"
+                  className={styles.watchHeadingLabel}
+                  onClick={() => setEditingPort(favourite.port)}
+                  aria-label={`Rename watched port ${favourite.port}`}
+                >
+                  <span className={styles.watchHeadingLabelText}>
+                    {(favourite.name ?? liveProcessName(listeners))
+                      ? `${favourite.name ?? liveProcessName(listeners)} · `
+                      : ""}
+                  </span>
+                  <span className={styles.watchHeadingPort}>{favourite.port}</span>
+                  <span className={styles.watchHeadingPencil}>
+                    <Icon name="pencil" size={12} />
+                  </span>
+                </button>
+              )}
+              <span className={statusClass}>{statusLabel}</span>
+              <button
+                type="button"
+                className={styles.watchRemove}
+                aria-label={`Remove watched port ${favourite.port}`}
+                onClick={() => handleRemove(favourite.port)}
+              >
+                <Icon name="trash-2" />
+              </button>
+            </div>
+            {listeners.length > 0 && (
+              <ul
+                className={styles.rowList}
+                role="listbox"
+                aria-label={`Listeners on port ${favourite.port}`}
+              >
+                {listeners.map((entry) => {
+                  const k = rowKey("favourites", entry);
+                  return (
+                    <PortRow
+                      key={k}
+                      entry={entry}
+                      selected={k === selectedKey}
+                      expanded={expandedKey === k}
+                      armed={armedKey === k}
+                      killDisabled={stale}
+                      onSelect={() => onSelect(k)}
+                      onToggleExpand={() => onToggleExpand(k)}
+                      onRequestKill={() => onRequestKill(entry)}
+                      onDisarm={onDisarmKill}
                     />
-                  ) : (
-                    <button
-                      type="button"
-                      className={styles.watchHeadingLabel}
-                      onClick={() => setEditingPort(favourite.port)}
-                      aria-label={`Rename watched port ${favourite.port}`}
-                    >
-                      <span className={styles.watchHeadingLabelText}>
-                        {(favourite.name ?? liveProcessName(listeners))
-                          ? `${favourite.name ?? liveProcessName(listeners)} · `
-                          : ""}
-                      </span>
-                      <span className={styles.watchHeadingPort}>{favourite.port}</span>
-                      <span className={styles.watchHeadingPencil}>
-                        <Icon name="pencil" size={12} />
-                      </span>
-                    </button>
-                  )}
-                  <span className={statusClass}>{statusLabel}</span>
-                  <button
-                    type="button"
-                    className={styles.watchRemove}
-                    aria-label={`Remove watched port ${favourite.port}`}
-                    onClick={() => handleRemove(favourite.port)}
-                  >
-                    <Icon name="trash-2" />
-                  </button>
-                </div>
-                {listeners.length > 0 && (
-                  <ul
-                    className={styles.rowList}
-                    role="listbox"
-                    aria-label={`Listeners on port ${favourite.port}`}
-                  >
-                    {listeners.map((entry) => {
-                      const k = portKey(entry);
-                      return (
-                        <PortRow
-                          key={k}
-                          entry={entry}
-                          selected={k === selectedKey}
-                          expanded={expandedKey === k}
-                          armed={armedKey === k}
-                          killDisabled={stale}
-                          onSelect={() => onSelect(k)}
-                          onToggleExpand={() => onToggleExpand(k)}
-                          onRequestKill={() => onRequestKill(entry)}
-                          onDisarm={onDisarmKill}
-                        />
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-            );
-          })}
-          {formOpen ? (
-            <WatchPortForm add={add} onSuccess={handleAddSuccess} onCancel={closeForm} />
-          ) : (
-            <button
-              type="button"
-              ref={triggerRef}
-              className={styles.watchFormTrigger}
-              onClick={openForm}
-            >
-              <Icon name="plus" />
-              Watch a port
-            </button>
-          )}
-        </>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        );
+      })}
+      {formOpen ? (
+        <WatchPortForm add={add} onSuccess={handleAddSuccess} onCancel={closeForm} />
+      ) : (
+        <button
+          type="button"
+          ref={triggerRef}
+          className={styles.watchFormTrigger}
+          onClick={openForm}
+        >
+          <Icon name="plus" />
+          Watch a port
+        </button>
       )}
-    </div>
+    </>
   );
 }
 

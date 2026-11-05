@@ -1,4 +1,4 @@
-import { portKey, type PortEntry } from "@/lib/types";
+import { rowKey, type PortEntry } from "@/lib/types";
 import type { PortGroups } from "@/lib/port-groups";
 import { PortRow } from "./PortRow";
 import { Icon } from "@/components/Icon";
@@ -12,6 +12,7 @@ interface Props {
   secondaryOpen: boolean;
   /** True while search forces the section open — disables manual collapse. */
   secondaryForcedOpen: boolean;
+  /** Row keys (`rowKey("listening", entry)`), as App's navigation uses them. */
   selectedKey: string | null;
   expandedKey: string | null;
   /** Key of the row currently armed in App's shared kill-confirm instance. */
@@ -40,7 +41,7 @@ function renderRows(
   onToggleWatch: (entry: PortEntry) => void,
 ) {
   return entries.map((entry) => {
-    const k = portKey(entry);
+    const k = rowKey("listening", entry);
     return (
       <PortRow
         key={k}
@@ -76,8 +77,10 @@ export function PortList({
 }: Props) {
   const { dev, secondary } = groups;
 
+  // Sections only: App puts them in the Ports tab's scroll container, under
+  // the Favourites section.
   return (
-    <div className={styles.list}>
+    <>
       {dev.length > 0 && (
         <section className={styles.section}>
           <h3 className={styles.sectionHeading}>{dev.length} DEV</h3>
@@ -136,6 +139,6 @@ export function PortList({
           )}
         </section>
       )}
-    </div>
+    </>
   );
 }

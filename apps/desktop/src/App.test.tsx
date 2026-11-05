@@ -1,11 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { MOCK_PORTS } from "@/lib/mock-ports";
 import * as portsModule from "@/lib/ports";
 import * as thermalModule from "@/lib/thermal";
-import { resetMemorySettings, setSetting } from "@/settings/store";
+import { getSetting, resetMemorySettings, setSetting } from "@/settings/store";
 
 /** jsdom has no __TAURI_INTERNALS__, so `inTauri` is false and the app
  * renders MOCK_PORTS with zero Tauri mocking — this is the whole point
@@ -32,18 +32,45 @@ function repeatedKillShortcut() {
 }
 
 /** Rows only listen for `mouseenter`, which does not bubble — dispatch
- * directly on the `<li>` to move selection, the same way App.tsx does. */
-function hoverRow(port: number) {
-  const li = screen.getByText(String(port)).closest("li")!;
-  fireEvent.mouseEnter(li);
+ * directly on the `<li>` to move selection, the same way App.tsx does.
+ * Pass the listbox when the port is also drawn in Favourites. */
+function hoverRow(port: number, listbox?: string) {
+  const scope = listbox ? within(screen.getByRole("listbox", { name: listbox })) : screen;
+  fireEvent.mouseEnter(scope.getByText(String(port)).closest("li")!);
 }
 
-/** Favourites' watch heading also renders the port number as text, so a
- * plain `getByText(port)` lookup is ambiguous there — resolve the row via
- * its kill button's (stale or not) accessible label instead. */
+/** The listener rows under one watch in the Favourites section. */
+function favouriteRows(port: number) {
+  return within(screen.getByRole("listbox", { name: `Listeners on port ${port}` }));
+}
+
 function hoverFavouriteRow(port: number) {
-  const li = screen.getByLabelText(new RegExp(`^(Kill|Cannot kill).*port ${port}`)).closest("li")!;
-  fireEvent.mouseEnter(li);
+  fireEvent.mouseEnter(favouriteRows(port).getAllByRole("option")[0]);
+}
+
+function devRows() {
+  return within(screen.getByRole("listbox", { name: "Dev ports" }));
+}
+
+/** The one highlighted row; fails if none or more than one is. */
+function selectedRow() {
+  return screen.getByRole("option", { selected: true });
+}
+
+function favouritesHeader() {
+  return screen.getByRole("button", { name: /^favourites/i });
+}
+
+function portsTab() {
+  return screen.getByRole("tab", { name: /^ports/i });
+}
+
+function thermalTab() {
+  return screen.getByRole("tab", { name: /^thermal/i });
+}
+
+function searchField() {
+  return screen.getByLabelText("Search port, app or folder") as HTMLInputElement;
 }
 
 /** MOCK_PORTS' dev rows (3000, 5173, 5432, 8787) render by default; the
@@ -67,9 +94,11 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
     expect(openSettings).toHaveBeenCalledTimes(1);
+    expect(openSettings).toHaveBeenLastCalledWith();
 
     fireEvent.keyDown(window, { key: ",", metaKey: true, code: "Comma" });
     expect(openSettings).toHaveBeenCalledTimes(2);
+    expect(openSettings).toHaveBeenLastCalledWith();
   });
 
   it("Confirm before kill off: × kills a dev row on the first click", async () => {
@@ -387,89 +416,252 @@ describe("App", () => {
     expect(screen.queryByLabelText(/Kill cupsd/)).toBeNull();
   });
 
-  // F7 Slice 3: tabs, watch/remove wiring. Exhaustive composed regression
-  // (12-case suite) is F7 Slice 5's job — these are basic wiring checks.
-  describe("Favourites tab", () => {
-    it("defaults to Listening and switches tabs by click, resetting query on switch", async () => {
+  // The Ports tab: the Favourites section above the listening list, one
+  // keyboard list across both, and the tab row. Exhaustive composed
+  // regression is the Slice 5 suite below — these are wiring checks.
+  describe("Ports tab", () => {
+    it("defaults to Ports and switches to Thermal by click, resetting the query and hiding search", async () => {
       renderApp();
       await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
-      expect(screen.getByRole("tab", { name: /listening/i }).getAttribute("aria-selected")).toBe(
-        "true",
-      );
+      expect(portsTab().getAttribute("aria-selected")).toBe("true");
+      expect(thermalTab().getAttribute("aria-selected")).toBe("false");
 
-      fireEvent.change(screen.getByLabelText(/search/i), { target: { value: "next" } });
-      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+      fireEvent.change(searchField(), { target: { value: "next" } });
+      fireEvent.click(thermalTab());
 
-      expect(screen.getByRole("tab", { name: /favourites/i }).getAttribute("aria-selected")).toBe(
-        "true",
-      );
-      expect(screen.getByText("No watched ports yet")).toBeTruthy();
-      expect((screen.getByLabelText(/search/i) as HTMLInputElement).value).toBe("");
+      expect(thermalTab().getAttribute("aria-selected")).toBe("true");
+      expect(await screen.findByText("Thermal history in Settings")).toBeTruthy();
+      expect(searchField().value).toBe("");
+      expect(searchField().closest("[hidden]")).toBeTruthy();
+
+      fireEvent.click(portsTab());
+      expect(searchField().closest("[hidden]")).toBeNull();
+      expect(screen.getByText("3000")).toBeTruthy();
     });
 
-    it("watching a Listening row surfaces it under Favourites", async () => {
+    it("the Ports tab counts listening ports", async () => {
+      renderApp();
+      await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+      expect(portsTab().textContent).toBe(`Ports${MOCK_PORTS.length}`);
+    });
+
+    it("watching a listening row adds it to the Favourites section, so the port shows twice", async () => {
       renderApp();
       await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
 
       fireEvent.click(screen.getByRole("button", { name: "Watch port 3000" }));
       expect(screen.getByRole("button", { name: "Port 3000 is watched" })).toBeTruthy();
 
-      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+      expect(favouritesHeader().textContent).toBe("FAVOURITES · 1");
       expect(screen.getByText("in use")).toBeTruthy();
-      expect(screen.getByText("Next.js dev")).toBeTruthy();
+      expect(favouriteRows(3000).getByText("Next.js dev")).toBeTruthy();
+      expect(devRows().getByText("Next.js dev")).toBeTruthy();
     });
 
-    it("Left/Right arrow keys move and activate tabs without touching list navigation", async () => {
-      renderApp();
-      await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
-
-      const listeningTab = screen.getByRole("tab", { name: /listening/i });
-      listeningTab.focus();
-      fireEvent.keyDown(listeningTab, { key: "ArrowRight" });
-
-      expect(screen.getByRole("tab", { name: /favourites/i }).getAttribute("aria-selected")).toBe(
-        "true",
-      );
-      // The row list must not have reacted to this arrow key.
-      expect(screen.getByText("No watched ports yet")).toBeTruthy();
-    });
-
-    it("removing a watch from Favourites never calls killPort", async () => {
+    it("Left/Right/Home/End on the tablist move and activate tabs without touching list navigation", async () => {
       const killSpy = vi.spyOn(portsModule, "killPort");
       renderApp();
       await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
 
-      fireEvent.click(screen.getByRole("button", { name: "Watch port 3000" }));
-      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
-      fireEvent.click(screen.getByRole("button", { name: "Remove watched port 3000" }));
+      portsTab().focus();
+      fireEvent.keyDown(portsTab(), { key: "ArrowRight" });
+      expect(thermalTab().getAttribute("aria-selected")).toBe("true");
+      expect(document.activeElement).toBe(thermalTab());
 
-      expect(screen.getByText("No watched ports yet")).toBeTruthy();
+      fireEvent.keyDown(thermalTab(), { key: "ArrowLeft" });
+      expect(portsTab().getAttribute("aria-selected")).toBe("true");
+      expect(document.activeElement).toBe(portsTab());
+
+      fireEvent.keyDown(portsTab(), { key: "End" });
+      expect(thermalTab().getAttribute("aria-selected")).toBe("true");
+      fireEvent.keyDown(thermalTab(), { key: "Home" });
+      expect(portsTab().getAttribute("aria-selected")).toBe("true");
+
+      // The row list never reacted: the default selection is untouched.
+      expect(selectedRow().textContent).toContain("3000");
       expect(killSpy).not.toHaveBeenCalled();
     });
 
-    // F7 Slice 4: keyboard navigation/kill wired into Favourites, routed
-    // through the same identity-based nav/confirm plumbing as Listening.
-    it("arrow-down and ⌘⌫ operate on Favourites' listener rows once that tab is active", async () => {
+    it("removing a watch never calls killPort", async () => {
       const killSpy = vi.spyOn(portsModule, "killPort");
       renderApp();
       await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
 
       fireEvent.click(screen.getByRole("button", { name: "Watch port 3000" }));
-      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+      fireEvent.click(screen.getByRole("button", { name: "Remove watched port 3000" }));
+
+      expect(screen.queryByText("in use")).toBeNull();
+      expect(favouritesHeader().textContent).toBe("FAVOURITES · 0");
+      expect(killSpy).not.toHaveBeenCalled();
+    });
+
+    it("the Favourites header collapses and expands the section, and the state persists", async () => {
+      window.localStorage.setItem("chapay.favourites", JSON.stringify([{ port: 3000 }]));
+      const { unmount } = renderApp();
+      await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
+      expect(favouritesHeader().getAttribute("aria-expanded")).toBe("true");
+
+      fireEvent.click(favouritesHeader());
+      expect(favouritesHeader().getAttribute("aria-expanded")).toBe("false");
+      expect(screen.queryByText("in use")).toBeNull();
+      expect(screen.queryByRole("button", { name: /watch a port/i })).toBeNull();
+      await waitFor(async () => expect(await getSetting("favouritesCollapsed")).toBe(true));
+
+      unmount();
+      renderApp();
+      await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+      expect(favouritesHeader().getAttribute("aria-expanded")).toBe("false");
+      expect(screen.queryByText("in use")).toBeNull();
+
+      fireEvent.click(favouritesHeader());
+      expect(favouritesHeader().getAttribute("aria-expanded")).toBe("true");
+      expect(screen.getByText("in use")).toBeTruthy();
+      await waitFor(async () => expect(await getSetting("favouritesCollapsed")).toBe(false));
+    });
+
+    it("a search with favourite matches forces a collapsed Favourites section open", async () => {
+      window.localStorage.setItem(
+        "chapay.favourites",
+        JSON.stringify([{ port: 3000, name: "Frontend" }]),
+      );
+      renderApp();
+      await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
+      fireEvent.click(favouritesHeader());
+      expect(screen.queryByText("in use")).toBeNull();
+
+      fireEvent.change(searchField(), { target: { value: "Frontend" } });
+      const header = screen.getByRole("button", {
+        name: /favourites — expanded for search results/i,
+      });
+      expect(header.getAttribute("aria-expanded")).toBe("true");
+      expect((header as HTMLButtonElement).disabled).toBe(true);
+      expect(screen.getByText("in use")).toBeTruthy();
+      // The match is a favourite, so the listening list adds no "no match".
+      expect(screen.queryByText(/No port matches/)).toBeNull();
+
+      // Clearing the query restores the saved (collapsed) state.
+      fireEvent.change(searchField(), { target: { value: "" } });
+      expect(favouritesHeader().getAttribute("aria-expanded")).toBe("false");
+      expect(screen.queryByText("in use")).toBeNull();
+    });
+
+    it("a search with no favourite match hides the Favourites section", async () => {
+      window.localStorage.setItem("chapay.favourites", JSON.stringify([{ port: 3000 }]));
+      renderApp();
       await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
 
-      // Port 3000 (dev, killable) is the only listener row on screen; the
-      // shared nav auto-selects it, and ⌘⌫ on a dev row kills immediately.
+      fireEvent.change(searchField(), { target: { value: "postgres" } });
+      expect(screen.queryByRole("button", { name: /^favourites/i })).toBeNull();
+      expect(screen.getByText("5432")).toBeTruthy();
+    });
+
+    it("arrows walk favourite rows then listening rows as one list, highlighting one row when a port shows twice", async () => {
+      window.localStorage.setItem("chapay.favourites", JSON.stringify([{ port: 3000 }]));
+      renderApp();
+      await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
+
+      // First row of the merged list: the favourite copy of 3000.
+      await waitFor(() =>
+        expect(selectedRow().closest("ul")!.getAttribute("aria-label")).toBe(
+          "Listeners on port 3000",
+        ),
+      );
+
+      // ↓ reaches the listening copy of the same process, not 5173.
+      fireEvent.keyDown(window, { key: "ArrowDown" });
+      expect(selectedRow().closest("ul")!.getAttribute("aria-label")).toBe("Dev ports");
+      expect(selectedRow().textContent).toContain("3000");
+
+      fireEvent.keyDown(window, { key: "ArrowDown" });
+      expect(selectedRow().textContent).toContain("5173");
+
+      fireEvent.keyDown(window, { key: "ArrowUp" });
+      fireEvent.keyDown(window, { key: "ArrowUp" });
+      expect(selectedRow().closest("ul")!.getAttribute("aria-label")).toBe(
+        "Listeners on port 3000",
+      );
+    });
+
+    it("Enter expands only the selected copy of a port shown twice", async () => {
+      window.localStorage.setItem("chapay.favourites", JSON.stringify([{ port: 3000 }]));
+      renderApp();
+      await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
+      await waitFor(() =>
+        expect(favouriteRows(3000).getByRole("option").getAttribute("aria-selected")).toBe("true"),
+      );
+
+      fireEvent.keyDown(window, { key: "Enter" });
+      expect(screen.getAllByText("PID").length).toBe(1);
+      expect(favouriteRows(3000).getByText("PID")).toBeTruthy();
+    });
+
+    it("⌘⌫ arms only the selected copy of a protected port shown twice", async () => {
+      const killSpy = vi.spyOn(portsModule, "killPort");
+      window.localStorage.setItem("chapay.favourites", JSON.stringify([{ port: 7000 }]));
+      renderApp();
+      await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
+      expandSecondary();
+
+      hoverFavouriteRow(7000);
+      killShortcut();
+      expect(killSpy).not.toHaveBeenCalled();
+      expect(screen.getAllByText("Kill system?").length).toBe(1);
+      expect(favouriteRows(7000).getByText("Kill system?")).toBeTruthy();
+
+      // Moving to the listening copy is a different row: it disarms.
+      hoverRow(7000, "Apps & System ports");
+      expect(screen.queryByText("Kill system?")).toBeNull();
+      killShortcut();
+      expect(killSpy).not.toHaveBeenCalled();
       killShortcut();
       expect(killSpy).toHaveBeenCalledTimes(1);
+      expect(killSpy).toHaveBeenCalledWith(expect.objectContaining({ port: 7000 }));
+    });
+
+    it("collapsing Favourites moves a selection inside it to the first listening row", async () => {
+      const killSpy = vi.spyOn(portsModule, "killPort");
+      window.localStorage.setItem("chapay.favourites", JSON.stringify([{ port: 5173 }]));
+      renderApp();
+      await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
+      hoverFavouriteRow(5173);
+      expect(selectedRow().closest("ul")!.getAttribute("aria-label")).toBe(
+        "Listeners on port 5173",
+      );
+
+      fireEvent.click(favouritesHeader());
+      expect(selectedRow().closest("ul")!.getAttribute("aria-label")).toBe("Dev ports");
+      expect(selectedRow().textContent).toContain("3000");
+
+      // The hidden favourite rows are out of navigation: ⌘⌫ acts on 3000.
+      killShortcut();
       expect(killSpy).toHaveBeenCalledWith(expect.objectContaining({ port: 3000 }));
+    });
+
+    // F7 Slice 4: keyboard navigation/kill on favourite rows, routed
+    // through the same identity-based nav/confirm plumbing as listening.
+    it("arrow keys and ⌘⌫ operate on a favourite listener row", async () => {
+      const killSpy = vi.spyOn(portsModule, "killPort");
+      renderApp();
+      await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+
+      fireEvent.click(screen.getByRole("button", { name: "Watch port 5432" }));
+      await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
+
+      // The default selection stays on listening 3000; ↑ moves to the
+      // favourite row above it (5432), and ⌘⌫ on a dev row kills at once.
+      fireEvent.keyDown(window, { key: "ArrowUp" });
+      expect(selectedRow().closest("ul")!.getAttribute("aria-label")).toBe(
+        "Listeners on port 5432",
+      );
+      killShortcut();
+      expect(killSpy).toHaveBeenCalledTimes(1);
+      expect(killSpy).toHaveBeenCalledWith(expect.objectContaining({ port: 5432 }));
     });
 
     it("a free/unknown watch (nothing listening) is never a keyboard nav target or kill target", async () => {
       const killSpy = vi.spyOn(portsModule, "killPort");
       renderApp();
       await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
-      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
 
       // Watch a port nothing is listening on (not in MOCK_PORTS).
       fireEvent.click(screen.getByRole("button", { name: /watch a port/i }));
@@ -481,10 +673,12 @@ describe("App", () => {
       // has no accessible "Kill ... on port 9999" control.
       expect(screen.queryByLabelText(/on port 9999/)).toBeNull();
 
-      // Nothing is navigable/killable: arrow keys and ⌘⌫ are both no-ops.
-      fireEvent.keyDown(window, { key: "ArrowDown" });
+      // ↑ from the first listening row has nowhere to go: the free watch
+      // contributes no row, so nothing on port 9999 is ever selected.
+      fireEvent.keyDown(window, { key: "ArrowUp" });
+      expect(selectedRow().closest("ul")!.getAttribute("aria-label")).toBe("Dev ports");
       killShortcut();
-      expect(killSpy).not.toHaveBeenCalled();
+      expect(killSpy).not.toHaveBeenCalledWith(expect.objectContaining({ port: 9999 }));
     });
 
     it("switching tabs disarms a pending keyboard confirmation", async () => {
@@ -495,7 +689,6 @@ describe("App", () => {
       // Watch the protected (system, two-step-confirm) port 7000.
       expandSecondary();
       fireEvent.click(screen.getByRole("button", { name: "Watch port 7000" }));
-      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
       await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
 
       hoverFavouriteRow(7000);
@@ -503,8 +696,8 @@ describe("App", () => {
       expect(killSpy).not.toHaveBeenCalled();
 
       // Leaving and returning to the tab must not resurrect the arm.
-      fireEvent.click(screen.getByRole("tab", { name: /listening/i }));
-      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+      fireEvent.click(thermalTab());
+      fireEvent.click(portsTab());
       await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
 
       hoverFavouriteRow(7000);
@@ -516,14 +709,13 @@ describe("App", () => {
       expect(killSpy).toHaveBeenCalledWith(expect.objectContaining({ port: 7000 }));
     });
 
-    it("a stale snapshot disables the kill control (native disabled), pointer and keyboard", async () => {
+    it("a stale snapshot disables kills on favourite rows, pointer and keyboard, but not on listening rows", async () => {
       const killSpy = vi.spyOn(portsModule, "killPort");
       const listSpy = vi.spyOn(portsModule, "listPorts");
       renderApp({ retry: false });
       await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
 
       fireEvent.click(screen.getByRole("button", { name: "Watch port 3000" }));
-      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
       await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
 
       // Next poll fails: TanStack Query retains the last successful data
@@ -534,7 +726,7 @@ describe("App", () => {
         timeout: 3000,
       });
 
-      const killBtn = screen.getByLabelText(/Cannot kill .* on port 3000/);
+      const killBtn = favouriteRows(3000).getByLabelText(/Cannot kill .* on port 3000/);
       expect((killBtn as HTMLButtonElement).disabled).toBe(true);
       fireEvent.click(killBtn);
       expect(killSpy).not.toHaveBeenCalled();
@@ -542,6 +734,12 @@ describe("App", () => {
       hoverFavouriteRow(3000);
       killShortcut();
       expect(killSpy).not.toHaveBeenCalled();
+
+      // The listening copy of the same process never carried that guard.
+      hoverRow(3000, "Dev ports");
+      killShortcut();
+      expect(killSpy).toHaveBeenCalledTimes(1);
+      expect(killSpy).toHaveBeenCalledWith(expect.objectContaining({ port: 3000 }));
     }, 8000);
 
     // Global Enter must never hijack native button activation — Remove and
@@ -556,7 +754,6 @@ describe("App", () => {
       await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
 
       fireEvent.click(screen.getByRole("button", { name: "Watch port 3000" }));
-      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
       await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
 
       const removeBtn = screen.getByRole("button", { name: "Remove watched port 3000" });
@@ -564,11 +761,12 @@ describe("App", () => {
       const notPrevented = fireEvent.keyDown(removeBtn, { key: "Enter" });
       expect(notPrevented).toBe(true);
       expect(killSpy).not.toHaveBeenCalled();
+      expect(screen.queryByText("PID")).toBeNull();
       expect(screen.getByText("in use")).toBeTruthy();
 
       // Simulate the browser's own Enter-on-button activation.
       fireEvent.click(removeBtn);
-      expect(screen.getByText("No watched ports yet")).toBeTruthy();
+      expect(screen.queryByText("in use")).toBeNull();
     });
 
     it("Tab to a row's watch-toggle star, Enter does not expand/arm anything and toggles on activation", async () => {
@@ -594,12 +792,11 @@ describe("App", () => {
   // cleared mid-test, only in the outer `afterEach`). True OS-level
   // process/app restart is native-only and is not exercised here.
   describe("Slice 5 — composed regression", () => {
-    // Case 1: add named free port, remount, switch to Favourites.
-    it("a named free-port watch survives a remount and the app still starts on Listening", async () => {
+    // Case 1: add named free port, remount.
+    it("a named free-port watch survives a remount and the app still starts on Ports", async () => {
       const { unmount } = renderApp();
       await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
 
-      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
       fireEvent.click(screen.getByRole("button", { name: /watch a port/i }));
       fireEvent.change(screen.getByLabelText("Port"), { target: { value: "9999" } });
       fireEvent.change(screen.getByLabelText("Name (optional)"), {
@@ -612,10 +809,7 @@ describe("App", () => {
 
       renderApp();
       await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
-      expect(screen.getByRole("tab", { name: /listening/i }).getAttribute("aria-selected")).toBe(
-        "true",
-      );
-      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+      expect(portsTab().getAttribute("aria-selected")).toBe("true");
       expect(screen.getByText(/Staging API/)).toBeTruthy();
       expect(screen.getByText("nothing listening")).toBeTruthy();
     });
@@ -629,7 +823,7 @@ describe("App", () => {
       await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
 
       fireEvent.click(screen.getByRole("button", { name: "Watch port 3000" }));
-      expect(screen.getByRole("tab", { name: /favourites/i }).textContent).toContain("1");
+      expect(favouritesHeader().textContent).toBe("FAVOURITES · 1");
 
       const secondListener = {
         ...MOCK_PORTS.find((e) => e.port === 3000)!,
@@ -638,12 +832,12 @@ describe("App", () => {
         label: "Next.js dev (2)",
       };
       listSpy.mockResolvedValueOnce([...MOCK_PORTS, secondListener]);
-      await waitFor(() => expect(screen.getByText("Next.js dev (2)")).toBeTruthy(), {
+      await waitFor(() => expect(devRows().getByText("Next.js dev (2)")).toBeTruthy(), {
         timeout: 3000,
       });
 
       // Still one saved favourite, not two.
-      expect(screen.getByRole("tab", { name: /favourites/i }).textContent).toContain("1");
+      expect(favouritesHeader().textContent).toBe("FAVOURITES · 1");
       expect(screen.getAllByRole("button", { name: "Port 3000 is watched" }).length).toBe(2);
     }, 8000);
 
@@ -661,7 +855,6 @@ describe("App", () => {
         .mockReturnValue(new Promise((resolve) => (resolveList = resolve)));
 
       renderApp();
-      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
 
       // Still loading: neither free nor in-use presentation is shown.
       expect(screen.getByText("checking…")).toBeTruthy();
@@ -683,7 +876,6 @@ describe("App", () => {
       const listSpy = vi.spyOn(portsModule, "listPorts").mockResolvedValue([]);
 
       renderApp();
-      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
       await waitFor(() => expect(screen.getByText("nothing listening")).toBeTruthy());
       setItemSpy.mockClear();
 
@@ -709,11 +901,12 @@ describe("App", () => {
       await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
 
       fireEvent.click(screen.getByRole("button", { name: "Watch port 3000" }));
-      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
       await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
 
-      // Arm (pointer) the original incarnation (pid 4101).
-      fireEvent.click(screen.getByLabelText("Kill Next.js dev on port 3000"));
+      // Arm (pointer) the original incarnation (pid 4101) on its favourite
+      // row — selecting it first, as a real pointer hovers before clicking.
+      hoverFavouriteRow(3000);
+      fireEvent.click(favouriteRows(3000).getByLabelText("Kill Next.js dev on port 3000"));
       expect(screen.getByText("Kill?")).toBeTruthy();
 
       // The process restarted: new pid, new startedAt, same port/label.
@@ -728,15 +921,12 @@ describe("App", () => {
 
       // Confirming now must be impossible against the stale target: the
       // row un-armed, so this click only re-arms the new incarnation.
-      // Select the (now-different-key) row first, matching how a real
-      // pointer interaction would hover it before clicking its kill
-      // button — arming requires the armed row to also be the selected
-      // one (see App's disarm effect).
-      const newKillBtn = screen.getByLabelText("Kill Next.js dev on port 3000");
-      fireEvent.mouseEnter(newKillBtn.closest("li")!);
-      fireEvent.click(newKillBtn);
+      // Select the (now-different-key) row first — arming requires the
+      // armed row to also be the selected one (see App's disarm effect).
+      hoverFavouriteRow(3000);
+      fireEvent.click(favouriteRows(3000).getByLabelText("Kill Next.js dev on port 3000"));
       expect(killSpy).not.toHaveBeenCalled();
-      fireEvent.click(screen.getByLabelText("Kill Next.js dev on port 3000"));
+      fireEvent.click(favouriteRows(3000).getByLabelText("Kill Next.js dev on port 3000"));
       expect(killSpy).toHaveBeenCalledTimes(1);
       expect(killSpy).toHaveBeenCalledWith(expect.objectContaining({ pid: 9999, port: 3000 }));
     }, 8000);
@@ -756,13 +946,13 @@ describe("App", () => {
 
       window.localStorage.setItem("chapay.favourites", JSON.stringify([{ port: 3000 }]));
       renderApp();
-      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
-      await waitFor(() => expect(screen.getByText("Next.js dev (2)")).toBeTruthy());
+      await waitFor(() => expect(favouriteRows(3000).getByText("Next.js dev (2)")).toBeTruthy());
 
       // One "in use" watch — not two.
-      expect(screen.getByText(/^1 watched · 1 in use$/)).toBeTruthy();
+      expect(favouritesHeader().textContent).toBe("FAVOURITES · 1");
+      expect(screen.getAllByText("in use").length).toBe(1);
 
-      const killBtns = screen.getAllByLabelText(/^Kill Next\.js dev.*on port 3000$/);
+      const killBtns = favouriteRows(3000).getAllByLabelText(/^Kill Next\.js dev.*on port 3000$/);
       expect(killBtns.length).toBe(2);
 
       // Select the second row first (arming requires the armed row to
@@ -780,14 +970,12 @@ describe("App", () => {
       const killSpy = vi.spyOn(portsModule, "killPort");
       window.localStorage.setItem("chapay.favourites", JSON.stringify([{ port: 631 }]));
       renderApp();
-      await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
-      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
       await waitFor(() => expect(screen.getByText("cupsd")).toBeTruthy());
 
       // No kill control exists for an unkillable row.
       expect(screen.queryByLabelText(/Kill cupsd/)).toBeNull();
 
-      const lockedRow = screen.getByLabelText("Belongs to another user").closest("li")!;
+      const lockedRow = favouriteRows(631).getByLabelText("Belongs to another user").closest("li")!;
       fireEvent.mouseEnter(lockedRow);
       killShortcut();
       killShortcut();
@@ -801,7 +989,6 @@ describe("App", () => {
       renderApp();
       await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
       fireEvent.click(screen.getByRole("button", { name: "Watch port 3000" }));
-      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
       await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
 
       const setItemSpy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
@@ -824,8 +1011,6 @@ describe("App", () => {
       const killSpy = vi.spyOn(portsModule, "killPort");
       window.localStorage.setItem("chapay.favourites", JSON.stringify([{ port: 3000 }]));
       renderApp();
-      await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
-      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
       await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
 
       fireEvent.click(screen.getByRole("button", { name: /watch a port/i }));
@@ -838,7 +1023,7 @@ describe("App", () => {
       expect(screen.getByLabelText("Port")).toBeTruthy();
 
       fireEvent.keyDown(portInput, { key: "Escape" });
-      // Form closed; the Favourites panel (and its watched list) is
+      // Form closed; the Favourites section (and its watched list) is
       // still showing — Escape did not hide the whole panel.
       expect(screen.queryByLabelText("Port")).toBeNull();
       expect(screen.getByText("in use")).toBeTruthy();
@@ -860,39 +1045,34 @@ describe("App", () => {
       );
 
       renderApp();
-      await waitFor(() => expect(screen.getByText("Next.js dev")).toBeTruthy());
-      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
-      await waitFor(() => expect(screen.getByText("Next.js dev (2)")).toBeTruthy());
-
-      const search = screen.getByLabelText("Search port, app or folder");
+      await waitFor(() => expect(favouriteRows(3000).getByText("Next.js dev (2)")).toBeTruthy());
 
       // Match by saved name.
-      fireEvent.change(search, { target: { value: "Frontend" } });
-      expect(screen.getByText("Next.js dev")).toBeTruthy();
-      expect(screen.getByText("Next.js dev (2)")).toBeTruthy();
+      fireEvent.change(searchField(), { target: { value: "Frontend" } });
+      expect(favouriteRows(3000).getByText("Next.js dev")).toBeTruthy();
+      expect(favouriteRows(3000).getByText("Next.js dev (2)")).toBeTruthy();
       expect(screen.queryByText("PostgreSQL")).toBeNull();
 
       // Match by a live field (project name) instead.
-      fireEvent.change(search, { target: { value: "tapuy-web" } });
-      expect(screen.getByText("Next.js dev")).toBeTruthy();
-      expect(screen.getByText("Next.js dev (2)")).toBeTruthy();
+      fireEvent.change(searchField(), { target: { value: "tapuy-web" } });
+      expect(favouriteRows(3000).getByText("Next.js dev")).toBeTruthy();
+      expect(favouriteRows(3000).getByText("Next.js dev (2)")).toBeTruthy();
 
-      fireEvent.change(search, { target: { value: "" } });
-      await waitFor(() => expect(screen.getByText("PostgreSQL")).toBeTruthy());
+      fireEvent.change(searchField(), { target: { value: "" } });
+      await waitFor(() => expect(favouriteRows(5432).getByText("PostgreSQL")).toBeTruthy());
     });
 
-    // Case 12: kill toast copy and pending-disable behavior in Favourites
-    // match Listening — including the rejected-IPC path.
+    // Case 12: kill toast copy and pending-disable behavior on favourite
+    // rows match listening rows — including the rejected-IPC path.
     it("Favourites: a rejected kill shows a failure toast and the row is never left stuck disabled", async () => {
       const killSpy = vi.spyOn(portsModule, "killPort").mockRejectedValueOnce(new Error("nope"));
       renderApp();
       await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
       fireEvent.click(screen.getByRole("button", { name: "Watch port 3000" }));
-      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
       await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
 
-      const killBtn = screen.getByLabelText("Kill Next.js dev on port 3000");
-      fireEvent.click(killBtn);
+      hoverFavouriteRow(3000);
+      fireEvent.click(favouriteRows(3000).getByLabelText("Kill Next.js dev on port 3000"));
       fireEvent.click(screen.getByText("Kill?"));
 
       await waitFor(() => {
@@ -902,13 +1082,13 @@ describe("App", () => {
       expect(killSpy).toHaveBeenCalledTimes(1);
 
       // Not stuck: a fresh arm-then-confirm still reaches killPort again.
-      fireEvent.click(screen.getByLabelText("Kill Next.js dev on port 3000"));
+      fireEvent.click(favouriteRows(3000).getByLabelText("Kill Next.js dev on port 3000"));
       fireEvent.click(screen.getByText("Kill?"));
       await waitFor(() => expect(killSpy).toHaveBeenCalledTimes(2));
     });
 
     // Case 12 (toast copy): the copy action on a stopped toast copies the
-    // process's command, matching Listening's Toast usage.
+    // process's command, as for a listening row.
     it("Favourites: a stopped-process toast offers Copy command and copies it", async () => {
       vi.spyOn(portsModule, "killPort").mockResolvedValueOnce("terminated");
       const writeTextSpy = vi.fn().mockResolvedValue(undefined);
@@ -917,10 +1097,10 @@ describe("App", () => {
       renderApp();
       await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
       fireEvent.click(screen.getByRole("button", { name: "Watch port 3000" }));
-      fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
       await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
 
-      fireEvent.click(screen.getByLabelText("Kill Next.js dev on port 3000"));
+      hoverFavouriteRow(3000);
+      fireEvent.click(favouriteRows(3000).getByLabelText("Kill Next.js dev on port 3000"));
       fireEvent.click(screen.getByText("Kill?"));
 
       await waitFor(() => expect(screen.getByRole("status")).toBeTruthy());
@@ -930,27 +1110,81 @@ describe("App", () => {
   });
 });
 
-describe("App temperature chip", () => {
+describe("App Thermal tab", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     window.localStorage.clear();
     resetMemorySettings();
   });
 
-  it("shows no chip and reads no sensor by default", async () => {
+  it("with defaults, the Ports tab reads no sensor and the Thermal label has no temperature", async () => {
     const current = vi.spyOn(thermalModule, "thermalCurrent");
+    const history = vi.spyOn(thermalModule, "thermalHistory");
     renderApp();
     await screen.findByText("3000");
-    expect(screen.queryByRole("img", { name: /^Temperature/ })).toBeNull();
+    expect(thermalTab().textContent).toBe("Thermal");
     expect(current).not.toHaveBeenCalled();
+    expect(history).not.toHaveBeenCalled();
   });
 
-  it("shows the formatted temperature, coloured by band, when the setting is on", async () => {
+  it("with the setting on, the Thermal tab label shows the temperature in its band colour", async () => {
     await setSetting("showTemperatureInPanel", true);
     renderApp();
-    const chip = await screen.findByRole("img", { name: /^Temperature 58°/ });
-    expect(chip.textContent).toBe("58°");
-    expect(chip.getAttribute("data-band")).toBe("normal");
-    expect(chip.getAttribute("data-tooltip")).toBe("Everyday work");
+    await waitFor(() => expect(thermalTab().textContent).toBe("Thermal58°"));
+    expect(screen.getByRole("tab", { name: "Thermal 58°" })).toBeTruthy();
+    const temp = within(thermalTab()).getByText("58°");
+    expect(temp.getAttribute("style")).toContain("var(--pw-band-normal)");
+    // Ports stays the selected tab: the label alone polls the reading.
+    expect(portsTab().getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("mounts ThermalPanel, and a peak's port pill switches to Ports with the search set and focused", async () => {
+    vi.spyOn(thermalModule, "thermalHistory").mockResolvedValue({
+      available: true,
+      buckets: [],
+      days: [],
+      peaks: [
+        {
+          id: 1,
+          atS: Math.floor(Date.now() / 1000),
+          avgC: 92,
+          maxC: 97,
+          state: "fair",
+          processes: [{ pid: 5101, name: "node", cpu: 180, ports: [5173] }],
+        },
+      ],
+    });
+    renderApp();
+    await screen.findByText("3000");
+
+    fireEvent.click(thermalTab());
+    fireEvent.click(await screen.findByRole("button", { name: "Show port 5173" }));
+
+    expect(portsTab().getAttribute("aria-selected")).toBe("true");
+    expect(searchField().value).toBe("5173");
+    expect(screen.getByText("5173")).toBeTruthy();
+    expect(screen.queryByText("3000")).toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(searchField()));
+  });
+
+  it("the Thermal tab's footer link opens Settings on the Thermal section", async () => {
+    const openSettings = vi.spyOn(portsModule, "openSettings").mockResolvedValue();
+    renderApp();
+    await screen.findByText("3000");
+
+    fireEvent.click(thermalTab());
+    fireEvent.click(await screen.findByRole("button", { name: "Thermal history in Settings" }));
+    expect(openSettings).toHaveBeenCalledWith("thermal");
+  });
+
+  it("arrow keys and ⌘⌫ on the Thermal tab never act on a port row", async () => {
+    const killSpy = vi.spyOn(portsModule, "killPort");
+    renderApp();
+    await screen.findByText("3000");
+
+    fireEvent.click(thermalTab());
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    killShortcut();
+    expect(killSpy).not.toHaveBeenCalled();
   });
 });

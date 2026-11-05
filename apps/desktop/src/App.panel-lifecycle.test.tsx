@@ -38,6 +38,14 @@ vi.mock("@/lib/update", async (importOriginal) => ({
   useUpdate: () => [{ state: "disabled" }, { check: vi.fn(), install: vi.fn(), restart: vi.fn() }],
 }));
 
+// The Thermal tab's panel polls Rust while mounted; with `inTauri` mocked
+// on, stub its two reads so switching tabs never reaches `invoke`.
+vi.mock("@/lib/thermal", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/thermal")>()),
+  thermalCurrent: vi.fn(async () => null),
+  thermalHistory: vi.fn(async () => ({ available: false, buckets: [], peaks: [], days: [] })),
+}));
+
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({ hide: vi.fn(async () => {}) }),
 }));
@@ -152,48 +160,52 @@ describe("App panel-shown lifecycle", () => {
   it("panel-shown resets tab/query/form/confirmation, keeps favourites, and refetches once", async () => {
     window.localStorage.setItem("chapay.favourites", JSON.stringify([{ port: 3000 }]));
     renderApp();
-    await waitFor(() => expect(screen.getByText("3000")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
     resolveNextListen();
-    const listCallsBeforeSwitch = (await import("@/lib/ports")).listPorts as unknown as ReturnType<
+    const listPorts = (await import("@/lib/ports")).listPorts as unknown as ReturnType<
       typeof vi.fn
     >;
 
-    fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
-    await waitFor(() => expect(screen.getByText("in use")).toBeTruthy());
     fireEvent.change(screen.getByLabelText("Search port, app or folder"), {
       target: { value: "next" },
     });
     fireEvent.click(screen.getByRole("button", { name: /watch a port/i }));
     expect(screen.getByLabelText("Port")).toBeTruthy();
 
-    const callsBeforeReopen = listCallsBeforeSwitch.mock.calls.length;
-
+    const callsBeforeReopen = listPorts.mock.calls.length;
     expect(panelShownHandler).toBeTruthy();
     panelShownHandler!({});
 
-    await waitFor(() => {
-      expect(screen.getByRole("tab", { name: /listening/i }).getAttribute("aria-selected")).toBe(
-        "true",
-      );
-    });
-    expect((screen.getByLabelText("Search port, app or folder") as HTMLInputElement).value).toBe(
-      "",
+    await waitFor(() =>
+      expect((screen.getByLabelText("Search port, app or folder") as HTMLInputElement).value).toBe(
+        "",
+      ),
     );
-    // Switching back to Listening unmounts FavouritesPanel, discarding its
-    // local form state — reopening Favourites shows the trigger, not a
-    // form still open.
-    fireEvent.click(screen.getByRole("tab", { name: /favourites/i }));
+    // The Favourites section remounted, discarding its local form state:
+    // the trigger shows, not a form still open.
+    expect(screen.queryByLabelText("Port")).toBeNull();
     expect(screen.getByRole("button", { name: /watch a port/i })).toBeTruthy();
     // The saved favourite survived the reset.
     expect(screen.getByText("in use")).toBeTruthy();
-
     // Exactly one refetch call was triggered by panel-shown.
-    expect(listCallsBeforeSwitch.mock.calls.length).toBe(callsBeforeReopen + 1);
+    expect(listPorts.mock.calls.length).toBe(callsBeforeReopen + 1);
+
+    // Reopening from the Thermal tab lands back on Ports, search focused.
+    fireEvent.click(screen.getByRole("tab", { name: /thermal/i }));
+    panelShownHandler!({});
+    await waitFor(() =>
+      expect(screen.getByRole("tab", { name: /ports/i }).getAttribute("aria-selected")).toBe(
+        "true",
+      ),
+    );
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByLabelText("Search port, app or folder")),
+    );
   });
 
   // Switching tabs (without a panel-shown reopen) must never itself start
-  // an extra poll — the shared `usePorts` interval is the only polling
-  // source for both tabs. This asserts the mocked `listPorts` call count
+  // an extra port poll — the shared `usePorts` interval is the only
+  // polling source for the port list. This asserts the mocked `listPorts` call count
   // does not grow from tab switches alone, only from what the shared
   // 2s interval and explicit refetches already accounted for.
   it("switching tabs repeatedly does not create an extra polling source", async () => {
@@ -205,9 +217,7 @@ describe("App panel-shown lifecycle", () => {
 
     const callsBefore = spy.mock.calls.length;
     for (let i = 0; i < 6; i++) {
-      fireEvent.click(
-        screen.getByRole("tab", { name: i % 2 === 0 ? /favourites/i : /listening/i }),
-      );
+      fireEvent.click(screen.getByRole("tab", { name: i % 2 === 0 ? /thermal/i : /ports/i }));
     }
     // No time has passed (no interval tick), and switching tabs calls no
     // fetch of its own — the call count must be unchanged.

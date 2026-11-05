@@ -160,8 +160,8 @@ export function filterFavouriteMatches(matches: FavouriteMatch[], query: string)
 }
 
 /**
- * F7 Slice 2/3: query-health classification shared by `App` (footer text)
- * and `FavouritesPanel` (per-watch presentation). `data === undefined`
+ * F7 Slice 2/3: query-health classification shared by `App` (the stale
+ * kill guard) and `FavouritesPanel` (per-watch presentation). `data === undefined`
  * means no successful snapshot has landed yet; TanStack Query keeps the
  * last successful `data` around across a background refetch error, which
  * is what distinguishes "stale" (retained data + error) from "unavailable"
@@ -175,31 +175,4 @@ export function favouritesQueryHealth(
 ): FavouritesQueryHealth {
   if (data === undefined) return queryError ? "unavailable" : "checking";
   return queryError ? "stale" : "fresh";
-}
-
-/** Footer text: `N watched · M in use`, where `M` counts favourites with at
- * least one listener (never a PID sum), covering *all* favourites, not
- * just search matches. Honest about query health: no fabricated counts
- * before the first successful snapshot, and a `· update failed` suffix on
- * stale (retained) counts. */
-export function favouritesFooterText(
-  favouritesCount: number,
-  matches: FavouriteMatch[],
-  health: FavouritesQueryHealth,
-): string {
-  const watchedCount = `${favouritesCount} watched`;
-  switch (health) {
-    case "checking":
-      return `${watchedCount} · checking…`;
-    case "unavailable":
-      return `${watchedCount} · status unavailable`;
-    case "stale": {
-      const inUse = matches.filter((m) => m.listeners.length > 0).length;
-      return `${watchedCount} · ${inUse} in use · update failed`;
-    }
-    case "fresh": {
-      const inUse = matches.filter((m) => m.listeners.length > 0).length;
-      return `${watchedCount} · ${inUse} in use`;
-    }
-  }
 }

@@ -120,11 +120,18 @@ pub fn set_shortcut(app: tauri::AppHandle, shortcut: String) -> Result<(), AppEr
     Ok(())
 }
 
-/// Opens Settings from the panel's gear button or ⌘, (the tray menu calls
-/// `settings::open_settings` directly).
+/// Opens Settings from the panel: the gear button and ⌘, with no section,
+/// the Thermal tab's footer link on `thermal` (the tray menu calls
+/// `settings::open_settings` directly). An unknown section is refused.
 #[tauri::command]
-pub fn open_settings(app: tauri::AppHandle) -> Result<(), AppError> {
-    crate::settings::open_settings(&app).map_err(|e| AppError::Internal(e.to_string()))
+pub fn open_settings(app: tauri::AppHandle, section: Option<String>) -> Result<(), AppError> {
+    let section = section
+        .map(|id| {
+            crate::settings::known_section(&id)
+                .ok_or_else(|| AppError::Internal(format!("unknown settings section: {id}")))
+        })
+        .transpose()?;
+    crate::settings::open_settings(&app, section).map_err(|e| AppError::Internal(e.to_string()))
 }
 
 /// A fresh sensor read (not the database), plus the 7-day baseline when

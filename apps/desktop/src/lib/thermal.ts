@@ -118,9 +118,11 @@ function mockHistory(fromS: number, toS: number, days: number): ThermalHistory {
       samples: 5,
     });
   }
-  const peakAt = end - 1800;
+  // Thirty minutes ago, but never before the range starts: just after
+  // midnight the mock must still show a peak for "today".
+  const peakAt = Math.max(end - 1800, fromS);
   const peaks =
-    peakAt >= fromS
+    peakAt <= toS
       ? [
           {
             id: 1,

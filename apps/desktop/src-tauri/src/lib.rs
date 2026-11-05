@@ -117,7 +117,7 @@ pub fn run() {
                 .on_menu_event(|app, event| {
                     match event.id.as_ref() {
                         "settings" => {
-                            if let Err(e) = settings::open_settings(app) {
+                            if let Err(e) = settings::open_settings(app, None) {
                                 log::error!("settings: could not open the window ({e})");
                             }
                         }

@@ -22,8 +22,13 @@ export async function killPort(entry: PortEntry): Promise<KillResult> {
   });
 }
 
-/** Opens the Settings window (no-op in the browser dev loop). */
-export async function openSettings(): Promise<void> {
+/** The Settings window's sections. Rust accepts only these ids
+ * (`settings::known_section` in src-tauri/src/settings.rs). */
+export type SettingsSection = "general" | "ports" | "thermal" | "permissions" | "about";
+
+/** Opens the Settings window, on `section` when given (no-op in the
+ * browser dev loop). An already open window switches to that section. */
+export async function openSettings(section?: SettingsSection): Promise<void> {
   if (!inTauri) return;
-  await invoke("open_settings");
+  await invoke("open_settings", { section });
 }
