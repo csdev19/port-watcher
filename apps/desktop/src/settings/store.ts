@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { load, type Store } from "@tauri-apps/plugin-store";
+import { DEFAULT_THRESHOLDS } from "../lib/memory";
 import { inTauri } from "../lib/ports";
 
 /**
@@ -35,6 +36,15 @@ export const SETTINGS_DEFAULTS = {
   thermalGuardEnabled: true,
   /** Show the current temperature on the panel's Thermal tab label. */
   showTemperatureInPanel: false,
+  /**
+   * Sample memory pressure, swap and the biggest processes on the thermal
+   * tick (every minute, in the background) and keep it 90 days. Read by
+   * Rust (src-tauri/src/thermal/sampler.rs); off means no memory read, no
+   * write and no notification. The Memory tabs still read the current state.
+   */
+  memoryGuardEnabled: true,
+  /** Verdict thresholds, edited in Settings > Memory; Rust reads the same key. */
+  memoryThresholds: DEFAULT_THRESHOLDS,
   /** The Favourites section on the panel's Ports tab is collapsed. */
   favouritesCollapsed: false,
 };

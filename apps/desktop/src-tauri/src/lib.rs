@@ -1,6 +1,7 @@
 mod commands;
 mod error;
 mod fda;
+mod memory;
 mod panel;
 mod ports;
 mod settings;
@@ -223,7 +224,12 @@ pub fn run() {
             commands::open_settings,
             commands::set_shortcut,
             commands::thermal_current,
-            commands::thermal_history
+            commands::thermal_history,
+            commands::memory_current,
+            commands::memory_history,
+            commands::memory_thresholds,
+            commands::set_memory_thresholds,
+            commands::kill_process
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

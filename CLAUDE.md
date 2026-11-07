@@ -34,6 +34,7 @@ them here):
   The Rust side reads listening ports and kills processes; the renderer reaches it through
   `invoke()`. It imports no `@port-watcher/*` runtime package (only `config` for tsconfig).
   Crate name is `port-watcher`, lib `port_watcher_lib`, bundle id `dev.csdev19.portwatcher`.
+  The memory guard lives in `src-tauri/src/memory/` and shares the thermal sampler's tick and `thermal.sqlite` store (ADR 0011).
 
 ## Package Import Rules
 

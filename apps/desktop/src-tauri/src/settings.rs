@@ -5,7 +5,14 @@ pub const SETTINGS_LABEL: &str = "settings";
 
 /// Sections the Settings window can open on. Mirrors `SettingsSection` in
 /// src/lib/ports.ts and the toolbar in src/settings/Settings.tsx.
-const SECTIONS: [&str; 5] = ["general", "ports", "thermal", "permissions", "about"];
+const SECTIONS: [&str; 6] = [
+    "general",
+    "ports",
+    "thermal",
+    "memory",
+    "permissions",
+    "about",
+];
 
 /// Sent to an already open Settings window to switch its section; the
 /// payload is a section id from `SECTIONS`.
@@ -63,14 +70,28 @@ mod tests {
 
     #[test]
     fn accepts_every_settings_section() {
-        for id in ["general", "ports", "thermal", "permissions", "about"] {
+        for id in [
+            "general",
+            "ports",
+            "thermal",
+            "memory",
+            "permissions",
+            "about",
+        ] {
             assert_eq!(known_section(id), Some(id));
         }
     }
 
     #[test]
     fn rejects_anything_else() {
-        for id in ["", "Thermal", "thermal&x=1", "../thermal", "updates"] {
+        for id in [
+            "",
+            "Thermal",
+            "thermal&x=1",
+            "../thermal",
+            "updates",
+            "Memory",
+        ] {
             assert_eq!(known_section(id), None);
         }
     }

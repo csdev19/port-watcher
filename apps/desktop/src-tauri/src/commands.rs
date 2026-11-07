@@ -1,6 +1,6 @@
 use crate::error::AppError;
 use crate::ports::enrich::enrich;
-use crate::ports::kill::kill_port_impl;
+use crate::ports::kill::{kill_port_impl, kill_process_impl};
 use crate::ports::models::{KillResult, PortEntry};
 use crate::ports::source::raw_ports;
 
@@ -18,6 +18,16 @@ pub async fn list_ports() -> Result<Vec<PortEntry>, AppError> {
 #[tauri::command]
 pub async fn kill_port(pid: u32, port: u16, started_at: u64) -> Result<KillResult, AppError> {
     tauri::async_runtime::spawn_blocking(move || kill_port_impl(pid, port, started_at))
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?
+}
+
+/// Kill for a row that is not chosen through a port (the Memory tab). Same
+/// guard chain and escalation as `kill_port` minus the port check; Rust
+/// re-derives the policy, whatever `killable` the renderer saw.
+#[tauri::command]
+pub async fn kill_process(pid: u32, started_at: u64) -> Result<KillResult, AppError> {
+    tauri::async_runtime::spawn_blocking(move || kill_process_impl(pid, started_at))
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
 }
@@ -212,4 +222,141 @@ pub async fn thermal_history(
     })
     .await
     .map_err(|e| AppError::Internal(e.to_string()))?
+}
+
+/// A fresh memory read (not the database): system figures, the verdict and
+/// the top processes with their ports and, for rows chapay may not kill, the
+/// Terminal command. Reads even while the guard is off (spec: the tab still
+/// reads the current state while open). `None` when the system figures
+/// cannot be read.
+#[tauri::command]
+pub async fn memory_current(
+    app: tauri::AppHandle,
+) -> Result<Option<crate::memory::api::MemoryReading>, AppError> {
+    use crate::memory::api::{build_reading, observe_all, RowContext};
+    use crate::memory::procs::ProcessReader;
+    use crate::memory::verdict::evaluate;
+    use crate::thermal::sampler::Thermal;
+    use std::collections::HashMap;
+    use tauri::Manager;
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let now = chrono::Utc::now().timestamp();
+        // The tab is open and the user is looking: refresh `top` if the last
+        // run is a minute old (never more often, from any path).
+        let top = crate::memory::topcmd::snapshot(now, true);
+        let Some((obs, all)) = observe_all(&mut ProcessReader::new(), now, &top) else {
+            return Ok(None);
+        };
+        let keys: Vec<(u32, u64)> = obs.procs.iter().map(|p| (p.pid, p.started_at)).collect();
+        let first = {
+            let state = app.state::<Thermal>();
+            let guard = state.store.lock().unwrap_or_else(|e| e.into_inner());
+            match guard.as_ref().map(|s| s.memory_first_samples(&keys)) {
+                Some(Ok(first)) => first,
+                Some(Err(e)) => {
+                    log::error!("memory: could not read first samples ({e})");
+                    HashMap::new()
+                }
+                None => HashMap::new(),
+            }
+        };
+        let thresholds = crate::memory::sampler::load_thresholds(&app);
+        let eval = evaluate(&obs.system, &obs.procs, &thresholds, &first);
+
+        let mut ports: HashMap<u32, Vec<u16>> = HashMap::new();
+        match raw_ports() {
+            Ok(list) => {
+                for p in list {
+                    ports.entry(p.pid).or_default().push(p.port);
+                }
+            }
+            Err(e) => log::warn!("memory: could not list ports ({e})"),
+        }
+        let daemons = crate::memory::launchd::scan_daemons(std::path::Path::new(
+            crate::memory::launchd::DAEMONS_DIR,
+        ));
+        let user_name = |uid: u32| {
+            nix::unistd::User::from_uid(nix::unistd::Uid::from_raw(uid))
+                .ok()
+                .flatten()
+                .map(|u| u.name)
+        };
+        let ctx = RowContext {
+            my_uid: nix::unistd::Uid::effective().as_raw(),
+            self_pid: std::process::id(),
+            ports: &ports,
+            daemons: &daemons,
+            user_name: &user_name,
+        };
+        Ok(Some(build_reading(&obs, &all, &eval, &first, &ctx)))
+    })
+    .await
+    .map_err(|e| AppError::Internal(e.to_string()))?
+}
+
+/// Memory buckets in `[from_s, to_s)` plus the last `days` daily summaries.
+/// `available` is false when the store did not open.
+#[tauri::command]
+pub async fn memory_history(
+    app: tauri::AppHandle,
+    from_s: i64,
+    to_s: i64,
+    days: i64,
+) -> Result<crate::memory::api::MemoryHistory, AppError> {
+    use crate::memory::api::MemoryHistory;
+    use crate::thermal::sampler::Thermal;
+    use tauri::Manager;
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<Thermal>();
+        let guard = state.store.lock().unwrap_or_else(|e| e.into_inner());
+        let Some(store) = guard.as_ref() else {
+            return Ok(MemoryHistory::unavailable());
+        };
+        let internal = |e: crate::thermal::store::StoreError| AppError::Internal(e.to_string());
+        Ok(MemoryHistory {
+            available: true,
+            buckets: store
+                .memory_buckets(from_s, to_s)
+                .map_err(internal)?
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+            days: store
+                .memory_days(&crate::thermal::sampler::window_start_day(
+                    chrono::Utc::now().timestamp(),
+                    days,
+                ))
+                .map_err(internal)?
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+        })
+    })
+    .await
+    .map_err(|e| AppError::Internal(e.to_string()))?
+}
+
+/// The thresholds the verdict uses: the stored ones, or the defaults.
+#[tauri::command]
+pub fn memory_thresholds(app: tauri::AppHandle) -> crate::memory::verdict::MemoryThresholds {
+    crate::memory::sampler::load_thresholds(&app)
+}
+
+/// Saves the thresholds in `settings.json`. Invalid numbers are refused, so
+/// the sampler never reads a value `memory_thresholds` would discard.
+/// Invoked with `{ thresholds }`.
+#[tauri::command]
+pub fn set_memory_thresholds(
+    app: tauri::AppHandle,
+    thresholds: crate::memory::verdict::MemoryThresholds,
+) -> Result<(), AppError> {
+    if !thresholds.is_valid() {
+        return Err(AppError::Internal(
+            "memory thresholds: percentages must be in (0, 100] and the growth factor above 1"
+                .into(),
+        ));
+    }
+    crate::memory::sampler::save_thresholds(&app, &thresholds).map_err(AppError::Internal)
 }

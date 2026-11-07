@@ -19,14 +19,15 @@ import { EmptyState, ErrorState, FilteredEmptyState } from "@/components/PanelSt
 import { Toast, type ToastData } from "@/components/Toast";
 import { Icon } from "@/components/Icon";
 import { ThermalPanel } from "@/components/ThermalPanel";
+import { MemoryPanel } from "@/components/MemoryPanel";
 import { bandColor } from "@/components/ThermalChart";
 import { UpdateBanner } from "@/components/UpdateBanner";
 import { pendingVersion, useUpdate } from "@/lib/update";
 import styles from "@/app.module.css";
 
-type Tab = "ports" | "thermal";
-const TABS: Tab[] = ["ports", "thermal"];
-const TAB_LABEL: Record<Tab, string> = { ports: "Ports", thermal: "Thermal" };
+type Tab = "ports" | "thermal" | "memory";
+const TABS: Tab[] = ["ports", "thermal", "memory"];
+const TAB_LABEL: Record<Tab, string> = { ports: "Ports", thermal: "Thermal", memory: "Memory" };
 
 const FAVOURITES_LIST_ID = "port-list-favourites";
 
@@ -87,7 +88,7 @@ export default function App() {
   const [toast, setToast] = useState<ToastData | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("ports");
   // Bumped to focus (and select) the search after the render that shows it:
-  // the field is hidden on the Thermal tab, so focusing in the same handler
+  // the field is hidden off the Ports tab, so focusing in the same handler
   // that switches to Ports would land on a hidden input.
   const [searchFocusRequest, setSearchFocusRequest] = useState(0);
   // Bumped on panel-shown: remounts the Favourites section so its local
@@ -527,7 +528,7 @@ export default function App() {
             {TAB_LABEL[tab]}
             {tab === "ports" ? (
               <span className={styles.tabCount}>{data ? data.length : "–"}</span>
-            ) : showTemperature ? (
+            ) : tab === "thermal" && showTemperature ? (
               <TabTemperature />
             ) : null}
           </button>
@@ -623,7 +624,7 @@ export default function App() {
             )}
           </div>
         </div>
-      ) : (
+      ) : activeTab === "thermal" ? (
         <div
           id="panel-thermal"
           role="tabpanel"
@@ -632,17 +633,29 @@ export default function App() {
         >
           <ThermalPanel onShowPort={showPort} />
         </div>
+      ) : (
+        <div
+          id="panel-memory"
+          role="tabpanel"
+          aria-labelledby="tab-memory"
+          className={styles.tabPanel}
+        >
+          <MemoryPanel
+            onShowPort={showPort}
+            onNotify={(message) => setToast({ message, command: null })}
+          />
+        </div>
       )}
 
       <footer className={styles.footer}>
-        {activeTab === "thermal" ? (
-          // One footer strip: the Thermal tab's link takes the text slot.
+        {activeTab === "thermal" || activeTab === "memory" ? (
+          // One footer strip: the tab's link takes the text slot.
           <button
             type="button"
             className={styles.footerLink}
-            onClick={() => void openSettings("thermal")}
+            onClick={() => void openSettings(activeTab)}
           >
-            Thermal history in Settings
+            {activeTab === "thermal" ? "Thermal history in Settings" : "Memory history in Settings"}
           </button>
         ) : (
           <span>{footerText}</span>

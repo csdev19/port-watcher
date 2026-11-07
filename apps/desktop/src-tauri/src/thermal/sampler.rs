@@ -363,6 +363,8 @@ fn run_loop(app: &AppHandle, data_dir: Option<std::path::PathBuf>) {
     let mut acc = BucketAccumulator::default();
     let mut peaks = PeakPolicy::default();
     let mut notify = NotifyPolicy::default();
+    // The memory guard's half of the tick (ADR 0011), gated by its own setting.
+    let mut memory = crate::memory::sampler::MemorySampler::default();
     let mut day = local_day(now_s());
     loop {
         std::thread::sleep(TICK);
@@ -380,14 +382,13 @@ fn run_loop(app: &AppHandle, data_dir: Option<std::path::PathBuf>) {
                 continue;
             }
         }
-        if !guard_wanted(app) {
+        if guard_wanted(app) {
+            tick(app, &mut system, &mut acc, &mut peaks, &mut notify);
+        } else if let Some(c) = acc.take() {
             // Turned off: write what is open, so the bucket does not linger.
-            if let Some(c) = acc.take() {
-                store_bucket(app, &c);
-            }
-            continue;
+            store_bucket(app, &c);
         }
-        tick(app, &mut system, &mut acc, &mut peaks, &mut notify);
+        memory.tick(app);
         let today = local_day(now_s());
         if today != day {
             day = today;

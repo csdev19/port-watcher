@@ -46,6 +46,10 @@ rusqlite = { version = "0.37", features = ["bundled"] }
 # Local calendar day for the daily thermal summary.
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 tauri-plugin-notification = "2"
+# Memory guard (ADR 0011): sysctl and libproc calls, and the launchd plist
+# lookup behind the "restart it" command (ADR 0012).
+libc = "0.2"
+plist = "1"
 
 
 [target.'cfg(target_os = "macos")'.dependencies]

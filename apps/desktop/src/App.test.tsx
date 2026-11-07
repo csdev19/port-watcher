@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { MOCK_PORTS } from "@/lib/mock-ports";
 import * as portsModule from "@/lib/ports";
+import * as memoryModule from "@/lib/memory";
 import * as thermalModule from "@/lib/thermal";
 import { getSetting, resetMemorySettings, setSetting } from "@/settings/store";
 
@@ -67,6 +68,10 @@ function portsTab() {
 
 function thermalTab() {
   return screen.getByRole("tab", { name: /^thermal/i });
+}
+
+function memoryTab() {
+  return screen.getByRole("tab", { name: /^memory/i });
 }
 
 function searchField() {
@@ -472,9 +477,21 @@ describe("App", () => {
       expect(portsTab().getAttribute("aria-selected")).toBe("true");
       expect(document.activeElement).toBe(portsTab());
 
+      // Thermal -> Memory, then Right wraps to Ports and Left wraps back to Memory.
+      fireEvent.keyDown(portsTab(), { key: "ArrowRight" });
+      fireEvent.keyDown(thermalTab(), { key: "ArrowRight" });
+      expect(memoryTab().getAttribute("aria-selected")).toBe("true");
+      expect(document.activeElement).toBe(memoryTab());
+      fireEvent.keyDown(memoryTab(), { key: "ArrowRight" });
+      expect(portsTab().getAttribute("aria-selected")).toBe("true");
+      fireEvent.keyDown(portsTab(), { key: "ArrowLeft" });
+      expect(memoryTab().getAttribute("aria-selected")).toBe("true");
+
+      fireEvent.keyDown(memoryTab(), { key: "Home" });
+      expect(portsTab().getAttribute("aria-selected")).toBe("true");
       fireEvent.keyDown(portsTab(), { key: "End" });
-      expect(thermalTab().getAttribute("aria-selected")).toBe("true");
-      fireEvent.keyDown(thermalTab(), { key: "Home" });
+      expect(memoryTab().getAttribute("aria-selected")).toBe("true");
+      fireEvent.keyDown(memoryTab(), { key: "Home" });
       expect(portsTab().getAttribute("aria-selected")).toBe("true");
 
       // The row list never reacted: the default selection is untouched.
@@ -1216,5 +1233,37 @@ describe("App Thermal tab", () => {
     fireEvent.keyDown(window, { key: "ArrowDown" });
     killShortcut();
     expect(killSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("App Memory tab", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    window.localStorage.clear();
+    resetMemorySettings();
+  });
+
+  it("the Ports tab runs no memory command; opening Memory reads the machine", async () => {
+    const current = vi.spyOn(memoryModule, "memoryCurrent");
+    const history = vi.spyOn(memoryModule, "memoryHistory");
+    renderApp();
+    await screen.findByText("3000");
+    expect(memoryTab().textContent).toBe("Memory");
+    expect(current).not.toHaveBeenCalled();
+    expect(history).not.toHaveBeenCalled();
+
+    fireEvent.click(memoryTab());
+    expect(await screen.findByText("Memory history in Settings")).toBeTruthy();
+    expect(await screen.findByText("node")).toBeTruthy();
+    expect(current).toHaveBeenCalled();
+  });
+
+  it("leaving Memory stops its polling source from being mounted", async () => {
+    renderApp();
+    await screen.findByText("3000");
+    fireEvent.click(memoryTab());
+    await screen.findByText("node");
+    fireEvent.click(portsTab());
+    expect(screen.queryByText("node")).toBeNull();
   });
 });

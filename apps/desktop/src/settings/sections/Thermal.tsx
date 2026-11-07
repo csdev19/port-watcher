@@ -27,7 +27,7 @@ const HISTORY_DAYS = 7;
  * so this follows the plain-effect polling of Settings > Ports. A failed
  * call keeps the last value; `undefined` means "not loaded yet".
  */
-function usePolled<T>(load: () => Promise<T>, intervalMs: number): T | undefined {
+export function usePolled<T>(load: () => Promise<T>, intervalMs: number): T | undefined {
   const [value, setValue] = useState<T | undefined>(undefined);
   const loadRef = useRef(load);
   // Updated after commit, never during render: React may discard a render.

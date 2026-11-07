@@ -106,3 +106,106 @@ export interface ThermalHistory {
   peaks: ThermalPeak[];
   days: ThermalDay[];
 }
+
+/** Mirror of the Rust memory types (serde camelCase, src-tauri/src/memory/api.rs);
+ * the contract is in docs/specs/2026-11-07-memory-guard-design.md. Do not add
+ * fields here without adding them in src-tauri/src/memory first. */
+export type MemoryPressure = "normal" | "warning" | "critical";
+export type MemoryVerdict = "ok" | "watch" | "stop";
+export type MemorySignal = "pressure" | "swap" | "bigProcess" | "growing";
+
+export interface MemoryThresholds {
+  /** Swap used, % of swap total, that raises WATCH. Default 80. */
+  swapWatchPct: number;
+  /** Swap used, %, that together with a big process raises STOP. Default 95. */
+  swapStopPct: number;
+  /** One process at or above this % of physical RAM is "big". Default 25. */
+  bigProcessPct: number;
+  /** A process whose footprint grew by this factor is "growing". Default 2. */
+  growthFactor: number;
+  /** ...and only when it also exceeds this many bytes. Default 2 GiB. */
+  growthMinBytes: number;
+}
+
+export interface MemoryCommand {
+  /** "sudo launchctl kickstart -k system/com.x.y" or "sudo kill 123". */
+  text: string;
+  kind: "kickstart" | "kill";
+  /** One line of context (ADR 0012). */
+  note: string;
+  securityVendor: string | null;
+}
+
+/** Why a row has no Kill (Rust's `refusal`); null when it is killable. */
+export type ProtectedReason = "system" | "otherUser" | "self" | "lowPid";
+
+export interface MemoryProcess {
+  pid: number;
+  /** Epoch seconds; identity with pid. */
+  startedAt: number;
+  name: string;
+  executablePath: string | null;
+  user: string | null;
+  /** phys_footprint, not RSS. */
+  footprintBytes: number;
+  /** First retained sample of this incarnation; null if none. */
+  firstFootprintBytes: number | null;
+  firstSampleAt: number | null;
+  /** A subset of "bigProcess" | "growing". */
+  flags: MemorySignal[];
+  /** Rust's `is_killable`, same policy as Ports. */
+  killable: boolean;
+  /** Listening ports, [] if none. */
+  ports: number[];
+  /** Why there is no Kill; null when killable. */
+  protectedReason: ProtectedReason | null;
+  /** Present only for another user's non-Apple process (ADR 0012). */
+  command: MemoryCommand | null;
+}
+
+export interface MemoryReading {
+  /** Epoch seconds. */
+  at: number;
+  totalBytes: number;
+  /** App + wired + compressed, as Activity Monitor counts it. */
+  usedBytes: number;
+  compressedBytes: number;
+  swapUsedBytes: number;
+  swapTotalBytes: number;
+  pressure: MemoryPressure;
+  verdict: MemoryVerdict;
+  /** Ordered as in the spec table. */
+  reasons: MemorySignal[];
+  /** Top 8 by footprint. */
+  top: MemoryProcess[];
+  /** Every process chapay can attribute, biggest first. */
+  processes: MemoryProcess[];
+  /** usedBytes minus the processes' footprints: kernel, compressed pages of
+   * unknown owners and processes chapay cannot read. */
+  unattributedBytes: number;
+}
+
+export interface MemoryBucket {
+  startS: number;
+  usedAvgBytes: number;
+  usedMaxBytes: number;
+  swapAvgBytes: number;
+  swapMaxBytes: number;
+  worstPressure: MemoryPressure;
+  samples: number;
+}
+
+export interface MemoryDay {
+  /** Local date, YYYY-MM-DD. */
+  day: string;
+  swapMaxBytes: number;
+  usedMaxBytes: number;
+  /** Minutes at pressure >= warning. */
+  warningMinutes: number;
+}
+
+export interface MemoryHistory {
+  available: boolean;
+  buckets: MemoryBucket[];
+  days: MemoryDay[];
+}

@@ -24,6 +24,7 @@ export default defineConfig({
             { slug: "desktop/install" },
             { slug: "desktop/usage" },
             { slug: "desktop/permissions" },
+            { slug: "desktop/memory-guard" },
           ],
         },
         {

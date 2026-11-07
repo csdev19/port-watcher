@@ -105,7 +105,45 @@ pub fn static_guard(pid: u32, self_pid: u32) -> Option<KillResult> {
 /// `kill_port` would not refuse it up front (same user, not System, and
 /// past the static guard).
 pub fn is_killable(same_user: bool, category: PortCategory, pid: u32, self_pid: u32) -> bool {
-    same_user && category != PortCategory::System && static_guard(pid, self_pid).is_none()
+    refusal(same_user, category, pid, self_pid).is_none()
+}
+
+/// Why a process is not killable, `None` when it is. `is_killable` is
+/// defined from this, so the list and the reason cannot diverge. Checked in
+/// the order System, SelfProcess, LowPid, OtherUser. `System` needs
+/// `same_user`: `classify_port` also returns System for another user's
+/// process, and that one is `OtherUser`.
+pub fn refusal(
+    same_user: bool,
+    category: PortCategory,
+    pid: u32,
+    self_pid: u32,
+) -> Option<ProtectedReason> {
+    if same_user && category == PortCategory::System {
+        Some(ProtectedReason::System)
+    } else if pid == self_pid {
+        Some(ProtectedReason::SelfProcess)
+    } else if pid < 100 {
+        Some(ProtectedReason::LowPid)
+    } else if !same_user {
+        Some(ProtectedReason::OtherUser)
+    } else if static_guard(pid, self_pid).is_some() {
+        // A pid that does not fit `pid_t`: only a bogus request.
+        Some(ProtectedReason::LowPid)
+    } else {
+        None
+    }
+}
+
+/// Why the Memory tab shows a row without Kill.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ProtectedReason {
+    System,
+    OtherUser,
+    #[serde(rename = "self")]
+    SelfProcess,
+    LowPid,
 }
 
 /// Full guard chain, then escalation. Blocking (sleeps up to ~3 s) — the
@@ -138,25 +176,62 @@ pub fn kill_port_with(
         return Ok(KillResult::AlreadyGone);
     }
 
+    kill_validated(ops, pid, raw_pid, started_at, "kill_port")
+}
+
+/// Kill a process that is not chosen through a port (the Memory tab's rows):
+/// the same guard chain as `kill_port` minus the "still listening on that
+/// port" check. `started_at` is the PID-reuse guard, the owner check and the
+/// System-path policy are re-derived from the live process, so the renderer's
+/// `killable` flag is never trusted. Blocking, like `kill_port_impl`.
+pub fn kill_process_impl(pid: u32, started_at: u64) -> Result<KillResult, AppError> {
+    kill_process_with(&SystemOps, pid, started_at)
+}
+
+/// `kill_process_impl` against injectable OS calls.
+pub fn kill_process_with(
+    ops: &impl ProcessOps,
+    pid: u32,
+    started_at: u64,
+) -> Result<KillResult, AppError> {
+    log::info!("kill_process requested: pid={pid} started_at={started_at}");
+    if let Some(denied) = static_guard(pid, ops.self_pid()) {
+        log::warn!("kill_process denied by static guard: pid={pid}");
+        return Ok(denied);
+    }
+    let Ok(raw_pid) = i32::try_from(pid) else {
+        return Ok(KillResult::PermissionDenied);
+    };
+    kill_validated(ops, pid, raw_pid, started_at, "kill_process")
+}
+
+/// The guards both kill paths share, then escalation. `who` only labels logs.
+fn kill_validated(
+    ops: &impl ProcessOps,
+    pid: u32,
+    raw_pid: i32,
+    started_at: u64,
+    who: &str,
+) -> Result<KillResult, AppError> {
     // PID-reuse guard 2: same start time = same process incarnation. A
     // zombie has already exited; signalling it does nothing.
     let Some(proc) = ops.snapshot(pid) else {
-        log::warn!("kill_port: pid={pid} vanished before it could be signalled");
+        log::warn!("{who}: pid={pid} vanished before it could be signalled");
         return Ok(KillResult::AlreadyGone);
     };
     if proc.zombie {
-        log::warn!("kill_port: pid={pid} is a zombie (already exited)");
+        log::warn!("{who}: pid={pid} is a zombie (already exited)");
         return Ok(KillResult::AlreadyGone);
     }
     if proc.start_time != started_at {
-        log::warn!("kill_port: pid={pid} start_time mismatch (likely pid reuse)");
+        log::warn!("{who}: pid={pid} start_time mismatch (likely pid reuse)");
         return Ok(KillResult::AlreadyGone);
     }
 
     // Ownership: v1 never signals another user's process (no sudo).
     let my_uid = ops.current_uid();
     if proc.owner_uid != Some(my_uid) {
-        log::warn!("kill_port: pid={pid} owned by a different user");
+        log::warn!("{who}: pid={pid} owned by a different user");
         return Ok(KillResult::PermissionDenied);
     }
 
@@ -164,11 +239,11 @@ pub fn kill_port_with(
     // The category is re-derived from the live process, not trusted from
     // the request, so a compromised renderer cannot bypass it.
     if classify_port(proc.owner_uid, my_uid, proc.executable.as_deref()) == PortCategory::System {
-        log::warn!("kill_port: pid={pid} is a system process; refusing");
+        log::warn!("{who}: pid={pid} is a system process; refusing");
         return Ok(KillResult::PermissionDenied);
     }
 
-    log::info!("kill_port guards passed for pid={pid}; escalating");
+    log::info!("{who} guards passed for pid={pid}; escalating");
     escalate(ops, pid, raw_pid, started_at)
 }
 
@@ -353,6 +428,73 @@ mod tests {
         assert!(!is_killable(false, PortCategory::Dev, PID, SELF_PID));
         assert!(!is_killable(true, PortCategory::Dev, SELF_PID, SELF_PID));
         assert!(!is_killable(true, PortCategory::Dev, 50, SELF_PID));
+    }
+
+    #[test]
+    fn refusal_names_the_reason_in_priority_order() {
+        use ProtectedReason::*;
+        assert_eq!(refusal(true, PortCategory::Dev, PID, SELF_PID), None);
+        assert_eq!(refusal(true, PortCategory::App, PID, SELF_PID), None);
+        assert_eq!(
+            refusal(true, PortCategory::System, PID, SELF_PID),
+            Some(System)
+        );
+        // System wins over self and low pid.
+        assert_eq!(
+            refusal(true, PortCategory::System, 50, SELF_PID),
+            Some(System)
+        );
+        assert_eq!(
+            refusal(true, PortCategory::System, SELF_PID, SELF_PID),
+            Some(System)
+        );
+        assert_eq!(
+            refusal(true, PortCategory::Dev, SELF_PID, SELF_PID),
+            Some(SelfProcess)
+        );
+        assert_eq!(refusal(true, PortCategory::Dev, 50, SELF_PID), Some(LowPid));
+        // Self wins over other user; low pid wins over other user.
+        assert_eq!(
+            refusal(false, PortCategory::System, SELF_PID, SELF_PID),
+            Some(SelfProcess)
+        );
+        assert_eq!(
+            refusal(false, PortCategory::System, 1, SELF_PID),
+            Some(LowPid)
+        );
+        // Another user's process is OtherUser even though it classifies as System.
+        assert_eq!(
+            refusal(false, PortCategory::System, PID, SELF_PID),
+            Some(OtherUser)
+        );
+        assert_eq!(
+            refusal(false, PortCategory::Dev, PID, SELF_PID),
+            Some(OtherUser)
+        );
+    }
+
+    #[test]
+    fn refusal_and_is_killable_never_diverge() {
+        for same_user in [true, false] {
+            for category in [PortCategory::Dev, PortCategory::App, PortCategory::System] {
+                for pid in [1, 50, 100, PID, SELF_PID, u32::MAX] {
+                    assert_eq!(
+                        is_killable(same_user, category, pid, SELF_PID),
+                        refusal(same_user, category, pid, SELF_PID).is_none()
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn protected_reason_serializes_as_the_contract_strings() {
+        use ProtectedReason::*;
+        let v = serde_json::to_value([System, OtherUser, SelfProcess, LowPid]).unwrap();
+        assert_eq!(
+            v,
+            serde_json::json!(["system", "otherUser", "self", "lowPid"])
+        );
     }
 
     #[test]
@@ -576,6 +718,61 @@ mod tests {
         assert!(!snap.zombie);
         assert_eq!(snap.owner_uid, Some(nix::unistd::Uid::effective().as_raw()));
         assert!(snap.executable.is_some());
+    }
+
+    fn run_process(ops: &FakeOps) -> Result<KillResult, AppError> {
+        kill_process_with(ops, PID, STARTED)
+    }
+
+    #[test]
+    fn kill_process_skips_the_port_check() {
+        // `kill_port` would answer AlreadyGone here; a process row has no port.
+        let mut ops = FakeOps::new(vec![Some(dev_process()), None]);
+        ops.listening = Ok(false);
+        assert_eq!(run_process(&ops).unwrap(), KillResult::Terminated);
+        assert_eq!(ops.signals(), vec![Signal::SIGTERM]);
+    }
+
+    #[test]
+    fn kill_process_runs_the_static_guard_first() {
+        for pid in [SELF_PID, 50, u32::MAX] {
+            let ops = FakeOps::new(vec![Some(dev_process())]);
+            assert_eq!(
+                kill_process_with(&ops, pid, STARTED).unwrap(),
+                KillResult::PermissionDenied,
+                "pid {pid}"
+            );
+            assert!(ops.signals().is_empty());
+            assert!(ops.last_snapshot.borrow().is_none());
+        }
+    }
+
+    #[test]
+    fn kill_process_refuses_reuse_other_users_and_system_paths() {
+        let reused = FakeOps::new(vec![Some(ProcessSnapshot {
+            start_time: STARTED + 5,
+            ..dev_process()
+        })]);
+        assert_eq!(run_process(&reused).unwrap(), KillResult::AlreadyGone);
+
+        let gone = FakeOps::new(vec![None]);
+        assert_eq!(run_process(&gone).unwrap(), KillResult::AlreadyGone);
+
+        let root = FakeOps::new(vec![Some(ProcessSnapshot {
+            owner_uid: Some(0),
+            ..dev_process()
+        })]);
+        assert_eq!(run_process(&root).unwrap(), KillResult::PermissionDenied);
+
+        let system = FakeOps::new(vec![Some(ProcessSnapshot {
+            executable: Some(PathBuf::from("/usr/libexec/trustd")),
+            ..dev_process()
+        })]);
+        assert_eq!(run_process(&system).unwrap(), KillResult::PermissionDenied);
+
+        for ops in [&reused, &gone, &root, &system] {
+            assert!(ops.signals().is_empty());
+        }
     }
 
     #[test]
