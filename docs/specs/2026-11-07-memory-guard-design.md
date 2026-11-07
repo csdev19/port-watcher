@@ -109,9 +109,9 @@ OS's own judgement; the swap rule reproduces the 2026-11-06 state (94 % swap, on
 
 ### Commands and types (the IPC contract)
 
-See `docs/plans/2026-11-07-memory-guard.md`, section "IPC contract"; the plan is deleted by the
-shipping PR, after which `apps/desktop/src-tauri/src/memory/api.rs` and `apps/desktop/src/lib/types.ts`
-are the contract.
+`apps/desktop/src-tauri/src/memory/api.rs` (serde camelCase) and its mirror
+`apps/desktop/src/lib/types.ts` are the contract. The working plan that first held it
+(`docs/plans/2026-11-07-memory-guard.md`) was deleted by the shipping PR; git keeps it.
 
 ### Sources
 
