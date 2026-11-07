@@ -46,6 +46,13 @@ vi.mock("@/lib/thermal", async (importOriginal) => ({
   thermalHistory: vi.fn(async () => ({ available: false, buckets: [], peaks: [], days: [] })),
 }));
 
+// Same for the Memory tab's reads.
+vi.mock("@/lib/memory", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/memory")>()),
+  memoryCurrent: vi.fn(async () => null),
+  memoryHistory: vi.fn(async () => ({ available: false, buckets: [], days: [] })),
+}));
+
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({ hide: vi.fn(async () => {}) }),
 }));

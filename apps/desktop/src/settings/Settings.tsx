@@ -1,11 +1,20 @@
 import { useEffect, useState, type ComponentType } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Info, List, Shield, SlidersHorizontal, Thermometer, type LucideIcon } from "lucide-react";
+import {
+  Info,
+  List,
+  MemoryStick,
+  Shield,
+  SlidersHorizontal,
+  Thermometer,
+  type LucideIcon,
+} from "lucide-react";
 import { inTauri, type SettingsSection } from "../lib/ports";
 import General from "./sections/General";
 import Ports from "./sections/Ports";
 import Thermal from "./sections/Thermal";
+import Memory from "./sections/Memory";
 import Permissions from "./sections/Permissions";
 import About from "./sections/About";
 import styles from "./settings.module.css";
@@ -14,6 +23,7 @@ const SECTIONS: { id: SettingsSection; title: string; icon: LucideIcon; body: Co
   { id: "general", title: "General", icon: SlidersHorizontal, body: General },
   { id: "ports", title: "Ports", icon: List, body: Ports },
   { id: "thermal", title: "Thermal", icon: Thermometer, body: Thermal },
+  { id: "memory", title: "Memory", icon: MemoryStick, body: Memory },
   { id: "permissions", title: "Permissions", icon: Shield, body: Permissions },
   { id: "about", title: "About", icon: Info, body: About },
 ];

@@ -15,7 +15,7 @@ use rusqlite::{params, Connection, ErrorCode, TransactionBehavior};
 use serde::{Deserialize, Serialize};
 
 /// The schema version this build writes. Steps are appended, never edited.
-const SCHEMA_VERSION: i64 = 1;
+const SCHEMA_VERSION: i64 = 2;
 
 /// How long a writer waits for another process holding the lock.
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
@@ -41,6 +41,32 @@ CREATE TABLE days (
   min_c REAL NOT NULL, max_c REAL NOT NULL,
   sum_c REAL NOT NULL, samples INTEGER NOT NULL,
   serious_minutes INTEGER NOT NULL
+);
+";
+
+/// Schema step 2: the memory guard's history (ADR 0011). Its reads and writes
+/// live in `memory/store.rs`; the file and its migration stay here.
+const STEP_2: &str = "
+CREATE TABLE memory_buckets (
+  start_s INTEGER PRIMARY KEY,
+  used_avg REAL NOT NULL, used_max INTEGER NOT NULL,
+  swap_avg REAL NOT NULL, swap_max INTEGER NOT NULL,
+  worst_pressure INTEGER NOT NULL,
+  samples INTEGER NOT NULL
+);
+CREATE TABLE memory_samples (
+  pid INTEGER NOT NULL,
+  started_at INTEGER NOT NULL,
+  at_s INTEGER NOT NULL,
+  footprint INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  PRIMARY KEY (pid, started_at, at_s)
+);
+CREATE INDEX memory_samples_at ON memory_samples(at_s);
+CREATE TABLE memory_days (
+  day TEXT PRIMARY KEY,
+  swap_max INTEGER NOT NULL, used_max INTEGER NOT NULL,
+  warning_minutes INTEGER NOT NULL
 );
 ";
 
@@ -125,7 +151,8 @@ pub struct Day {
 }
 
 pub struct Store {
-    conn: Connection,
+    /// Shared with `memory/store.rs`, which adds the memory guard's tables.
+    pub(crate) conn: Connection,
 }
 
 impl Store {
@@ -251,14 +278,17 @@ impl Store {
         }
     }
 
-    /// Delete buckets and peaks older than `before_s`; returns how many rows
-    /// went. `days` is never touched: daily summaries are kept.
+    /// Delete buckets, peaks and memory buckets and samples older than
+    /// `before_s`; returns how many rows went. `days` and `memory_days` are
+    /// never touched: daily summaries are kept.
     pub fn prune(&self, before_s: i64) -> Result<usize, StoreError> {
         let tx = self.conn.unchecked_transaction()?;
         let a = tx.execute("DELETE FROM buckets WHERE start_s < ?1", [before_s])?;
         let b = tx.execute("DELETE FROM peaks WHERE at_s < ?1", [before_s])?;
+        let c = tx.execute("DELETE FROM memory_buckets WHERE start_s < ?1", [before_s])?;
+        let d = tx.execute("DELETE FROM memory_samples WHERE at_s < ?1", [before_s])?;
         tx.commit()?;
-        Ok(a + b)
+        Ok(a + b + c + d)
     }
 
     /// Buckets with `start_s` in `[from_s, to_s)`, oldest first.
@@ -368,6 +398,9 @@ fn migrate(conn: &mut Connection) -> Result<(), StoreError> {
     }
     if version < 1 {
         tx.execute_batch(STEP_1)?;
+    }
+    if version < 2 {
+        tx.execute_batch(STEP_2)?;
     }
     if version < SCHEMA_VERSION {
         tx.pragma_update(None, "user_version", SCHEMA_VERSION)?;
@@ -551,6 +584,33 @@ mod tests {
         assert_eq!(s.buckets(0, 10_000).unwrap().len(), 1);
         assert_eq!(s.peaks(0, 10_000).unwrap().len(), 1);
         assert_eq!(s.days("0000-01-01").unwrap().len(), 2);
+    }
+
+    #[test]
+    fn a_step_1_file_gains_the_memory_tables_and_keeps_its_history() {
+        let d = dir();
+        let path = d.path().join("thermal.sqlite");
+        {
+            // A file as 0.3.0 left it: schema step 1 only, with a bucket.
+            let c = Connection::open(&path).unwrap();
+            c.execute_batch(STEP_1).unwrap();
+            c.execute(
+                "INSERT INTO buckets VALUES (300, 40.0, 50.0, 51.0, 60.0, 1, 5)",
+                [],
+            )
+            .unwrap();
+            c.pragma_update(None, "user_version", 1).unwrap();
+        }
+        let s = Store::open(&path).unwrap();
+        assert_eq!(s.buckets(0, 1000).unwrap().len(), 1);
+        for table in ["memory_buckets", "memory_samples", "memory_days"] {
+            let n: i64 = s
+                .conn
+                .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0))
+                .unwrap();
+            assert_eq!(n, 0, "{table}");
+        }
+        assert!(corrupt_files(d.path()).is_empty());
     }
 
     #[test]

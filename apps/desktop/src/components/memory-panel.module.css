@@ -1,0 +1,265 @@
+/* The panel's Memory tab. Mirrors thermal-panel.module.css: hairline dividers,
+ * 10 px section headings, no cards (except the command card). The chart's own
+ * styles are in thermal-chart.module.css. */
+.root {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-top: 1px solid var(--pw-line);
+}
+
+/* Scrolls inside the panel like the Ports list does. */
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.current {
+  padding: 12px 12px 10px;
+}
+
+.verdictLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.verdictPill {
+  padding: 1px 8px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.verdictCopy {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.reasons {
+  margin: 4px 0 0;
+  color: var(--pw-fg-2);
+  font-size: 11px;
+}
+
+.figures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+  margin: 10px 0 0;
+}
+
+.figure dt {
+  color: var(--pw-muted);
+  font-size: 10px;
+}
+
+.figure dd {
+  margin: 1px 0 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.quiet {
+  margin: 0;
+  padding: 14px 12px;
+  color: var(--pw-muted);
+  font-size: 12px;
+}
+
+.section {
+  border-top: 1px solid var(--pw-line);
+  padding-bottom: 8px;
+}
+
+.heading {
+  margin: 0;
+  padding: 8px 12px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--pw-muted-2);
+}
+
+.section > figure {
+  padding: 4px 12px 0;
+}
+
+.empty {
+  margin: 0;
+  padding: 4px 12px 4px;
+  color: var(--pw-muted);
+  font-size: 12px;
+}
+
+.stats {
+  display: flex;
+  gap: 16px;
+  margin: 6px 0 0;
+  padding: 0 12px;
+  color: var(--pw-fg-2);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.processes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.process {
+  padding: 6px 12px;
+}
+
+.process + .process {
+  border-top: 1px solid var(--pw-line-row);
+}
+
+.processHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+}
+
+.processName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.footprint {
+  flex-shrink: 0;
+  color: var(--pw-fg-2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Same two states as the Ports kill button: muted, then a red "Kill?". */
+.kill,
+.killArmed {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--pw-muted-2);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  transition: background 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.kill:hover {
+  color: var(--status-danger);
+  background: var(--pw-raised-hover);
+}
+.killArmed {
+  color: #fff;
+  background: var(--status-danger);
+  font-weight: 600;
+  padding: 4px 8px;
+}
+.kill:focus-visible,
+.killArmed:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--pw-accent-ring);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+/* A label, not a button: it only names the signal. */
+.flag {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--pw-raised);
+  color: var(--pw-watched);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A button, not a label: it takes you to that port. Plum is the token for
+ * every button that is not the main action. */
+.portPill {
+  flex-shrink: 0;
+  padding: 1px 8px;
+  border: none;
+  border-radius: 999px;
+  background: var(--pw-plum);
+  color: var(--pw-fg-2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.portPill:hover {
+  background: var(--pw-plum-hover);
+  color: var(--pw-fg);
+}
+.portPill:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--pw-accent-ring);
+}
+
+/* The command card: shown instead of Kill for a process chapay may not stop. */
+.card {
+  margin-top: 4px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--pw-raised);
+}
+
+.cardCommand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cardText {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.cardCopy {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--pw-plum);
+  color: var(--pw-fg-2);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.cardCopy:hover {
+  background: var(--pw-plum-hover);
+  color: var(--pw-fg);
+}
+.cardCopy:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--pw-accent-ring);
+}
+
+.cardNote {
+  margin: 4px 0 0;
+  color: var(--pw-muted);
+  font-size: 11px;
+}

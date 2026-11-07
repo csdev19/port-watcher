@@ -1,0 +1,145 @@
+---
+title: Memory guard
+description: Find the process that is filling your Mac's memory, and see how to stop it safely
+---
+
+:::caution[Not in a released build yet]
+The memory guard is on the `feat/memory-guard` branch. It reaches users with the first desktop
+release after that branch merges into `main`. This page describes the branch.
+:::
+
+## What it watches
+
+chapay samples your Mac's memory in the background, every 60 seconds. It uses the same tick that the
+temperature guard uses, so there is one timer for both. Each sample records:
+
+- memory pressure, the macOS signal for how hard the system is working to free memory;
+- system memory, swap, and compressed memory;
+- the memory footprint of the largest processes.
+
+chapay measures each process by its **physical footprint**, which includes the pages macOS has
+compressed to save space. The usual figure, RSS, leaves those pages out. In the case that motivated
+the guard, a root daemon that held 16 GB showed as about 1 GB of RSS.
+
+## The Memory tab
+
+The panel has three tabs: **Ports**, **Thermal** and **Memory**. The Memory tab shows:
+
+- memory pressure, used and total memory, swap used and total, and compressed memory;
+- a **verdict** (OK, WATCH or STOP) with the reasons for it;
+- the top processes by footprint, with the flags **big** and **growing** where they apply, and the
+  ports each process listens on.
+
+A killable row offers **Kill** with the same two-step confirmation as the Ports tab. A row that
+chapay may not kill shows a command card instead (see below).
+
+## The four signals
+
+Each signal has a default threshold. You can change them in Settings › Memory.
+
+| Signal            | Default threshold      | It fires when                                                                            |
+| ----------------- | ---------------------- | ---------------------------------------------------------------------------------------- |
+| Memory pressure   | warning                | macOS reports pressure at or above the warning level                                     |
+| Swap              | 80 %                   | swap in use is at least 80 % of the swap total                                           |
+| One large process | 25 % of physical RAM   | a single process has a footprint of at least 25 % of the Mac's RAM                       |
+| Growing process   | doubled, and over 2 GB | a process has doubled its footprint since chapay first recorded it, and is now over 2 GB |
+
+The growing signal is the one that would have named the daemon on its second day, while pressure
+still read normal. chapay compares a process only with its own earlier samples. A process that
+exits and is replaced by a new one that reuses the same PID starts a new series, so its growth is
+never measured against the old process.
+
+## The verdict
+
+The verdict combines the signals:
+
+| Verdict | When                                                                                                            |
+| ------- | --------------------------------------------------------------------------------------------------------------- |
+| OK      | Pressure is normal and no signal fired                                                                          |
+| WATCH   | Pressure is at warning, or swap is at least 80 %, or a process is at least 25 % of RAM, or a process is growing |
+| STOP    | Pressure is critical, or swap is at least 95 % together with a process at least 25 % of RAM                     |
+
+STOP is deliberately strict. Critical pressure is macOS's own judgement. The swap rule reproduces
+the state chapay was built for: 94 % swap with one 16 GB process.
+
+When the verdict reaches STOP, chapay sends a notification. It sends at most one every 15 minutes,
+and only while the guard is on.
+
+## Stopping a process: the command card
+
+chapay can stop your own processes, as described in [Permissions](/desktop/permissions). It
+cannot stop processes that run as root, belong to another user, or live in a system location. For
+those rows, the Memory tab shows a **command card** in place of the Kill button. The card contains:
+
+- a command to run in Terminal. When chapay finds a launch daemon that runs this process, the
+  command is `sudo launchctl kickstart -k system/<label>`. Otherwise it is `sudo kill <pid>`, with
+  a note that launchd restarts the process if it is a service;
+- a **Copy** button;
+- one line of context: "runs as root; chapay cannot stop it".
+
+For example (illustrative, not a real daemon): if the label is `com.example.daemon`, the card shows
+`sudo launchctl kickstart -k system/com.example.daemon`. If the process runs from a known
+endpoint-security product (Zscaler, CrowdStrike, Avira or SentinelOne), the context line also says
+"managed security software: check your IT policy". That line is information only. It does not block
+anything.
+
+If chapay picks the wrong label, the command fails with an error such as "Could not find service".
+It cannot stop a different daemon, because launchd labels are unique.
+
+### Why chapay never runs privileged commands
+
+chapay never asks for an administrator password and never runs `sudo`, `osascript` or a helper
+tool. Two ways for an app to act as root on macOS were considered and rejected for now:
+
+- **A one-shot administrator prompt through `osascript`.** The app would build a command string and
+  run it as root. A bug in the label lookup would then become an arbitrary root command.
+- **A helper registered with `SMAppService`.** This is the safer design. It needs signing, a
+  one-time approval in System Settings, and versioning. That is a lot of infrastructure for a
+  restart the owner needs about once a week.
+
+So chapay shows the command and you run it yourself in Terminal. The owner measured that step at about
+five seconds. The choice is revisited if restarts become more frequent, or if a second user needs them.
+
+## Background sampling
+
+While `memoryGuardEnabled` is on (the default), chapay records memory every 60 seconds, with the
+panel closed. When it is off, chapay reads nothing and writes nothing for memory, and sends no
+notifications. The Memory tab still shows the current state while it is open.
+
+Processes that belong to root or to other users cannot be read without privileges, so chapay cannot
+measure their footprint directly. For those processes, it runs `top -l 1 -o mem` once per 5-minute
+bucket and uses that output. `top` is the only command that reports their memory without `sudo`.
+The open Memory tab reuses the latest `top` output if it is under 60 seconds old. Otherwise it runs
+`top` once. On the owner's Mac, the background `top` runs cost about 0.37 % of one CPU core.
+
+:::note[Limits]
+
+- A root process is sampled only if it appears among the largest entries in `top`'s output. A root
+  process that grows but stays outside that list is not seen.
+- Storms of filesystem events (the second fan cause in the owner's evidence, from `fseventsd` and
+  scanners) are not attributed to a process. Naming the writer needs root access, which chapay does
+  not use.
+  :::
+
+## History
+
+Memory history is stored in the same local SQLite file as the temperature history, `thermal.sqlite`.
+The name keeps "thermal" because renaming the file would orphan the history already in it. Memory
+data is kept at three levels:
+
+- **5-minute buckets** of memory readings;
+- **per-process samples** of footprint, for the largest processes;
+- **daily summaries**.
+
+Buckets and per-process samples are kept for 90 days. Daily summaries are not pruned.
+
+## Settings › Memory
+
+The Memory section of Settings has two parts:
+
+- **Thresholds**: the four values from the signals table. The verdict uses the values you save.
+- **History**: today's chart of swap and used memory, the daily summaries for the last 7 days, and
+  the current top processes.
+
+See also [Using chapay](/desktop/usage) for how the Ports tab handles kills, and
+[Permissions](/desktop/permissions) for what chapay is allowed to touch.

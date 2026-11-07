@@ -3050,10 +3050,12 @@ version = "0.3.0"
 dependencies = [
  "chrono",
  "flate2",
+ "libc",
  "listeners",
  "log",
  "nix 0.29.0",
  "objc2-foundation",
+ "plist",
  "rusqlite",
  "semver",
  "serde",
