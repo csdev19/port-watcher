@@ -105,7 +105,45 @@ pub fn static_guard(pid: u32, self_pid: u32) -> Option<KillResult> {
 /// `kill_port` would not refuse it up front (same user, not System, and
 /// past the static guard).
 pub fn is_killable(same_user: bool, category: PortCategory, pid: u32, self_pid: u32) -> bool {
-    same_user && category != PortCategory::System && static_guard(pid, self_pid).is_none()
+    refusal(same_user, category, pid, self_pid).is_none()
+}
+
+/// Why a process is not killable, `None` when it is. `is_killable` is
+/// defined from this, so the list and the reason cannot diverge. Checked in
+/// the order System, SelfProcess, LowPid, OtherUser. `System` needs
+/// `same_user`: `classify_port` also returns System for another user's
+/// process, and that one is `OtherUser`.
+pub fn refusal(
+    same_user: bool,
+    category: PortCategory,
+    pid: u32,
+    self_pid: u32,
+) -> Option<ProtectedReason> {
+    if same_user && category == PortCategory::System {
+        Some(ProtectedReason::System)
+    } else if pid == self_pid {
+        Some(ProtectedReason::SelfProcess)
+    } else if pid < 100 {
+        Some(ProtectedReason::LowPid)
+    } else if !same_user {
+        Some(ProtectedReason::OtherUser)
+    } else if static_guard(pid, self_pid).is_some() {
+        // A pid that does not fit `pid_t`: only a bogus request.
+        Some(ProtectedReason::LowPid)
+    } else {
+        None
+    }
+}
+
+/// Why the Memory tab shows a row without Kill.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ProtectedReason {
+    System,
+    OtherUser,
+    #[serde(rename = "self")]
+    SelfProcess,
+    LowPid,
 }
 
 /// Full guard chain, then escalation. Blocking (sleeps up to ~3 s) — the
@@ -390,6 +428,73 @@ mod tests {
         assert!(!is_killable(false, PortCategory::Dev, PID, SELF_PID));
         assert!(!is_killable(true, PortCategory::Dev, SELF_PID, SELF_PID));
         assert!(!is_killable(true, PortCategory::Dev, 50, SELF_PID));
+    }
+
+    #[test]
+    fn refusal_names_the_reason_in_priority_order() {
+        use ProtectedReason::*;
+        assert_eq!(refusal(true, PortCategory::Dev, PID, SELF_PID), None);
+        assert_eq!(refusal(true, PortCategory::App, PID, SELF_PID), None);
+        assert_eq!(
+            refusal(true, PortCategory::System, PID, SELF_PID),
+            Some(System)
+        );
+        // System wins over self and low pid.
+        assert_eq!(
+            refusal(true, PortCategory::System, 50, SELF_PID),
+            Some(System)
+        );
+        assert_eq!(
+            refusal(true, PortCategory::System, SELF_PID, SELF_PID),
+            Some(System)
+        );
+        assert_eq!(
+            refusal(true, PortCategory::Dev, SELF_PID, SELF_PID),
+            Some(SelfProcess)
+        );
+        assert_eq!(refusal(true, PortCategory::Dev, 50, SELF_PID), Some(LowPid));
+        // Self wins over other user; low pid wins over other user.
+        assert_eq!(
+            refusal(false, PortCategory::System, SELF_PID, SELF_PID),
+            Some(SelfProcess)
+        );
+        assert_eq!(
+            refusal(false, PortCategory::System, 1, SELF_PID),
+            Some(LowPid)
+        );
+        // Another user's process is OtherUser even though it classifies as System.
+        assert_eq!(
+            refusal(false, PortCategory::System, PID, SELF_PID),
+            Some(OtherUser)
+        );
+        assert_eq!(
+            refusal(false, PortCategory::Dev, PID, SELF_PID),
+            Some(OtherUser)
+        );
+    }
+
+    #[test]
+    fn refusal_and_is_killable_never_diverge() {
+        for same_user in [true, false] {
+            for category in [PortCategory::Dev, PortCategory::App, PortCategory::System] {
+                for pid in [1, 50, 100, PID, SELF_PID, u32::MAX] {
+                    assert_eq!(
+                        is_killable(same_user, category, pid, SELF_PID),
+                        refusal(same_user, category, pid, SELF_PID).is_none()
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn protected_reason_serializes_as_the_contract_strings() {
+        use ProtectedReason::*;
+        let v = serde_json::to_value([System, OtherUser, SelfProcess, LowPid]).unwrap();
+        assert_eq!(
+            v,
+            serde_json::json!(["system", "otherUser", "self", "lowPid"])
+        );
     }
 
     #[test]

@@ -24,7 +24,7 @@ use std::time::{Duration, Instant};
 
 const TOP: &str = "/usr/bin/top";
 /// How many rows `top` is asked for.
-pub const TOP_ROWS: usize = 16;
+pub const TOP_ROWS: usize = 32;
 /// `top` is never started more often than this, whoever asks.
 pub const MIN_INTERVAL_SECS: i64 = 60;
 /// A cached snapshot older than this is not merged: its PIDs may have been

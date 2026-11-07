@@ -1254,7 +1254,7 @@ describe("App Memory tab", () => {
 
     fireEvent.click(memoryTab());
     expect(await screen.findByText("Memory history in Settings")).toBeTruthy();
-    expect(await screen.findByText("zdpd")).toBeTruthy();
+    expect(await screen.findByText("node")).toBeTruthy();
     expect(current).toHaveBeenCalled();
   });
 
@@ -1262,8 +1262,8 @@ describe("App Memory tab", () => {
     renderApp();
     await screen.findByText("3000");
     fireEvent.click(memoryTab());
-    await screen.findByText("zdpd");
+    await screen.findByText("node");
     fireEvent.click(portsTab());
-    expect(screen.queryByText("zdpd")).toBeNull();
+    expect(screen.queryByText("node")).toBeNull();
   });
 });

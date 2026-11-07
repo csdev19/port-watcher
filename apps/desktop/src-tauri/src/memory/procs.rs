@@ -134,6 +134,18 @@ impl ProcessReader {
     /// PID. The path may be refused for a root process: then it is `None`
     /// and the command card falls back to `sudo kill <pid>`.
     pub fn top(&mut self, n: usize, extra: &[TopRow]) -> Vec<ProcInfo> {
+        self.ranked(Some(n), extra)
+    }
+
+    /// Every process chapay can attribute, biggest first: all PIDs rusage
+    /// reads plus the `extra` rows for those it cannot. The same row builder
+    /// as `top`, but it pays the identity syscalls for each of them, so only
+    /// the on-demand read uses it, never the sampler.
+    pub fn all(&mut self, extra: &[TopRow]) -> Vec<ProcInfo> {
+        self.ranked(None, extra)
+    }
+
+    fn ranked(&mut self, n: Option<usize>, extra: &[TopRow]) -> Vec<ProcInfo> {
         let mut sized: Vec<(i32, u64)> = list_pids()
             .into_iter()
             .filter_map(|pid| self.footprint(pid).map(|f| (pid, f)))
@@ -168,7 +180,7 @@ impl ProcessReader {
                     footprint_bytes: footprint,
                 })
             })
-            .take(n)
+            .take(n.unwrap_or(usize::MAX))
             .collect()
     }
 }
@@ -336,13 +348,28 @@ mod tests {
                 name: "us".into(),
             },
         ];
-        let top = reader.top(usize::MAX, &extra);
+        let top = reader.all(&extra);
         let launchd = top.iter().find(|p| p.pid == 1).expect("launchd listed");
         assert_eq!(launchd.footprint_bytes, u64::MAX / 2);
         assert_eq!(launchd.uid, Some(0));
         assert_eq!(top[0].pid, 1, "biggest first");
         let us = top.iter().find(|p| p.pid == me).unwrap();
         assert!(us.footprint_bytes >= mine / 2 && us.footprint_bytes != 1);
+    }
+
+    #[test]
+    fn all_is_a_superset_of_top_in_the_same_order() {
+        let mut reader = ProcessReader::new();
+        let all = reader.all(&[]);
+        let top = reader.top(TOP_N, &[]);
+        assert!(all.len() >= top.len());
+        assert!(all
+            .windows(2)
+            .all(|w| w[0].footprint_bytes >= w[1].footprint_bytes));
+        // Footprints move between the two reads, so compare membership only
+        // for this process, which is always readable.
+        let me = std::process::id();
+        assert!(all.iter().any(|p| p.pid == me));
     }
 
     #[test]

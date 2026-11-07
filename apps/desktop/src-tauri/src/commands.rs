@@ -233,7 +233,7 @@ pub async fn thermal_history(
 pub async fn memory_current(
     app: tauri::AppHandle,
 ) -> Result<Option<crate::memory::api::MemoryReading>, AppError> {
-    use crate::memory::api::{build_reading, observe, RowContext};
+    use crate::memory::api::{build_reading, observe_all, RowContext};
     use crate::memory::procs::ProcessReader;
     use crate::memory::verdict::evaluate;
     use crate::thermal::sampler::Thermal;
@@ -245,7 +245,7 @@ pub async fn memory_current(
         // The tab is open and the user is looking: refresh `top` if the last
         // run is a minute old (never more often, from any path).
         let top = crate::memory::topcmd::snapshot(now, true);
-        let Some(obs) = observe(&mut ProcessReader::new(), now, &top) else {
+        let Some((obs, all)) = observe_all(&mut ProcessReader::new(), now, &top) else {
             return Ok(None);
         };
         let keys: Vec<(u32, u64)> = obs.procs.iter().map(|p| (p.pid, p.started_at)).collect();
@@ -289,7 +289,7 @@ pub async fn memory_current(
             daemons: &daemons,
             user_name: &user_name,
         };
-        Ok(Some(build_reading(&obs, &eval, &first, &ctx)))
+        Ok(Some(build_reading(&obs, &all, &eval, &first, &ctx)))
     })
     .await
     .map_err(|e| AppError::Internal(e.to_string()))?

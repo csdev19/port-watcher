@@ -9,6 +9,13 @@ condition ("users have a legitimate need to stop a system or other-user listener
 privileged design exists") is half met: the need is proven by the evidence of 2026-11-06; a safe
 privileged design is not chosen. This ADR records the choice to stop at showing the command.
 
+**Amended 2026-11-07 (on branch `feat/memory-guard`).** The card is for another user's process
+whose executable is not an Apple system binary. Apple system processes are shown as protected with
+no command, whether they run as root or as the owner, because `sudo kill` on one of them (for
+example `WindowServer`) logs the user out or crashes macOS. A process owned by the user is never
+described as "Runs as <owner>; chapay cannot stop it": the reason is the protected reason
+(system, self or core process), not a command.
+
 ## Context
 
 The process that filled the swap was a root launchd daemon. Quitting its menu-bar app from the UI

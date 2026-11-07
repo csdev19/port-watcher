@@ -118,7 +118,9 @@ fn vendor_of(executable: Option<&str>) -> Option<&'static str> {
 
 /// The command card for one process. `daemons` is the result of
 /// `scan_daemons`, scanned once for all the rows of a reading. `user` is the
-/// owner's name when known, for the note.
+/// name of the other user that owns the process, when known, for the note.
+/// The card is only for another user's process: the note never says that the
+/// owner of chapay itself cannot stop something.
 pub fn command_for(
     pid: u32,
     executable: Option<&str>,

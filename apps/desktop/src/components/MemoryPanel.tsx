@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { CommandCard } from "@/components/CommandCard";
 import { MemoryChart } from "@/components/MemoryChart";
@@ -6,10 +6,12 @@ import { useMemoryCurrent, useMemoryToday } from "@/hooks/use-memory";
 import { useKillConfirm } from "@/hooks/use-kill-confirm";
 import {
   PRESSURE_COPY,
+  PROTECTED_COPY,
   SIGNAL_COPY,
   VERDICT_COPY,
   VERDICT_LABEL,
   formatBytes,
+  groupProcesses,
   growthLabel,
   killProcess,
   processKey,
@@ -30,8 +32,8 @@ interface Props {
   onNotify: (message: string) => void;
 }
 
-/** The panel's Memory tab: the verdict, the figures, the biggest processes
- * and today's chart. Owns its polling, so it only calls Rust while it is
+/** The panel's Memory tab: the verdict, the figures, the processes
+ * (yours, then protected) and today's chart. Owns its polling, so it only calls Rust while it is
  * mounted. */
 export function MemoryPanel({ onShowPort, onNotify }: Props) {
   const queryClient = useQueryClient();
@@ -60,7 +62,9 @@ export function MemoryPanel({ onShowPort, onNotify }: Props) {
   // Memory rows always take the two-step confirmation (category "app").
   const confirm = useKillConfirm((entry) => {
     // Re-validate against the latest reading right before executing.
-    const live = reading?.top.find((p) => p.pid === entry.pid && p.startedAt === entry.startedAt);
+    const live = reading?.processes.find(
+      (p) => p.pid === entry.pid && p.startedAt === entry.startedAt,
+    );
     if (!live || !live.killable) return;
     void handleKill(toKillTarget(live));
   });
@@ -69,7 +73,7 @@ export function MemoryPanel({ onShowPort, onNotify }: Props) {
   useEffect(() => {
     const armed = confirm.armedTarget;
     if (!armed) return;
-    const stillThere = reading?.top.some((p) => processKey(p) === armed.key && p.killable);
+    const stillThere = reading?.processes.some((p) => processKey(p) === armed.key && p.killable);
     if (!stillThere) confirm.disarm();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reading, confirm.armedTarget]);
@@ -88,7 +92,7 @@ export function MemoryPanel({ onShowPort, onNotify }: Props) {
         <Current reading={reading} />
         {reading ? (
           <Processes
-            processes={reading.top}
+            reading={reading}
             armedKey={confirm.armedTarget?.key ?? null}
             onRequestKill={(p) => confirm.request(toKillTarget(p), "pointer", processKey(p))}
             onDisarm={confirm.disarm}
@@ -149,26 +153,30 @@ function Figure({ label, value }: { label: string; value: string }) {
 }
 
 function Processes({
-  processes,
+  reading,
   armedKey,
   onRequestKill,
   onDisarm,
   onShowPort,
 }: {
-  processes: MemoryProcess[];
+  reading: MemoryReading;
   armedKey: string | null;
   onRequestKill: (p: MemoryProcess) => void;
   onDisarm: () => void;
   onShowPort: (port: number) => void;
 }) {
+  // Open state lives here only: it resets when the tab is left.
+  const [protectedOpen, setProtectedOpen] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  const groups = groupProcesses(reading.processes, showAll);
   return (
     <section className={styles.section}>
-      <h2 className={styles.heading}>Biggest processes</h2>
-      {processes.length === 0 ? (
+      <h2 className={styles.heading}>Yours</h2>
+      {groups.yours.length === 0 ? (
         <p className={styles.empty}>No processes to show.</p>
       ) : (
         <ul className={styles.processes}>
-          {processes.map((p) => (
+          {groups.yours.map((p) => (
             <Process
               key={processKey(p)}
               process={p}
@@ -180,6 +188,49 @@ function Processes({
           ))}
         </ul>
       )}
+      {groups.protectedCount > 0 ? (
+        <>
+          <button
+            type="button"
+            className={styles.groupToggle}
+            aria-expanded={protectedOpen}
+            onClick={() => setProtectedOpen((open) => !open)}
+          >
+            <span aria-hidden="true">{protectedOpen ? "▾" : "▸"}</span>
+            {` Protected · ${groups.protectedCount} ${
+              groups.protectedCount === 1 ? "process" : "processes"
+            } · ${formatBytes(groups.protectedBytes)}`}
+          </button>
+          {protectedOpen ? (
+            <ul className={styles.processes}>
+              {groups.protectedRows.map((p) => (
+                <ProtectedProcess key={processKey(p)} process={p} onShowPort={onShowPort} />
+              ))}
+            </ul>
+          ) : null}
+        </>
+      ) : null}
+      {groups.smallCount > 0 || showAll ? (
+        <p className={styles.footerLine}>
+          {groups.smallCount} smaller {groups.smallCount === 1 ? "process" : "processes"} ·{" "}
+          {formatBytes(groups.smallBytes)}
+          <button
+            type="button"
+            className={styles.linkButton}
+            onClick={() => setShowAll((all) => !all)}
+          >
+            {showAll ? "Show fewer" : "Show all"}
+          </button>
+        </p>
+      ) : null}
+      {reading.unattributedBytes > 0 ? (
+        <p
+          className={styles.footerLine}
+          title="Kernel memory, compressed pages and processes chapay cannot read"
+        >
+          Not attributed to a process · {formatBytes(reading.unattributedBytes)}
+        </p>
+      ) : null}
     </section>
   );
 }
@@ -197,46 +248,92 @@ function Process({
   onDisarm: () => void;
   onShowPort: (port: number) => void;
 }) {
-  const growth = p.flags.includes("growing") ? growthLabel(p, formatClock) : null;
-  const big = p.flags.includes("bigProcess");
   return (
     <li className={styles.process}>
       <div className={styles.processHead}>
         <span className={styles.processName}>{p.name}</span>
         <span className={styles.footprint}>{formatBytes(p.footprintBytes)}</span>
-        {p.killable ? (
+        <button
+          type="button"
+          className={armed ? styles.killArmed : styles.kill}
+          aria-label={`Kill ${p.name} (${p.pid})`}
+          onClick={onRequestKill}
+          onMouseLeave={onDisarm}
+        >
+          {armed ? "Kill?" : "Kill"}
+        </button>
+      </div>
+      <ProcessMeta process={p} onShowPort={onShowPort} />
+    </li>
+  );
+}
+
+/** A row without Kill: muted, with the reason on one line. Only a row that
+ * has a command (another user's non-Apple process) can open the card. */
+function ProtectedProcess({
+  process: p,
+  onShowPort,
+}: {
+  process: MemoryProcess;
+  onShowPort: (port: number) => void;
+}) {
+  const [showCommand, setShowCommand] = useState(false);
+  return (
+    <li className={`${styles.process} ${styles.protectedRow}`}>
+      <div className={styles.processHead}>
+        <span className={styles.processName}>{p.name}</span>
+        <span className={styles.footprint}>{formatBytes(p.footprintBytes)}</span>
+      </div>
+      <div className={styles.reasonLine}>
+        <span className={styles.reasonText}>
+          {p.protectedReason ? PROTECTED_COPY[p.protectedReason] : ""}
+        </span>
+        {p.command ? (
           <button
             type="button"
-            className={armed ? styles.killArmed : styles.kill}
-            aria-label={`Kill ${p.name} (${p.pid})`}
-            onClick={onRequestKill}
-            onMouseLeave={onDisarm}
+            className={styles.linkButton}
+            aria-expanded={showCommand}
+            aria-label={`Show command for ${p.name}`}
+            onClick={() => setShowCommand((open) => !open)}
           >
-            {armed ? "Kill?" : "Kill"}
+            {showCommand ? "Hide command" : "Show command"}
           </button>
         ) : null}
       </div>
-      {big || p.flags.includes("growing") || p.ports.length > 0 ? (
-        <div className={styles.meta}>
-          {big ? <span className={styles.flag}>big</span> : null}
-          {p.flags.includes("growing") ? (
-            <span className={styles.flag}>{growth ?? "growing"}</span>
-          ) : null}
-          {p.ports.map((port) => (
-            <button
-              key={port}
-              type="button"
-              className={styles.portPill}
-              aria-label={`Show port ${port}`}
-              onClick={() => onShowPort(port)}
-            >
-              {port}
-            </button>
-          ))}
-        </div>
-      ) : null}
-      {!p.killable && p.command ? <CommandCard command={p.command} /> : null}
+      <ProcessMeta process={p} onShowPort={onShowPort} />
+      {showCommand && p.command ? <CommandCard command={p.command} /> : null}
     </li>
+  );
+}
+
+function ProcessMeta({
+  process: p,
+  onShowPort,
+}: {
+  process: MemoryProcess;
+  onShowPort: (port: number) => void;
+}) {
+  const growth = p.flags.includes("growing") ? growthLabel(p, formatClock) : null;
+  const big = p.flags.includes("bigProcess");
+  if (!big && !p.flags.includes("growing") && p.ports.length === 0) return null;
+  return (
+    <div className={styles.meta}>
+      {big ? <span className={styles.flag}>big</span> : null}
+      {p.flags.includes("growing") ? (
+        <span className={styles.flag}>{growth ?? "growing"}</span>
+      ) : null}
+      {p.ports.map((port) => (
+        <button
+          key={port}
+          type="button"
+          className={styles.portPill}
+          aria-label={`Show port ${port}`}
+          onClick={() => onShowPort(port)}
+        >
+          {port}
+        </button>
+      ))}
+    </div>
   );
 }
 

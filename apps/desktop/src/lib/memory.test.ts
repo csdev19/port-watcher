@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_THRESHOLDS,
   PRESSURE_COPY,
+  PROTECTED_COPY,
+  SMALL_PROCESS_BYTES,
+  groupProcesses,
   SIGNAL_COPY,
   VERDICT_COPY,
   VERDICT_LABEL,
@@ -91,6 +94,45 @@ describe("memory helpers", () => {
     });
     expect(summarizeBuckets([])).toBeNull();
     expect(summarizeBuckets([b(1, 5), b(3, 2)])).toEqual({ usedMax: 3, swapMax: 5 });
+  });
+
+  it("explains every protected reason in one line", () => {
+    expect(PROTECTED_COPY).toEqual({
+      system: "macOS system process. Stopping it can log you out or crash macOS.",
+      otherUser: "Runs as another user.",
+      self: "This is chapay.",
+      lowPid: "Core system process.",
+    });
+  });
+
+  it("groups rows into yours and protected and folds those under the floor", async () => {
+    const reading = (await memoryCurrent())!;
+    const all = groupProcesses(reading.processes, true);
+    expect(all.smallCount).toBeGreaterThan(0);
+    expect(all.yours.length + all.protectedRows.length).toBe(reading.processes.length);
+    expect(all.yours.every((p) => p.killable)).toBe(true);
+    expect(all.protectedRows.every((p) => !p.killable)).toBe(true);
+
+    const folded = groupProcesses(reading.processes, false);
+    expect(
+      [...folded.yours, ...folded.protectedRows].every(
+        (p) => p.footprintBytes >= SMALL_PROCESS_BYTES,
+      ),
+    ).toBe(true);
+    expect(folded.yours.length + folded.protectedRows.length + folded.smallCount).toBe(
+      reading.processes.length,
+    );
+    // The header counts every protected row, folded or not.
+    expect(folded.protectedCount).toBe(all.protectedRows.length);
+    expect(reading.unattributedBytes).toBeGreaterThan(0);
+  });
+
+  it("mocks an Apple process owned by the user as protected, without a command", async () => {
+    const reading = (await memoryCurrent())!;
+    const apple = reading.processes.find((p) => p.name.startsWith("com.apple.Virtualization"));
+    expect(apple?.user).toBe("me");
+    expect(apple?.protectedReason).toBe("system");
+    expect(apple?.command).toBeNull();
   });
 
   it("returns mocks outside Tauri: a root daemon with a command and a growing process", async () => {

@@ -136,6 +136,9 @@ export interface MemoryCommand {
   securityVendor: string | null;
 }
 
+/** Why a row has no Kill (Rust's `refusal`); null when it is killable. */
+export type ProtectedReason = "system" | "otherUser" | "self" | "lowPid";
+
 export interface MemoryProcess {
   pid: number;
   /** Epoch seconds; identity with pid. */
@@ -154,7 +157,9 @@ export interface MemoryProcess {
   killable: boolean;
   /** Listening ports, [] if none. */
   ports: number[];
-  /** Present only when !killable. */
+  /** Why there is no Kill; null when killable. */
+  protectedReason: ProtectedReason | null;
+  /** Present only for another user's non-Apple process (ADR 0012). */
   command: MemoryCommand | null;
 }
 
@@ -173,6 +178,11 @@ export interface MemoryReading {
   reasons: MemorySignal[];
   /** Top 8 by footprint. */
   top: MemoryProcess[];
+  /** Every process chapay can attribute, biggest first. */
+  processes: MemoryProcess[];
+  /** usedBytes minus the processes' footprints: kernel, compressed pages of
+   * unknown owners and processes chapay cannot read. */
+  unattributedBytes: number;
 }
 
 export interface MemoryBucket {

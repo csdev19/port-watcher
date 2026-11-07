@@ -27,11 +27,20 @@ The panel has three tabs: **Ports**, **Thermal** and **Memory**. The Memory tab 
 
 - memory pressure, used and total memory, swap used and total, and compressed memory;
 - a **verdict** (OK, WATCH or STOP) with the reasons for it;
-- the top processes by footprint, with the flags **big** and **growing** where they apply, and the
-  ports each process listens on.
+- every process chapay can attribute, biggest first, in two groups. **Yours** lists the processes
+  chapay may stop, with the flags **big** and **growing** where they apply and the ports each one
+  listens on. **Protected** is collapsed by default and lists the rest, muted and without a Kill
+  button, each with one line saying why: a macOS system process, another user's process, chapay
+  itself, or a core system process;
+- a floor: rows under 50 MB are folded into a "N smaller processes" line, and **Show all** reveals
+  them;
+- a "Not attributed to a process" line, the part of used memory that no listed process owns:
+  kernel memory, compressed pages and processes chapay cannot read.
 
-A killable row offers **Kill** with the same two-step confirmation as the Ports tab. A row that
-chapay may not kill shows a command card instead (see below).
+A killable row offers **Kill** with the same two-step confirmation as the Ports tab. A protected row
+from another user that is not an Apple system process has a **Show command** link that opens a
+command card (see below). Apple system processes have no command: stopping one can log you out or
+crash macOS.
 
 ## The four signals
 
@@ -68,8 +77,9 @@ and only while the guard is on.
 ## Stopping a process: the command card
 
 chapay can stop your own processes, as described in [Permissions](/desktop/permissions). It
-cannot stop processes that run as root, belong to another user, or live in a system location. For
-those rows, the Memory tab shows a **command card** in place of the Kill button. The card contains:
+cannot stop processes that run as root or belong to another user, or that live in a system
+location. For another user's processes that are not Apple system binaries, the Memory tab offers a
+**command card** behind **Show command**, in place of the Kill button. The card contains:
 
 - a command to run in Terminal. When chapay finds a launch daemon that runs this process, the
   command is `sudo launchctl kickstart -k system/<label>`. Otherwise it is `sudo kill <pid>`, with
