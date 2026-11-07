@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.4.0](https://github.com/csdev19/port-watcher/compare/desktop-v0.3.0...desktop-v0.4.0) (2026-11-07)
+
+
+### Features
+
+* **desktop:** list every process in the Memory tab, with a Protected group ([8e690d2](https://github.com/csdev19/port-watcher/commit/8e690d2af99b045cb486e5e2041cd0b83c12eec8)), closes [#55](https://github.com/csdev19/port-watcher/issues/55)
+* **desktop:** memory guard with a Memory tab, verdicts and command cards ([202ab8a](https://github.com/csdev19/port-watcher/commit/202ab8a77f356173f71dddae9e74076a8e7b79c0))
+* **desktop:** memory guard with a Memory tab, verdicts and command cards ([ac55c2c](https://github.com/csdev19/port-watcher/commit/ac55c2cf4543753a15cab74f3a4b1b6ec9019975)), closes [#55](https://github.com/csdev19/port-watcher/issues/55)
+* **desktop:** show a skeleton while the Memory tab reads for the first time ([95e9e2c](https://github.com/csdev19/port-watcher/commit/95e9e2cbd4026d668308922f4ce8f6495f437a62))
+
+
+### Bug Fixes
+
+* **desktop:** surface a rejected threshold save in Settings › Memory ([ae410fe](https://github.com/csdev19/port-watcher/commit/ae410fe29b70e644c8bc29d383f6877e747504ec))
+
 ## [0.3.0](https://github.com/csdev19/port-watcher/compare/desktop-v0.2.0...desktop-v0.3.0) (2026-11-05)
 
 
