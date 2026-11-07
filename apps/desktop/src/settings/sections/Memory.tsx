@@ -276,7 +276,9 @@ function Thresholds() {
     setSaved(next);
     setDrafts({});
     setError(null);
-    void setMemoryThresholds(next);
+    setMemoryThresholds(next).catch((e: unknown) => {
+      setError(`Could not save the thresholds: ${String(e)}`);
+    });
   }
 
   function commit(field: Field) {
