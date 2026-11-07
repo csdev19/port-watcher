@@ -331,3 +331,72 @@
   color: var(--pw-muted);
   font-size: 11px;
 }
+
+/* Loading skeleton: the same boxes the reading fills, in muted bones. */
+.skeleton {
+  pointer-events: none;
+}
+
+.bone {
+  display: inline-block;
+  height: 10px;
+  border-radius: 4px;
+  background: var(--pw-line);
+  animation: memory-pulse 1.2s ease-in-out infinite;
+}
+
+.bonePill {
+  width: 52px;
+  height: 16px;
+  border-radius: 999px;
+}
+
+.boneText {
+  width: 120px;
+  height: 12px;
+}
+
+.boneLabel {
+  width: 48px;
+  height: 8px;
+}
+
+.boneValue {
+  width: 110px;
+  height: 11px;
+  margin-top: 3px;
+}
+
+.boneRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-top: 1px solid var(--pw-line);
+}
+
+.boneName {
+  width: 140px;
+  height: 12px;
+}
+
+.boneSize {
+  width: 48px;
+  height: 12px;
+}
+
+@keyframes memory-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bone {
+    animation: none;
+  }
+}

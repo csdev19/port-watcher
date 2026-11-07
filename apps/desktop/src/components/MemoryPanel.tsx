@@ -105,8 +105,45 @@ export function MemoryPanel({ onShowPort, onNotify }: Props) {
   );
 }
 
+/** The first read runs `top` when its snapshot is stale, so the tab can take
+ * about a second to fill. The skeleton keeps the layout (verdict line,
+ * figures, a few rows) so nothing jumps when the reading lands. */
+function Skeleton() {
+  return (
+    <div role="status" aria-busy="true" aria-label="Reading memory" className={styles.skeleton}>
+      <section className={styles.current}>
+        <div className={styles.verdictLine}>
+          <span className={`${styles.bone} ${styles.bonePill}`} />
+          <span className={`${styles.bone} ${styles.boneText}`} />
+        </div>
+        <dl className={styles.figures}>
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className={styles.figure}>
+              <dt>
+                <span className={`${styles.bone} ${styles.boneLabel}`} />
+              </dt>
+              <dd>
+                <span className={`${styles.bone} ${styles.boneValue}`} />
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+      <section className={styles.section}>
+        <h3 className={styles.heading}>Biggest processes</h3>
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className={styles.boneRow}>
+            <span className={`${styles.bone} ${styles.boneName}`} />
+            <span className={`${styles.bone} ${styles.boneSize}`} />
+          </div>
+        ))}
+      </section>
+    </div>
+  );
+}
+
 function Current({ reading }: { reading: MemoryReading | null | undefined }) {
-  if (reading === undefined) return <p className={styles.quiet}>Reading memory…</p>;
+  if (reading === undefined) return <Skeleton />;
   if (reading === null) return <p className={styles.quiet}>Memory figures are unavailable.</p>;
   return (
     <section className={styles.current} aria-label="Current memory">

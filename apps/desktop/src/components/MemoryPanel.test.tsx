@@ -20,6 +20,21 @@ function renderPanel() {
 describe("MemoryPanel", () => {
   afterEach(() => vi.restoreAllMocks());
 
+  it("shows a skeleton until the first reading lands", async () => {
+    const reading = await memory.memoryCurrent();
+    let resolve: (r: typeof reading) => void = () => {};
+    vi.spyOn(memory, "memoryCurrent").mockReturnValue(
+      new Promise((r) => {
+        resolve = r;
+      }),
+    );
+    renderPanel();
+    expect(screen.getByRole("status", { name: "Reading memory" })).toBeTruthy();
+    resolve(reading);
+    expect(await screen.findByText("WATCH")).toBeTruthy();
+    expect(screen.queryByRole("status", { name: "Reading memory" })).toBeNull();
+  });
+
   it("shows the verdict with its reasons and the figures", async () => {
     renderPanel();
     expect(await screen.findByText("WATCH")).toBeTruthy();
