@@ -42,7 +42,7 @@ flate2 = "1"
 tar = "0.4"
 tempfile = "3"
 # Temperature guard history (ADR 0009): Rust-owned SQLite, compiled in.
-rusqlite = { version = "0.37", features = ["bundled"] }
+rusqlite = { version = "0.41", features = ["bundled"] }
 # Local calendar day for the daily thermal summary.
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 tauri-plugin-notification = "2"
